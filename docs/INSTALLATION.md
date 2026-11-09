@@ -1,5 +1,57 @@
 # Installation
 
+## Automated install on Windows Server (recommended)
+
+One script does everything: database, deployment, **HTTPS** (self-signed certificate for this machine), **local login**, Windows service, firewall, file logging.
+
+**1. Build the package** (on any machine with the .NET 8 SDK and Node.js 22 — or on the server itself):
+
+```powershell
+git clone <repo-url> SwitchPortFinder; cd SwitchPortFinder
+.\scripts\publish.ps1 -Output .\publish -Runtime win-x64 -Zip      # creates publish.zip (installer, schema script and docs are inside)
+```
+
+**2. On the server** (Windows Server 2022 with SQL Server 2022 on the same machine): install the **ASP.NET Core Runtime 8** once
+(`winget install Microsoft.DotNet.AspNetCore.8`, or run the installer with `-InstallPrerequisites`), unzip the package, open **PowerShell as Administrator** in that folder and run:
+
+```powershell
+.\install.ps1                      # uses this computer's name, the default SQL instance, https://<computer-name>/ and a generated admin password
+```
+
+Typical variations:
+
+```powershell
+.\install.ps1 -HostName spf.corp.local                                   # the DNS name users will type
+.\install.ps1 -SqlInstance .\SQLEXPRESS -HttpsPort 8443                   # SQL Express, port 8443 (if 443 is taken, e.g. by IIS)
+.\install.ps1 -AdminPassword (Read-Host -AsSecureString)                 # choose the administrator password yourself (12+ characters)
+.\install.ps1 -ConnectionString "Server=SQLHOST;Database=SwitchPortFinder;User Id=spf;Password=...;TrustServerCertificate=True"   # remote SQL / SQL authentication
+```
+
+**What it does** (and prints as it goes):
+1. Checks the .NET runtime, that the SQL Server service is running and the HTTPS port is free.
+2. Copies the application to `C:\SwitchPortFinder`.
+3. Creates a self-signed certificate (names: host name, FQDN, `localhost`, the server's IP addresses; 3 years), trusts it **on this server**, and exports `C:\ProgramData\SwitchPortFinder\cert\SwitchPortFinder.cer` for other PCs.
+4. Writes `appsettings.Production.json`: **HTTPS only on the network** (plain HTTP is bound to `127.0.0.1` for health checks only), `Authentication:Mode=Local`, daily log files (30 kept), no auto-migration.
+5. Creates the service `SwitchPortFinder` as the virtual account `NT SERVICE\SwitchPortFinder`, delayed automatic start (after SQL Server), restart on failure.
+6. Creates the database, applies the migrations and gives the service account **`db_datareader` + `db_datawriter` only** — the running portal has no right to change the schema.
+7. Opens the firewall port (Domain and Private profiles), starts the service, checks HTTPS, signs in as the administrator, then **removes the bootstrap password from the configuration file**.
+8. Prints the URL and the generated administrator password **once**.
+
+The person running the script needs SQL Server rights to create a database and a login (a member of `sysadmin`, or `dbcreator` + `securityadmin`).
+
+**Other PCs and the certificate warning.** A self-signed certificate is trusted on the server only. On each client PC, import `SwitchPortFinder.cer` into *Trusted Root Certification Authorities* (or distribute it with Group Policy); then browsers stop warning. If you later have a certificate from your own CA, replace the `Kestrel:Endpoints:Https:Certificate` settings (CONFIGURATION.md).
+
+**Upgrading:** build a new package, unzip, run `.\install.ps1 -KeepConfig` — files are replaced, the schema is migrated, your configuration, keys and data are kept.
+**Backups:** `.\backup.ps1 -Destination D:\SPF-Backups` backs up the database **and** the keys/certificate/configuration (both are needed to restore); schedule it daily in Task Scheduler.
+**Uninstall:** `.\uninstall.ps1` removes the service, firewall rule and certificate and keeps your data (`-RemoveData`, `-RemoveInstallFolder` to delete it).
+**Renew the certificate:** `.\install.ps1 -KeepConfig -RenewCertificate`.
+
+> Tested here on Linux (the configuration the installer writes was run against real SQL Server 2022 with HTTPS, login and file logging; the setup command was verified, including that the least-privileged database account runs the portal with real scans). The Windows-only steps (service creation, certificate store, firewall, ACLs) could not be executed in the development environment — **run the installer on a test VM first.**
+
+---
+
+The sections below describe the same steps manually.
+
 SwitchPort Finder is an internal web portal: **one ASP.NET Core process (Kestrel) + SQL Server**. Users only need a browser; nothing is installed on client PCs.
 
 > **Trying it quickly with Docker for SQL Server:**

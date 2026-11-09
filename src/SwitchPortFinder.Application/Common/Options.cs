@@ -31,6 +31,8 @@ public class SecurityOptions
     public bool AllowLoopbackTargets { get; set; }
     /// <summary>Extra origins (scheme://host[:port]) allowed to make state-changing requests, e.g. when behind a reverse proxy that rewrites Host.</summary>
     public string[] TrustedOrigins { get; set; } = [];
+    /// <summary>Send Strict-Transport-Security over HTTPS. Leave off with a self-signed certificate (browsers cannot override HSTS errors).</summary>
+    public bool Hsts { get; set; }
 }
 
 /// <summary>Refuses SNMP targets that can never be a switch (and would make the portal a probe for the server itself).</summary>

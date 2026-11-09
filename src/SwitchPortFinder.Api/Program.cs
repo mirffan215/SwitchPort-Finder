@@ -12,7 +12,15 @@ using SwitchPortFinder.Discovery;
 using SwitchPortFinder.Infrastructure;
 using SwitchPortFinder.Infrastructure.Persistence;
 
-var builder = WebApplication.CreateBuilder(args);
+// `--setup-database [--grant "<account>"]`: used by the installer; creates/migrates the database without starting the web host.
+if (args.Contains("--setup-database")) return await DatabaseSetup.RunAsync(args);
+
+// A Windows service starts with C:\Windows\System32 as its working directory; without this the app would not find its appsettings.Production.json or wwwroot.
+var builder = WebApplication.CreateBuilder(new WebApplicationOptions
+{
+    Args = args,
+    ContentRootPath = Microsoft.Extensions.Hosting.WindowsServices.WindowsServiceHelpers.IsWindowsService() ? AppContext.BaseDirectory : null,
+});
 
 builder.Host.UseWindowsService(o => o.ServiceName = "SwitchPortFinder");   // no-op unless started by the Windows Service Control Manager
 builder.Host.UseSerilog((ctx, cfg) => cfg.ReadFrom.Configuration(ctx.Configuration).WriteTo.Console());
@@ -107,5 +115,6 @@ app.MapFallback("/api/{**path}", () => Results.Problem(statusCode: 404, title: "
 app.MapFallbackToFile("index.html").AllowAnonymous();   // React SPA routes (/switches/1 etc.)
 
 app.Run();
+return 0;
 
 public partial class Program;

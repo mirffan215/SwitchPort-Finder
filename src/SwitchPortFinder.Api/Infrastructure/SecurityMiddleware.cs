@@ -20,6 +20,7 @@ public class SecurityMiddleware(RequestDelegate next, IOptions<SecurityOptions> 
         // Swagger UI (Development only) needs inline scripts, so the strict CSP applies to production.
         if (!env.IsDevelopment())
             h["Content-Security-Policy"] = "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'";
+        if (ctx.Request.IsHttps && options.Value.Hsts) h["Strict-Transport-Security"] = "max-age=15552000";   // 180 days
         if (ctx.Request.Path.StartsWithSegments("/api")) h["Cache-Control"] = "no-store";
 
         if (!Safe.Contains(ctx.Request.Method) && ctx.Request.Headers.Origin.ToString() is { Length: > 0 } origin && !IsAllowed(ctx, origin))

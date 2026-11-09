@@ -39,7 +39,11 @@ npm install
 npm run dev                                            # http://localhost:5173 (proxies /api to :5000)
 ```
 
-## Production
+## Windows Server install (one script)
+
+`.\scripts\publish.ps1 -Output .\publish -Runtime win-x64 -Zip`, copy the package to the server, then `.\install.ps1` as Administrator: creates the database, HTTPS (self-signed certificate), local login, Windows service and firewall rule. See [docs/INSTALLATION.md](docs/INSTALLATION.md).
+
+## Production (manual)
 
 ```bash
 scripts/publish.sh ./publish            # or  .\scripts\publish.ps1 -Output .\publish

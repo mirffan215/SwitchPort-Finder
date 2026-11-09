@@ -36,6 +36,18 @@ Then call `app.UseHttpsRedirection()` / `UseHsts()` in `Program.cs` if you want 
 | `Security:TrustedOrigins` | `[]` | Extra origins allowed to make state-changing requests (reverse proxies that rewrite `Host`). |
 | `Security:SnmpTestsPerMinute` | `30` | Rate limit per client IP for the *Test Connection* endpoints. |
 
+## Authentication (optional)
+
+| Key | Default | Meaning |
+|---|---|---|
+| `Authentication:Mode` | `None` | `None` = no login (V1 default). `Local` = login page, accounts in the database, roles Admin/Viewer. |
+| `Authentication:BootstrapAdmin:Username` / `:Password` | `admin` / *(unset)* | Creates the first administrator **only when Local mode is on and no user exists**. The password must pass the policy (12+ characters, must not contain the username). Remove it from configuration after the first sign-in. |
+| `Authentication:SessionMinutes` | `480` | Sliding session lifetime. |
+| `Authentication:MaxFailedLogins` / `:LockoutSeconds` | `5` / `900` | Lock an account after this many wrong passwords. |
+| `Authentication:LoginsPerMinute` | `10` | Per-IP rate limit on the login endpoint. |
+
+Enable it over **HTTPS** whenever possible (the session cookie becomes `Secure` automatically). Manage users under *Settings → Admin → Users*.
+
 ## SNMP
 
 | Key | Default | Meaning |
@@ -69,6 +81,12 @@ Then call `app.UseHttpsRedirection()` / `UseHsts()` in `Program.cs` if you want 
 | `Import:MaxFileBytes` | `10485760` | Upload size limit (10 MB). Excel files that unpack to more than 200 MB are rejected. |
 | `Import:PreviewTtlMinutes` | `30` | How long a previewed import can be committed. |
 | `Export:MaxDeviceRows` | `250000` | Largest device export in one request. |
+
+## Running the tests on SQL Server
+
+`dotnet test` uses SQLite and a scripted SNMP client by default. To run the integration suite (and the load test) on a real SQL Server through the real migrations:
+`tools/sqlserver/run-sqlserver-tests.sh [--perf]` (starts SQL Server in Docker), or set `SPF_TEST_SQLSERVER` to a connection string *without* a `Database=` and run `dotnet test`.
+Each test fixture creates and drops its own database.
 
 ## Logging
 

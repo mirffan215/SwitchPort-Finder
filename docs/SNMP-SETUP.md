@@ -2,7 +2,7 @@
 
 The portal is **strictly read-only**: it only sends SNMP GET / GETNEXT / GETBULK. Give it a **read-only** view and restrict who may query.
 
-> **Honesty note.** The CLI examples below are typical read-only configurations for each vendor. They could not be tested against real devices while this software was built (verification used net-snmp test agents). **Always check the exact syntax against your OS version's documentation**, apply them in a maintenance window, and test with *Test Connection*.
+> **Honesty note.** The CLI examples below are typical read-only configurations for each vendor. They could not be tested against real devices while this software was built (the discovery logic was verified with net-snmp test agents and scripted replays, and the vendor OIDs and `sysObjectID` values against vendor MIBs and a real-device fingerprint database — see below). **Always check the exact syntax against your OS version's documentation**, apply them in a maintenance window, and test with *Test Connection*.
 
 ## What the portal needs
 
@@ -108,9 +108,51 @@ Huawei, MikroTik, Ubiquiti, Fortinet (FortiSwitch), Netgear, TP-Link, Allied Tel
 
 Access switches normally have **no ARP table for user VLANs**. IP addresses come from the Layer 3 device that routes those VLANs (core/distribution switch or router). Tick **Use as ARP source** on it (it is also auto-detected when `ipForwarding = 1` and the ARP table is non-empty). IPs are joined *globally*: the IP of a PC seen on an access switch is taken from the core's ARP table.
 
-## Vendor auto-detection
+## Vendor auto-detection (verified)
 
-The portal reads `sysObjectID` and maps the IANA enterprise number (9 Cisco; 11/25506 HPE-H3C, 47196 Aruba; 674 Dell; 2636 Juniper; 1916/4413 Extreme; 2011 Huawei; 14988 MikroTik; 41112 Ubiquiti; 12356 Fortinet; 4526 Netgear; 11863 TP-Link; 207 Allied Telesis). **These mappings are the commonly published numbers and have not been verified against real devices** — a manually chosen manufacturer always overrides detection, and a mismatch shows a warning. Unknown numbers fall back to Generic SNMP.
+The portal maps `sysObjectID` to a manufacturer. **Every mapping below was checked against sysObjectID values from real devices** as recorded in the community-maintained
+LibreNMS device-fingerprint database (`resources/definitions/os_detection/*.yaml`), plus the Huawei root against its vendor MIB (`HUAWEI-MIB: enterprises 2011`).
+A manually selected manufacturer always overrides detection, and a mismatch shows a warning. Unknown numbers fall back to Generic SNMP.
+
+| Manufacturer | sysObjectID (1.3.6.1.4.1.…) | Seen on |
+|---|---|---|
+| Cisco | `9` | IOS, IOS-XE, NX-OS |
+| HPE / Aruba | `11` (ProCurve), `25506` (Comware/H3C), `47196` (AOS-CX), `14823` (ArubaOS) | |
+| Dell | `674` (PowerConnect, OS10), `6027` (Force10 / DNOS) | |
+| Juniper | `2636` | Junos |
+| Extreme Networks | `1916` (EXOS/VOSS), `2272` (VOSS), `347.2.5730` (EXOS) | |
+| Huawei | `2011` | VRP |
+| MikroTik | `14988` | RouterOS |
+| Ubiquiti | `41112`, `10002`; and `4413` **only when sysDescr starts with** `EdgeSwitch`, `EdgePoint` or `USW` | UniFi, AirOS, EdgeSwitch |
+| Fortinet | `12356` | FortiSwitch |
+| Netgear | `4526` | |
+| TP-Link | `11863`, `16972` | JetStream |
+| Allied Telesis | `207` | AlliedWare Plus |
+
+> **Correction to the original specification.** The spec listed `4413` under Extreme Networks. In real-device fingerprints `4413` is a shared Broadcom/FASTPATH number
+> (it identifies Ubiquiti EdgeSwitch only together with a `sysDescr` check), so it is **not** treated as Extreme; alone it stays Generic. Extreme is identified by `1916`, `2272` and `347.2.5730`.
+
+## Vendor-specific discovery (verified OIDs only)
+
+All standards-based discovery lives in the generic path, so every manufacturer — and an unknown one — returns ports, MACs, ARP and LLDP. Model and serial come from ENTITY-MIB first; if that has
+nothing, the vendor provider tries these OIDs, each **resolved from the vendor's own MIB file with `snmptranslate`** (never typed from memory):
+
+| Manufacturer | Model | Serial |
+|---|---|---|
+| Cisco | `CISCO-STACK-MIB::chassisModel` (9.5.1.2.16.0) | `chassisSerialNumberString` (9.5.1.2.19.0) |
+| Juniper | `JUNIPER-MIB::jnxBoxDescr` (2636.3.1.2.0) | `jnxBoxSerialNo` (2636.3.1.3.0) |
+| MikroTik | `MIKROTIK-MIB::mtxrBoardName` (14988.1.1.7.9.0) | `mtxrSerialNumber` (14988.1.1.7.3.0) |
+| Fortinet | — | `FORTINET-CORE-MIB::fnSysSerial` (12356.100.1.1.1.0) |
+| Dell | — | `F10-CHASSIS-MIB::chSerialNumber` (6027.3.1.1.1.2), `DELL-NETWORKING-CHASSIS-MIB::dellNetChassisSerialNumber` |
+| HPE/Aruba, Extreme, Huawei, Ubiquiti, Netgear, TP-Link, Allied Telesis | ENTITY-MIB only | ENTITY-MIB only |
+
+For the last row no vendor OID could be verified, so none is used (no guessing). Cisco additionally uses per-VLAN FDB queries and CDP, as described above.
+
+## Supporting evidence for uplinks
+
+Besides LLDP/CDP and the MAC-table heuristic, the portal collects **spanning-tree root port** (`dot1dStpRootPort`), **tagged VLAN membership** (Q-BRIDGE static egress/untagged port lists)
+and **port descriptions** such as "uplink"/"trunk". These are shown on the port as *Supporting evidence* and may lower the MAC-table heuristic's threshold by one MAC, but they **never classify a port by themselves**.
+(STP is read for the default instance only; Cisco per-VLAN STP instances are not queried.)
 
 ## Verify from the portal server
 

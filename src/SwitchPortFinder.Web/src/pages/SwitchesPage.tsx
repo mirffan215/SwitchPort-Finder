@@ -3,9 +3,11 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { api, MANUFACTURERS } from '../api';
 import { ErrorBox, StatusBadge, fmtDate } from '../components/Bits';
+import { useAuth } from '../components/Auth';
 
 export default function SwitchesPage() {
   const qc = useQueryClient();
+  const { canWrite } = useAuth();
   const { data, isLoading, error } = useQuery({ queryKey: ['switches'], queryFn: api.listSwitches });
   const [vendor, setVendor] = useState('');
   const [filter, setFilter] = useState('');
@@ -29,8 +31,8 @@ export default function SwitchesPage() {
           <option value="">All manufacturers</option>
           {MANUFACTURERS.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
         </select>
-        <button className="btn" disabled={scanAll.isPending || (data?.length ?? 0) === 0} onClick={() => scanAll.mutate()}>Scan all switches</button>
-        <Link className="btn primary" to="/switches/new">+ Add Switch</Link>
+        {canWrite && <button className="btn" disabled={scanAll.isPending || (data?.length ?? 0) === 0} onClick={() => scanAll.mutate()}>Scan all switches</button>}
+        {canWrite && <Link className="btn primary" to="/switches/new">+ Add Switch</Link>}
       </div>
       <ErrorBox error={error ?? del.error ?? test.error ?? scan.error ?? scanAll.error} />
       {note && <div className="alert success">{note} <Link to="/discovery">Open Discovery</Link></div>}
@@ -50,10 +52,12 @@ export default function SwitchesPage() {
                   <td>{fmtDate(s.lastScanAt)}</td>
                   <td className="actions">
                     <Link to={`/switches/${s.id}`}>Open</Link>
-                    <button className="link" disabled={scan.isPending} onClick={() => scan.mutate(s.id)}>Scan</button>
-                    <button className="link" disabled={test.isPending} onClick={() => test.mutate(s.id)} title="Test SNMP connectivity only">Test</button>
-                    <Link to={`/switches/${s.id}/edit`}>Edit</Link>
-                    <button className="link danger" onClick={() => confirm(`Delete ${s.name}?`) && del.mutate(s.id)}>Delete</button>
+                    {canWrite && <>
+                      <button className="link" disabled={scan.isPending} onClick={() => scan.mutate(s.id)}>Scan</button>
+                      <button className="link" disabled={test.isPending} onClick={() => test.mutate(s.id)} title="Test SNMP connectivity only">Test</button>
+                      <Link to={`/switches/${s.id}/edit`}>Edit</Link>
+                      <button className="link danger" onClick={() => confirm(`Delete ${s.name}?`) && del.mutate(s.id)}>Delete</button>
+                    </>}
                   </td>
                 </tr>
               ))}

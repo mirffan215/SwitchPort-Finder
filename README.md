@@ -3,14 +3,15 @@
 Internal web portal that answers **"Which switch and which port is this device connected to?"**
 **Read-only against network equipment** (SNMP GET / GETNEXT / GETBULK / walk only; there is no SET anywhere in the code).
 
-**Status: V1 feature-complete (Phase 6 of 6).** Add or bulk-import switches · test SNMPv2c/v3 · background discovery of ports, VLANs, MAC tables
+**Status: V1 feature-complete and hardened.** Add or bulk-import switches · test SNMPv2c/v3 · background discovery of ports, VLANs, MAC tables
 (incl. Cisco per-VLAN), ARP and hostnames · LLDP/CDP neighbors with uplink classification and the edge-port rule · global search · device details ·
-trace · topology graph · dashboard · discovery history · CSV/Excel export · runtime settings. See [docs/V1-CHECKLIST.md](docs/V1-CHECKLIST.md) for the
-evidence behind each item **and what has not been verified on real hardware or SQL Server**.
+trace · topology graph · dashboard · discovery history · CSV/Excel export · runtime settings · optional local accounts (Admin/Viewer). See [docs/V1-CHECKLIST.md](docs/V1-CHECKLIST.md) for the
+evidence behind each item. It has been tested on **real SQL Server 2022** and over real SNMP against test agents; what could **not** be checked is physical vendor hardware.
 
 * One ASP.NET Core process (Kestrel) serves the API **and** the built React UI. No desktop client, no CDN, no internet needed at runtime.
 * No login and plain HTTP in V1 (as specified). *HTTPS is recommended when the portal is moved beyond a trusted internal network.*
 * Credentials are encrypted at rest and never returned, logged or placed in URLs.
+* Optional login: set `Authentication:Mode=Local` (see [SECURITY.md](docs/SECURITY.md)).
 
 ## Documentation
 
@@ -21,7 +22,8 @@ evidence behind each item **and what has not been verified on real hardware or S
 | [SNMP-SETUP.md](docs/SNMP-SETUP.md) | Read-only v2c/v3 setup (Cisco, HPE/Aruba, Dell, Juniper, Extreme), ACLs, LLDP/CDP, the Cisco per-VLAN requirement |
 | [IMPORT-GUIDE.md](docs/IMPORT-GUIDE.md) | Template columns, examples, credential profiles, security notes |
 | [TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) | Symptoms → causes → fixes |
-| [SECURITY.md](docs/SECURITY.md) · [PERFORMANCE.md](docs/PERFORMANCE.md) · [V1-CHECKLIST.md](docs/V1-CHECKLIST.md) | Controls and residual risks · measurements · completion evidence |
+| [SECURITY.md](docs/SECURITY.md) · [PENTEST.md](docs/PENTEST.md) · [PERFORMANCE.md](docs/PERFORMANCE.md) · [V1-CHECKLIST.md](docs/V1-CHECKLIST.md) | Controls and residual risks · security testing done and recommended · measurements · completion evidence |
+| [tools/lab](tools/lab/README.md) · [tools/sqlserver](tools/sqlserver/run-sqlserver-tests.sh) | Two-switch SNMP test lab · run the test suite on real SQL Server in Docker |
 
 ## Quick start (development)
 

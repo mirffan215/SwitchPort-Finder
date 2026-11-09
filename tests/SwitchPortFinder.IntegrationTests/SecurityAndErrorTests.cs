@@ -126,13 +126,33 @@ public class SecurityTests(IsolatedApiFixture fx) : IClassFixture<IsolatedApiFix
         }
     }
 
+    // Found by API fuzzing (schemathesis): each of these used to be an unhandled 500.
+    [Fact]
+    public async Task Fuzz_regressions_malformed_input_is_a_400_never_a_500_and_auth_endpoints_work_with_authentication_off()
+    {
+        var http = fx.CreateClient();
+        (await http.PostAsync("/api/auth/logout", null)).StatusCode.Should().Be(HttpStatusCode.NoContent);
+        var cp = await http.PostAsJsonAsync("/api/auth/change-password", new SwitchPortFinder.Application.Common.ChangePasswordRequest("a", "b"), Json);
+        cp.StatusCode.Should().Be(HttpStatusCode.BadRequest); (await cp.Content.ReadAsStringAsync()).Should().Contain("not enabled");
+        // a form field name with an unbalanced '[' makes ASP.NET's own binder throw
+        var form = new MultipartFormDataContent { { new StringContent("1"), "bad[name" }, { new ByteArrayContent(Encoding.UTF8.GetBytes("Name,ManagementIP\n")), "file", "x.csv" } };
+        var r = await http.PostAsync("/api/admin/import/switches/preview", form);
+        r.StatusCode.Should().Be(HttpStatusCode.BadRequest); (await r.Content.ReadAsStringAsync()).Should().NotContain("JQuery").And.NotContain("   at ");
+        // truncated / garbage multipart
+        var broken = new StringContent("--x\r\nContent-Disposition: form-data; name=\"file\"; filename=\"a.csv\"\r\n\r\nabc", Encoding.UTF8); broken.Headers.ContentType = System.Net.Http.Headers.MediaTypeHeaderValue.Parse("multipart/form-data; boundary=x");
+        ((int)(await http.PostAsync("/api/admin/import/switches/preview", broken)).StatusCode).Should().BeLessThan(500);
+        // JSON that is valid syntax but the wrong shape, deeply nested, or huge numbers
+        foreach (var body in new[] { "[]", "null", "\"str\"", "{\"name\":null}", "{\"managementIp\":99999999999999999999}", "{\"a\":" + string.Concat(Enumerable.Repeat("[", 80)) + string.Concat(Enumerable.Repeat("]", 80)) + "}" })
+            ((int)(await http.PostAsync("/api/switches", new StringContent(body, Encoding.UTF8, "application/json"))).StatusCode).Should().BeInRange(400, 415, body[..Math.Min(40, body.Length)]);
+    }
+
     [Fact]
     public void Production_wiring_uses_the_real_snmp_client_and_contains_no_mock_or_fake_types()
     {
         using var f = new Microsoft.AspNetCore.Mvc.Testing.WebApplicationFactory<Program>().WithWebHostBuilder(b =>
         {
             var dir = Path.Combine(Path.GetTempPath(), "spf-wiring-" + Guid.NewGuid().ToString("N")[..6]); Directory.CreateDirectory(dir);
-            b.UseEnvironment("Production"); b.UseSetting("Database:Provider", "Sqlite"); b.UseSetting("ConnectionStrings:Default", $"Data Source={Path.Combine(dir, "w.db")}"); b.UseSetting("Security:KeysPath", dir);
+            b.UseEnvironment("Production"); b.UseSetting("Database:Provider", "Sqlite"); b.UseSetting("Database:AutoMigrate", "true"); b.UseSetting("ConnectionStrings:Default", $"Data Source={Path.Combine(dir, "w.db")}"); b.UseSetting("Security:KeysPath", dir);
         });
         using var scope = f.Services.CreateScope();
         scope.ServiceProvider.GetRequiredService<ISnmpClient>().GetType().Name.Should().Be("SharpSnmpClient");
@@ -313,4 +333,34 @@ public class SettingsApiTests(IsolatedApiFixture fx) : IClassFixture<IsolatedApi
 
     private record RuntimeSettingsDto(int SnmpTimeoutMs, int SnmpRetries, int SnmpMaxRepetitions, int MaxParallelScans, int PerVlanTimeoutMs, int PerVlanParallelism, int OfflineAfterMinutes, int StaleAfterDays,
         int ScanIntervalMinutes, int DnsTimeoutMs, int HostnameRefreshHours, int UplinkHeuristicMinMacs, double UplinkHeuristicRatio);
+}
+
+public class SupportingEvidenceApiTests(IsolatedApiFixture fx) : IClassFixture<IsolatedApiFixture>
+{
+    private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web) { Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() } };
+
+    [Fact]
+    public async Task Supporting_evidence_is_stored_and_shown_but_never_classifies_a_port_by_itself()
+    {
+        var http = fx.CreateClient(); const string ip = "198.51.150.1";
+        var net = fx.Services.GetService(typeof(FakeSnmpClient)).As<FakeSnmpClient>().Net;
+        net.WithSystem(ip, "SW-SUP", "1.3.6.1.4.1.8072");
+        net.Walk(ip, "pub", Oids.IfTable, IfTable((1, "Gi1/0/1", 6, true, null), (2, "Gi1/0/2", 6, true, null)));
+        net.Walk(ip, "pub", Oids.IfXTable, IfXTable((1, "Gi1/0/1", 1000, ""), (2, "Gi1/0/2", 1000, "Uplink to somewhere")));
+        net.Walk(ip, "pub", Oids.Dot1dBasePortIfIndex, BasePortMap((1, 1), (2, 2)));
+        net.Gets[$"{ip}|{Oids.Dot1dStpRootPort}"] = Int(2);
+        net.Walk(ip, "pub", Oids.Dot1qVlanStaticEgressPorts, [Vb($"{Oids.Dot1qVlanStaticEgressPorts}.10", Bytes([0b0100_0000])), Vb($"{Oids.Dot1qVlanStaticEgressPorts}.20", Bytes([0b0100_0000]))]);
+        net.Walk(ip, "pub", Oids.Dot1qVlanStaticUntaggedPorts, [Vb($"{Oids.Dot1qVlanStaticUntaggedPorts}.10", Bytes([])), Vb($"{Oids.Dot1qVlanStaticUntaggedPorts}.20", Bytes([]))]);
+        net.Walk(ip, "pub", Oids.Dot1qTpFdbTable, Dot1qFdb((10, "02BB00000001", 2, 3), (10, "02BB00000002", 2, 3)));   // two ordinary hosts on port 2
+        var created = await http.PostAsJsonAsync("/api/switches", new SwitchRequest { Name = "SW-SUP", ManagementIp = ip, Credential = new CredentialInput { Version = SnmpVersion.V2c, Community = "pub" } }, Json);
+        var id = (await created.Content.ReadFromJsonAsync<SwitchDetailDto>(Json))!.Id;
+        var jobId = (await (await http.PostAsync($"/api/switches/{id}/scan", null)).Content.ReadFromJsonAsync<JsonElement>()).GetProperty("jobId").GetInt32();
+        JobDetailDto job; do { await Task.Delay(50); job = (await http.GetFromJsonAsync<JobDetailDto>($"/api/discovery/jobs/{jobId}", Json))!; } while (job.Job.Status is JobStatus.Queued or JobStatus.Running);
+
+        var p2 = (await http.GetFromJsonAsync<PortsResponse>($"/api/switches/{id}/ports", Json))!.Ports.Single(p => p.Name == "Gi1/0/2");
+        p2.Supporting.Should().Contain(["Spanning-tree root port", "Description suggests an uplink"]).And.Contain(x => x.StartsWith("Carries tagged VLANs"));
+        p2.Type.Should().Be(PortType.Endpoint, "STP root + trunk + description are supporting evidence only; nothing proves a switch is attached");
+        p2.Neighbor.Should().BeNull();
+        (await http.GetFromJsonAsync<PortsResponse>($"/api/switches/{id}/ports", Json))!.Ports.Single(p => p.Name == "Gi1/0/1").Supporting.Should().BeEmpty();
+    }
 }

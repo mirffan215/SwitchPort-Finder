@@ -18,6 +18,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<SwitchNeighbor> Neighbors => Set<SwitchNeighbor>();
     public DbSet<SwitchMac> SwitchMacs => Set<SwitchMac>();
     public DbSet<AppSetting> AppSettings => Set<AppSetting>();
+    public DbSet<AppUser> Users => Set<AppUser>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -78,6 +79,13 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.HasIndex(x => x.MatchedSwitchId);
             e.HasOne(x => x.Port).WithMany().HasForeignKey(x => x.PortId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne<Switch>().WithMany().HasForeignKey(x => x.SwitchId).OnDelete(DeleteBehavior.NoAction);
+        });
+        b.Entity<AppUser>(e =>
+        {
+            e.Property(x => x.Username).HasMaxLength(100).IsRequired();
+            e.Property(x => x.UsernameNormalized).HasMaxLength(100).IsRequired();
+            e.Property(x => x.PasswordHash).HasMaxLength(300).IsRequired();
+            e.HasIndex(x => x.UsernameNormalized).IsUnique();
         });
         b.Entity<AppSetting>(e => { e.HasKey(x => x.Key); e.Property(x => x.Key).HasMaxLength(100); e.Property(x => x.Value).IsRequired(); });
         b.Entity<SwitchMac>(e =>

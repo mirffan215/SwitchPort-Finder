@@ -40,6 +40,7 @@ public class ScanResultWriter(AppDbContext db, IHostnameResolver dns, Classifica
             if (i.OperKnown) { p.AdminUp = i.AdminUp; p.OperUp = i.OperUp; }
             p.SpeedMbps = i.SpeedMbps; p.PhysAddress = i.Mac; p.Mtu = i.Mtu;
             p.Vlan = r.PvidByIfIndex.TryGetValue(i.IfIndex, out var v) ? v : null;
+            var sup = r.Support.GetValueOrDefault(i.IfIndex); p.Support = sup?.Flags ?? PortSupport.None; p.VlanCount = sup?.VlanCount ?? 0;
             p.LastSeen = now;
         }
         await db.SaveChangesAsync(ct);   // port ids needed below

@@ -48,3 +48,19 @@ public static class TargetPolicy
         return null;
     }
 }
+
+public class AuthOptions
+{
+    public const string Section = "Authentication";
+    /// <summary>"None" (default, as specified for V1: no login) or "Local" (accounts stored in the database, cookie sessions).</summary>
+    public string Mode { get; set; } = "None";
+    public bool IsLocal => string.Equals(Mode, "Local", StringComparison.OrdinalIgnoreCase);
+    public int SessionMinutes { get; set; } = 480;
+    public int MaxFailedLogins { get; set; } = 5;
+    public int LockoutSeconds { get; set; } = 900;
+    public int LoginsPerMinute { get; set; } = 10;
+    /// <summary>Used ONLY when Local mode is on and no user exists yet. Change the password immediately after the first login.</summary>
+    public BootstrapAdminOptions BootstrapAdmin { get; set; } = new();
+}
+
+public class BootstrapAdminOptions { public string Username { get; set; } = "admin"; public string? Password { get; set; } }

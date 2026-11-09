@@ -46,6 +46,17 @@ Start with **Discovery → click the job**: every step shows ✓ / ⚠ / ✗ wit
 | Jobs stuck "Queued" after a crash | On start the worker fails jobs that were Running and re-queues Queued ones. |
 | Excel/CSV import: "Missing required column(s)" | Use the template header row; `Name` and `ManagementIP` are required. |
 
+## Sign-in (only when `Authentication:Mode=Local`)
+
+| Symptom | Fix |
+|---|---|
+| Login page but no account exists | Set `Authentication:BootstrapAdmin:Password` (12+ characters, not containing the username) and restart; check the log for "bootstrap administrator". If the password fails the policy the account is not created. |
+| "Too many failed sign-in attempts" | The account is locked for `Authentication:LockoutSeconds` (15 min default). Wait, or an administrator can reset the password under *Settings → Users*. |
+| Signed out unexpectedly | Your account was disabled/deleted/demoted, the session expired (`SessionMinutes`), or the server was restarted with a different `Security:KeysPath` (cookies are protected with the same keys). |
+| "Your account is read-only" (403) | You are a Viewer. Ask an administrator for the Admin role. |
+| Forgot the only administrator password | See INSTALLATION.md §11 (`DELETE FROM Users;` and restart with `BootstrapAdmin`). |
+| Login works on HTTP but the cookie is dropped behind a proxy | Make sure the proxy forwards cookies and `X-Forwarded-Host`/`Host` consistently, and add your public origin to `Security:TrustedOrigins`. |
+
 ## Logs
 
 Look for the structured events: `DiscoveryStarted`, `DiscoveryCompleted`, `SwitchUnreachable`, `SnmpAuthenticationFailed`, `OidUnavailable`, `NeighborDetected`, `DeviceDiscovered`. Set `Serilog:MinimumLevel:Default` to `Debug` for per-VLAN detail. Logs never contain SNMP credentials.

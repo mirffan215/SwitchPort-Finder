@@ -61,7 +61,7 @@ public sealed class SharpSnmpClient(ILogger<SharpSnmpClient> log) : ISnmpClient
                 try
                 {
                     await Messenger.BulkWalkAsync(VersionCode.V2, ep, community, OctetString.Empty, root, list, target.MaxRepetitions,
-                        WalkMode.WithinSubtree, new DefaultPrivacyProvider(DefaultAuthenticationProvider.Instance), null, token);
+                        WalkMode.WithinSubtree, new DefaultPrivacyProvider(DefaultAuthenticationProvider.Instance), null!, token);
                 }
                 catch (Exception ex) when (ex is ErrorException or Lextm.SharpSnmpLib.SnmpException)
                 {
@@ -120,6 +120,8 @@ public sealed class SharpSnmpClient(ILogger<SharpSnmpClient> log) : ISnmpClient
         return (BuildPrivacy(t.Credentials), report);
     }
 
+    // MD5, SHA-1 and DES are cryptographically weak but are still what many switches are configured with; they must stay selectable (read-only SNMP).
+#pragma warning disable CS0618
     internal static IPrivacyProvider BuildPrivacy(SnmpCredentials c)
     {
         IAuthenticationProvider auth = c.AuthProtocol switch
@@ -144,6 +146,8 @@ public sealed class SharpSnmpClient(ILogger<SharpSnmpClient> log) : ISnmpClient
             _ => throw new ArgumentOutOfRangeException(nameof(c))
         };
     }
+
+#pragma warning restore CS0618
 
     private static IReadOnlyList<SnmpVarBind> ConvertResponse(ISnmpMessage response)
     {

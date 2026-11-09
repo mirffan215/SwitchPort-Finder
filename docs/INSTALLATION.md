@@ -2,6 +2,10 @@
 
 SwitchPort Finder is an internal web portal: **one ASP.NET Core process (Kestrel) + SQL Server**. Users only need a browser; nothing is installed on client PCs.
 
+> **Trying it quickly with Docker for SQL Server:**
+> `docker run -d --name spf-sql -e ACCEPT_EULA=Y -e MSSQL_SA_PASSWORD='Your-Strong-Passw0rd' -p 1433:1433 mcr.microsoft.com/mssql/server:2022-latest`, connection string
+> `Server=localhost,1433;Database=SwitchPortFinder;User Id=sa;Password=Your-Strong-Passw0rd;TrustServerCertificate=True`. (Use a proper SQL Server installation in production.)
+
 ## 1. Requirements
 
 | Component | Requirement |
@@ -26,7 +30,7 @@ Install .NET 8: <https://dotnet.microsoft.com/download/dotnet/8.0> (Windows: `wi
 git clone <repository-url> SwitchPortFinder && cd SwitchPortFinder
 dotnet restore
 dotnet build
-dotnet test          # optional: 270+ unit and 60+ integration tests (use SQLite + a fake SNMP client; no SQL Server or network needed)
+dotnet test          # optional: ~320 unit and ~75 integration tests (SQLite + a scripted SNMP client; no SQL Server or network needed)
 ```
 
 ## 4. Configure the connection string
@@ -119,7 +123,15 @@ You can keep Kestrel as the service and put IIS in front for HTTPS/host names: i
 
 Stop the service, copy the new `publish` output over the old one (keep `appsettings.Production.json` and the `keys` folder), apply new migrations (step 5), start. Credentials stay readable as long as the **keys folder** is kept and the service runs on the same machine (see SECURITY.md).
 
-## 11. First use
+## 11. Optional: turn on login (local accounts)
+
+```json
+{ "Authentication": { "Mode": "Local", "BootstrapAdmin": { "Username": "admin", "Password": "a-long-unique-passphrase" } } }
+```
+Restart, sign in as that user, then create your own accounts under *Settings → Admin → Users*, change the bootstrap password and **delete the password from the configuration file**. Use HTTPS (section 9 or CONFIGURATION.md).
+*Lost the administrator password?* With the service stopped run `DELETE FROM Users;` on the database and start it again with `BootstrapAdmin` set — a new administrator is created. (Switch and discovery data are untouched.)
+
+## 12. First use
 
 1. **Switches → + Add Switch**: name, management IP, manufacturer, SNMP version + credentials → **Test Connection** → Save. Or **Settings → Admin → Import Switches** for many switches ([IMPORT-GUIDE.md](IMPORT-GUIDE.md)).
 2. Tick **Use as ARP source** on your core / Layer 3 switch (IP addresses come from its ARP table).

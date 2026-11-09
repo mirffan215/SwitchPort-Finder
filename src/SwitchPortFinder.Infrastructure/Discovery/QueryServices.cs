@@ -25,10 +25,20 @@ public class PortQueryService(AppDbContext db, IOptions<DiscoveryOptions> opt)
             // Spec 5.8: an uplink never lists downstream devices (and a down port has none).
             (p.PortType is PortType.Down or PortType.SwitchUplink) ? new List<PortDeviceDto>() : devs[p.Id].OrderBy(d => d.Mac).Take(10).Select(d => new PortDeviceDto(
                 d.Id, d.Hostname, d.IpAddress, MacAddress.Format(d.Mac), d.Vlan, d.LastSeen, DeviceStates.Compute(d.LastSeen, now, opt.Value), d.LowConfidence)).ToList(),
-            p.NeighborId is { } nid && neighbors.TryGetValue(nid, out var nb) ? nb with { Confidence = p.Confidence } : null)).ToList();
+            p.NeighborId is { } nid && neighbors.TryGetValue(nid, out var nb) ? nb with { Confidence = p.Confidence } : null,
+            SupportList(p))).ToList();
         var summary = new PortSummary(rows.Count, rows.Count(r => r.Status == "UP"), rows.Count(r => r.Status == "DOWN"), rows.Count(r => r.Type == PortType.SwitchUplink), sw.LastScanAt);
         var hasArp = await db.Switches.AnyAsync(s => s.UseAsArpSource || s.ArpAutoDetected, ct);
         return new PortsResponse(summary, rows, hasArp);
+    }
+
+    private static List<string> SupportList(SwitchPort p)
+    {
+        var l = new List<string>();
+        if (p.Support.HasFlag(PortSupport.StpRootPort)) l.Add("Spanning-tree root port");
+        if (p.Support.HasFlag(PortSupport.TaggedVlans)) l.Add($"Carries tagged VLANs ({p.VlanCount} memberships)");
+        if (p.Support.HasFlag(PortSupport.DescriptionHint)) l.Add("Description suggests an uplink");
+        return l;
     }
 
     /// <summary>All LLDP/CDP/inferred neighbors of a switch, one row per neighbor.</summary>

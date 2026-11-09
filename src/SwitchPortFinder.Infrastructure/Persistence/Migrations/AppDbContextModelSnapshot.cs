@@ -40,6 +40,55 @@ namespace SwitchPortFinder.Infrastructure.Persistence.Migrations
                     b.ToTable("AppSettings");
                 });
 
+            modelBuilder.Entity("SwitchPortFinder.Domain.Entities.AppUser", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("Disabled")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("FailedLogins")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("LastLoginAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("LockedUntil")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("PasswordHash")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<int>("Role")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Username")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("UsernameNormalized")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UsernameNormalized")
+                        .IsUnique();
+
+                    b.ToTable("Users");
+                });
+
             modelBuilder.Entity("SwitchPortFinder.Domain.Entities.ArpEntry", b =>
                 {
                     b.Property<long>("Id")
@@ -672,10 +721,16 @@ namespace SwitchPortFinder.Infrastructure.Persistence.Migrations
                     b.Property<long>("SpeedMbps")
                         .HasColumnType("bigint");
 
+                    b.Property<int>("Support")
+                        .HasColumnType("int");
+
                     b.Property<int>("SwitchId")
                         .HasColumnType("int");
 
                     b.Property<int?>("Vlan")
+                        .HasColumnType("int");
+
+                    b.Property<int>("VlanCount")
                         .HasColumnType("int");
 
                     b.HasKey("Id");

@@ -1,4 +1,5 @@
 using System.Net;
+using System.Text;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
@@ -49,6 +50,53 @@ public class ApiFixture : WebApplicationFactory<Program>, IDisposable
 {
     public string Dir { get; } = Path.Combine(Path.GetTempPath(), "spf-it-" + Guid.NewGuid().ToString("N"));
     public string DbPath => Path.Combine(Dir, "test.db");
+
+    /// <summary>
+    /// Set SPF_TEST_SQLSERVER to a SQL Server connection string (WITHOUT a Database=) to run the whole suite on real SQL Server through the real
+    /// migrations; each fixture gets a throwaway database. Unset = SQLite (the default, no external dependency).
+    /// </summary>
+    public static readonly string? SqlServer = Environment.GetEnvironmentVariable("SPF_TEST_SQLSERVER");
+    public bool UsingSqlServer => SqlServer is not null;
+    private readonly List<string> _databases = [];
+    public string DbName { get; } = "spf_it_" + Guid.NewGuid().ToString("N")[..12];
+    /// <summary>(provider, connection string) for a database of this fixture.</summary>
+    public (string Provider, string Conn) Db(string name, string sqlitePath)
+    {
+        if (SqlServer is null) return ("Sqlite", $"Data Source={sqlitePath}");
+        lock (_databases) _databases.Add(name);
+        return ("SqlServer", $"{SqlServer.TrimEnd(';')};Database={name}");
+    }
+
+    /// <summary>Connection to the master database for admin work (drop).</summary>
+    private static void DropDatabase(string name)
+    {
+        try
+        {
+            using var c = new Microsoft.Data.SqlClient.SqlConnection(SqlServer!.TrimEnd(';') + ";Database=master"); c.Open();
+            using var cmd = c.CreateCommand(); cmd.CommandText = $"IF DB_ID(N'{name}') IS NOT NULL BEGIN ALTER DATABASE [{name}] SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE [{name}]; END"; cmd.ExecuteNonQuery();
+        }
+        catch { /* best effort */ }
+    }
+
+    /// <summary>All text values currently stored in this fixture's database (used to prove secrets are not stored in clear).</summary>
+    public string DumpDatabaseText()
+    {
+        if (SqlServer is null) return Encoding.Latin1.GetString(File.ReadAllBytes(DbPath)) + (File.Exists(DbPath + "-wal") ? Encoding.Latin1.GetString(File.ReadAllBytes(DbPath + "-wal")) : "");
+        var sb = new StringBuilder();
+        using var c = new Microsoft.Data.SqlClient.SqlConnection($"{SqlServer.TrimEnd(';')};Database={DbName}"); c.Open();
+        var cols = new List<(string T, string C)>();
+        using (var q = c.CreateCommand())
+        {
+            q.CommandText = "SELECT TABLE_NAME, COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE DATA_TYPE IN ('char','varchar','nchar','nvarchar','text','ntext')";
+            using var r = q.ExecuteReader(); while (r.Read()) cols.Add((r.GetString(0), r.GetString(1)));
+        }
+        foreach (var (t, col) in cols)
+        {
+            using var q = c.CreateCommand(); q.CommandText = $"SELECT [{col}] FROM [{t}] WHERE [{col}] IS NOT NULL";
+            using var r = q.ExecuteReader(); while (r.Read()) sb.Append(r.GetString(0)).Append('\n');
+        }
+        return sb.ToString();
+    }
     public string KeysPath => Path.Combine(Dir, "keys");
     public StringWriter Logs { get; } = new();
     private readonly TextWriter _origOut = Console.Out;
@@ -64,14 +112,15 @@ public class ApiFixture : WebApplicationFactory<Program>, IDisposable
     }
     private readonly bool _captured;
 
-    protected override void ConfigureWebHost(IWebHostBuilder builder)
+    protected override void ConfigureWebHost(Microsoft.AspNetCore.Hosting.IWebHostBuilder builder)
     {
         builder.UseEnvironment("Development");
         // UseSetting (not ConfigureAppConfiguration): Program.cs reads configuration during startup, before late config sources apply.
+        var (provider, conn) = Db(DbName, DbPath);
         foreach (var (k, v) in new Dictionary<string, string>
         {
-            ["Database:Provider"] = "Sqlite", ["Database:AutoMigrate"] = "true",
-            ["ConnectionStrings:Default"] = $"Data Source={DbPath}", ["Security:KeysPath"] = KeysPath,
+            ["Database:Provider"] = provider, ["Database:AutoMigrate"] = "true",
+            ["ConnectionStrings:Default"] = conn, ["Security:KeysPath"] = KeysPath,
             ["Serilog:MinimumLevel:Default"] = "Debug", ["Snmp:TimeoutMs"] = "500", ["Snmp:Retries"] = "0",
         }) builder.UseSetting(k, v);
         builder.ConfigureServices(s =>
@@ -89,10 +138,11 @@ public class ApiFixture : WebApplicationFactory<Program>, IDisposable
     public WebApplicationFactory<Program> Variant(string environment, params (string Key, string Value)[] settings)
     {
         var sub = Path.Combine(Dir, "variant-" + Guid.NewGuid().ToString("N")[..6]); Directory.CreateDirectory(sub);
+        var (provider, conn) = Db("spf_it_" + Guid.NewGuid().ToString("N")[..12], Path.Combine(sub, "v.db"));
         return WithWebHostBuilder(b =>
         {
             b.UseEnvironment(environment);
-            b.UseSetting("ConnectionStrings:Default", $"Data Source={Path.Combine(sub, "v.db")}"); b.UseSetting("Security:KeysPath", Path.Combine(sub, "keys"));
+            b.UseSetting("Database:Provider", provider); b.UseSetting("ConnectionStrings:Default", conn); b.UseSetting("Security:KeysPath", Path.Combine(sub, "keys"));
             foreach (var (k, v) in settings) b.UseSetting(k, v);
         });
     }
@@ -101,6 +151,7 @@ public class ApiFixture : WebApplicationFactory<Program>, IDisposable
     {
         if (_captured) Console.SetOut(_origOut);
         base.Dispose();
+        if (SqlServer is not null) { Microsoft.Data.SqlClient.SqlConnection.ClearAllPools(); string[] names; lock (_databases) names = _databases.ToArray(); foreach (var n in names) DropDatabase(n); }
         try { Directory.Delete(Dir, true); } catch { /* best effort */ }
     }
 
@@ -118,3 +169,20 @@ public class ApiFixture : WebApplicationFactory<Program>, IDisposable
 public sealed class IsolatedApiFixture : ApiFixture { public IsolatedApiFixture() : base(false) { } }
 
 [CollectionDefinition("api")] public class ApiCollection : ICollectionFixture<ApiFixture>;
+
+/// <summary>Host with local accounts switched on (Authentication:Mode=Local), small lockout/limits so tests are fast.</summary>
+public sealed class AuthApiFixture : ApiFixture
+{
+    public const string AdminPassword = "Bootstrap-Root-Pass-2026";
+    public AuthApiFixture() : base(false) { }
+    protected override void ConfigureWebHost(Microsoft.AspNetCore.Hosting.IWebHostBuilder builder)
+    {
+        base.ConfigureWebHost(builder);
+        builder.UseSetting("Authentication:Mode", "Local");
+        builder.UseSetting("Authentication:BootstrapAdmin:Username", "admin");
+        builder.UseSetting("Authentication:BootstrapAdmin:Password", AdminPassword);
+        builder.UseSetting("Authentication:MaxFailedLogins", "3");
+        builder.UseSetting("Authentication:LockoutSeconds", "2");
+        builder.UseSetting("Authentication:LoginsPerMinute", "40");
+    }
+}

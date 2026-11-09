@@ -757,3 +757,67 @@ GO
 COMMIT;
 GO
 
+BEGIN TRANSACTION;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261109150608_Phase7SupportAndUsers'
+)
+BEGIN
+    ALTER TABLE [SwitchPorts] ADD [Support] int NOT NULL DEFAULT 0;
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261109150608_Phase7SupportAndUsers'
+)
+BEGIN
+    ALTER TABLE [SwitchPorts] ADD [VlanCount] int NOT NULL DEFAULT 0;
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261109150608_Phase7SupportAndUsers'
+)
+BEGIN
+    CREATE TABLE [Users] (
+        [Id] int NOT NULL IDENTITY,
+        [Username] nvarchar(100) NOT NULL,
+        [UsernameNormalized] nvarchar(100) NOT NULL,
+        [PasswordHash] nvarchar(300) NOT NULL,
+        [Role] int NOT NULL,
+        [Disabled] bit NOT NULL,
+        [FailedLogins] int NOT NULL,
+        [LockedUntil] datetime2 NULL,
+        [CreatedAt] datetime2 NOT NULL,
+        [LastLoginAt] datetime2 NULL,
+        CONSTRAINT [PK_Users] PRIMARY KEY ([Id])
+    );
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261109150608_Phase7SupportAndUsers'
+)
+BEGIN
+    CREATE UNIQUE INDEX [IX_Users_UsernameNormalized] ON [Users] ([UsernameNormalized]);
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261109150608_Phase7SupportAndUsers'
+)
+BEGIN
+    INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
+    VALUES (N'20261109150608_Phase7SupportAndUsers', N'8.0.11');
+END;
+GO
+
+COMMIT;
+GO
+

@@ -15,6 +15,8 @@ public interface IUserAuthorizationService
 {
     Task<bool> IsAdminAsync(CancellationToken ct = default);
     string CurrentUserName { get; }
+    /// <summary>True when the caller is a signed-in user (always true when authentication is off).</summary>
+    bool IsAuthenticated { get; }
 }
 
 public interface ISwitchRepository

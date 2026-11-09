@@ -23,6 +23,12 @@ public class ApiExceptionHandler(ILogger<ApiExceptionHandler> log) : IExceptionH
                 break;
             case OperationCanceledException when ctx.RequestAborted.IsCancellationRequested:
                 return true;
+            // Malformed client input that the framework itself throws on: weird form field names ("a[b") and broken multipart bodies.
+            case ArgumentException a when a.StackTrace?.Contains("JQueryKeyValuePairNormalizer", StringComparison.Ordinal) == true:
+            case InvalidDataException:
+            case System.Text.Json.JsonException:
+                problem = new ProblemDetails { Status = 400, Title = "Bad request", Detail = "The request is malformed." };
+                break;
             case BadHttpRequestException b:
                 problem = new ProblemDetails { Status = 400, Title = "Bad request", Detail = b.Message };
                 break;

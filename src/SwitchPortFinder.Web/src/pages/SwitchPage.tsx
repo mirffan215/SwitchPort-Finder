@@ -4,9 +4,11 @@ import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { api, type Neighbor, type PortRow } from '../api';
 import { ConfidenceBadge, ErrorBox, PortTypeBadge, StateBadge, StatusBadge, TestResultBox, ago, fmtDate } from '../components/Bits';
 import ScanProgress from '../components/ScanProgress';
+import { useAuth } from '../components/Auth';
 
 export default function SwitchPage() {
   const id = Number(useParams().id);
+  const { canWrite } = useAuth();
   const [sp, setSp] = useSearchParams();
   const highlight = sp.get('port') ? Number(sp.get('port')) : undefined;
   const qc = useQueryClient();
@@ -39,10 +41,10 @@ export default function SwitchPage() {
         <span className="muted">· {s.managementIp} · {s.manufacturerName}{sum ? ` · ${sum.total} Ports · ${sum.connected} Connected · ${sum.down} Down · ${sum.uplinks} Switch Uplinks` : ''}</span>
         <StatusBadge status={s.status} />
         <div className="spacer" />
-        <button className="btn primary" disabled={scan.isPending || scanning} onClick={() => scan.mutate()}>Scan Now</button>
+        {canWrite && <button className="btn primary" disabled={scan.isPending || scanning} onClick={() => scan.mutate()}>Scan Now</button>}
         <button className="btn" onClick={refresh}>Refresh</button>
-        <button className="btn" disabled={test.isPending} onClick={() => test.mutate()}>Test SNMP</button>
-        <Link className="btn" to={`/switches/${id}/edit`}>Edit</Link>
+        {canWrite && <button className="btn" disabled={test.isPending} onClick={() => test.mutate()}>Test SNMP</button>}
+        {canWrite && <Link className="btn" to={`/switches/${id}/edit`}>Edit</Link>}
       </div>
       <ErrorBox error={scan.error ?? test.error ?? ports.error} />
       {jobId && <ScanProgress jobId={jobId} onDone={() => { setScanning(false); refresh(); }} onClose={() => setJobId(null)} />}
@@ -134,6 +136,13 @@ function PortPanel({ sw, p, onClose }: { sw: string; p: PortRow; onClose: () => 
           </dl>
           {p.neighbor.connectedSwitchId ? <Link className="btn primary" to={openTo(p.neighbor)}>Open Switch</Link>
             : p.neighbor.canAdd ? <Link className="btn primary" to={addTo(p.neighbor)}>Add this switch</Link> : null}
+        </>
+      )}
+      {p.supporting?.length > 0 && (
+        <>
+          <h4>Supporting evidence</h4>
+          <ul className="support">{p.supporting.map((x) => <li key={x}>{x}</li>)}</ul>
+          <p className="muted small">Supporting signals never classify a port on their own.</p>
         </>
       )}
       {p.type === 'SwitchUplink' && <p className="muted">Devices learned behind an uplink are shown on the switch where they connect, not here.</p>}

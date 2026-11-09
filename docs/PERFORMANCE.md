@@ -6,9 +6,29 @@
 `PerformanceTests` (integration test project; **test project only**, data is generated and written straight to the database) seeds 500 switches × 48 ports (24,000 ports), 50,000 devices with their sightings, 499 LLDP uplinks in a 10-ary tree, then times real HTTP calls (best of 3 after a warm-up) against the running API.
 Run it: `dotnet test --filter "Category=Performance" --logger "console;verbosity=detailed"`.
 
-> **Caveat — read this.** These numbers were measured on **SQLite** in a development sandbox (the only database available there), single user, no network latency. They show the application is not the bottleneck and that no query is quadratic; they are **not** SQL Server numbers. Re-run the test against your SQL Server (set `Database:Provider`/`ConnectionStrings:Default` in the test fixture) before sizing hardware.
+> The same test now runs against **real SQL Server 2022** too (Docker, `tools/sqlserver/run-sqlserver-tests.sh --perf`, or set `SPF_TEST_SQLSERVER` yourself): the SQL Server table below is the one to size from.
+> Both were measured on a 4-core/16 GB development VM with the database on the same machine and a single user — real servers add network latency and concurrency, so treat these as a lower bound.
 
-## Results (SQLite, sandbox)
+## Results on SQL Server 2022 (Docker, same host)
+
+| Operation (500 switches / 24,000 ports / 50,000 devices) | Time |
+|---|---|
+| Device list: page 1 / by IP / by state / by switch | 4–10 ms |
+| Device list sorted by hostname, page 500 | 35 ms |
+| Device list text filter (`host-4999`, `LIKE '%…%'`) | 541 ms |
+| Search: hostname / IP / full MAC / partial MAC / switch name / port name / no match | 156–247 ms |
+| Switch list (500) / one switch's ports / dashboard | 15 / 10 / 52 ms |
+| Topology (500 nodes, 499 links) | 71 ms |
+| Trace in the 500-switch graph / device details | 17 / 4 ms |
+| Export all 50k devices: CSV / Excel | 0.5 s / 3.0 s |
+| Scan write: 2,000 MACs + 2,000 ARP + 48 ports into the full database | 2.4 s |
+| Rescan of unchanged data | 1.5 s |
+| Global classification after a scan (all 500 switches) | **0.33 s** per run |
+| Seeding the test data (50k devices + sightings) | 26 s |
+
+Search is the slowest interactive operation (~0.2 s) because `LIKE '%text%'` scans `Devices`; that is comfortable at 50k rows. Beyond a few hundred thousand devices add a full-text or trigram index.
+
+## Results on SQLite (for comparison)
 
 | Operation (500 switches / 50k devices) | Time |
 |---|---|

@@ -20,6 +20,9 @@ public static class Oids
     public const string Dot1qTpFdbTable = "1.3.6.1.2.1.17.7.1.2.2.1";
     public const string Dot1qVlanFdbId = "1.3.6.1.2.1.17.7.1.4.2.1.3";
     public const string Dot1qVlanStaticName = "1.3.6.1.2.1.17.7.1.4.3.1.1";
+    public const string Dot1dStpRootPort = "1.3.6.1.2.1.17.2.7.0";
+    public const string Dot1qVlanStaticEgressPorts = "1.3.6.1.2.1.17.7.1.4.3.1.2";
+    public const string Dot1qVlanStaticUntaggedPorts = "1.3.6.1.2.1.17.7.1.4.3.1.4";
     public const string Dot1qPvid = "1.3.6.1.2.1.17.7.1.4.5.1.1";
     // ENTITY-MIB
     public const string EntPhysicalSerial = "1.3.6.1.2.1.47.1.1.1.1.11";

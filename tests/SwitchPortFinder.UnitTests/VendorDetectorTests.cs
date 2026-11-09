@@ -15,7 +15,12 @@ public class VendorDetectorTests
     [InlineData("1.3.6.1.4.1.674.10895.3000", Manufacturer.Dell)]
     [InlineData("1.3.6.1.4.1.2636.1.1.1.2.30", Manufacturer.Juniper)]
     [InlineData("1.3.6.1.4.1.1916.2.1", Manufacturer.ExtremeNetworks)]
-    [InlineData("1.3.6.1.4.1.4413.1", Manufacturer.ExtremeNetworks)]
+    [InlineData("1.3.6.1.4.1.347.2.5730.1", Manufacturer.ExtremeNetworks)]   // EXOS
+    [InlineData("1.3.6.1.4.1.2272.5", Manufacturer.ExtremeNetworks)]         // VOSS
+    [InlineData("1.3.6.1.4.1.14823.1.1.1", Manufacturer.HpeAruba)]
+    [InlineData("1.3.6.1.4.1.6027.1.3.17", Manufacturer.Dell)]               // Force10
+    [InlineData("1.3.6.1.4.1.10002.1", Manufacturer.Ubiquiti)]
+    [InlineData("1.3.6.1.4.1.16972.1", Manufacturer.TpLink)]
     [InlineData("1.3.6.1.4.1.2011.2.23.1", Manufacturer.Huawei)]
     [InlineData("1.3.6.1.4.1.14988.1", Manufacturer.MikroTik)]
     [InlineData("1.3.6.1.4.1.41112.1.6", Manufacturer.Ubiquiti)]
@@ -35,6 +40,19 @@ public class VendorDetectorTests
     [InlineData(null)]
     public void Unknown_or_malformed_falls_back_to_generic(string? oid) =>
         VendorDetector.Detect(oid).Should().Be(Manufacturer.OtherGeneric);
+
+    [Fact]
+    public void Shared_broadcom_number_4413_is_not_extreme_and_is_ubiquiti_only_when_sysDescr_says_so()
+    {
+        VendorDetector.Detect("1.3.6.1.4.1.4413.1.1").Should().Be(Manufacturer.OtherGeneric, "4413 alone is ambiguous");
+        VendorDetector.Detect("1.3.6.1.4.1.4413.1.1", "EdgeSwitch 24-Port 250W, 1.9.0").Should().Be(Manufacturer.Ubiquiti);
+        VendorDetector.Detect("1.3.6.1.4.1.4413.1.1", "USW-24-PoE, 6.5.59").Should().Be(Manufacturer.Ubiquiti);
+        VendorDetector.Detect("1.3.6.1.4.1.4413.1.1", "Some other FASTPATH switch").Should().Be(Manufacturer.OtherGeneric);
+    }
+
+    [Fact]
+    public void More_specific_prefixes_beat_the_enterprise_number() =>
+        VendorDetector.Detect(".1.3.6.1.4.1.347.2.5730").Should().Be(Manufacturer.ExtremeNetworks);
 
     [Fact]
     public void Manual_selection_overrides_detection()

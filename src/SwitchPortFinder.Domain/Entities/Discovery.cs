@@ -19,6 +19,9 @@ public class SwitchPort
     public int? Vlan { get; set; }
     public PortType PortType { get; set; }
     public NeighborConfidence Confidence { get; set; }
+    public PortSupport Support { get; set; }
+    /// <summary>Number of VLANs this port is a member of (Q-BRIDGE static egress ports).</summary>
+    public int VlanCount { get; set; }
     /// <summary>The winning neighbor row that explains this port's classification (for uplinks).</summary>
     public long? NeighborId { get; set; }
     public DateTime LastSeen { get; set; }
@@ -136,4 +139,20 @@ public class AppSetting
     public string Key { get; set; } = "";
     public string Value { get; set; } = "";
     public DateTime UpdatedAt { get; set; }
+}
+
+/// <summary>A local account (only used when Authentication:Mode = Local). Only a salted PBKDF2 hash is stored, never the password.</summary>
+public class AppUser
+{
+    public int Id { get; set; }
+    public string Username { get; set; } = "";
+    /// <summary>Lower-cased username: unique, case-insensitive on every database.</summary>
+    public string UsernameNormalized { get; set; } = "";
+    public string PasswordHash { get; set; } = "";
+    public UserRole Role { get; set; }
+    public bool Disabled { get; set; }
+    public int FailedLogins { get; set; }
+    public DateTime? LockedUntil { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public DateTime? LastLoginAt { get; set; }
 }

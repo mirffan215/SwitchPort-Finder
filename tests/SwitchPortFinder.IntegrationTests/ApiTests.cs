@@ -197,8 +197,8 @@ public class ApiTests(ApiFixture fx)
         await Capture(await _http.GetAsync("/api/switches/999999"));   // error path
 
         var logs = fx.Logs.ToString();
-        var db = Encoding.Latin1.GetString(File.ReadAllBytes(fx.DbPath));
-        var wal = File.Exists(fx.DbPath + "-wal") ? Encoding.Latin1.GetString(File.ReadAllBytes(fx.DbPath + "-wal")) : "";
+        var db = fx.DumpDatabaseText();    // SQLite: the raw database file; SQL Server: every text column of every table
+        var wal = "";
         foreach (var s in secrets)
         {
             responses.ToString().Should().NotContain(s, $"API output must not contain '{s}'");

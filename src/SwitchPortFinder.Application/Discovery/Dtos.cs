@@ -20,7 +20,7 @@ public record NeighborDto(
 
 public record PortRowDto(
     int PortId, int IfIndex, string Name, string? Alias, string Status, PortType Type, long SpeedMbps, int? Vlan,
-    int MacCount, string? PhysAddress, IReadOnlyList<PortDeviceDto> Devices, NeighborDto? Neighbor);
+    int MacCount, string? PhysAddress, IReadOnlyList<PortDeviceDto> Devices, NeighborDto? Neighbor, IReadOnlyList<string> Supporting);
 
 public record NeighborRowDto(int PortId, int IfIndex, string PortName, NeighborDto Neighbor);
 

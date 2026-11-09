@@ -58,7 +58,7 @@ export interface Neighbor {
   remoteName?: string | null; remoteChassis?: string | null; remotePort?: string | null; remotePortIfIndex?: number | null; remoteIp?: string | null; platform?: string | null;
   confidence: NeighborConfidence; evidence?: string | null; capabilities: string; canAdd: boolean;
 }
-export interface PortRow { portId: number; ifIndex: number; name: string; alias?: string | null; status: 'UP' | 'DOWN'; type: PortType; speedMbps: number; vlan?: number | null; macCount: number; physAddress?: string | null; devices: PortDevice[]; neighbor?: Neighbor | null }
+export interface PortRow { portId: number; ifIndex: number; name: string; alias?: string | null; status: 'UP' | 'DOWN'; type: PortType; speedMbps: number; vlan?: number | null; macCount: number; physAddress?: string | null; devices: PortDevice[]; neighbor?: Neighbor | null; supporting: string[] }
 export interface PortsResponse { summary: { total: number; connected: number; down: number; uplinks: number; lastScan?: string | null }; ports: PortRow[]; hasArpSource: boolean }
 export interface DeviceRow { id: number; hostname: string; hostnameSource: string; ip?: string | null; mac: string; switchId?: number | null; switchName?: string | null; portId?: number | null; ifIndex?: number | null; portName?: string | null; vlan?: number | null; state: 'Active' | 'Offline' | 'Stale'; firstSeen: string; lastSeen: string; lowConfidence: boolean }
 export interface Paged<T> { items: T[]; total: number; page: number; pageSize: number }
@@ -84,6 +84,10 @@ export interface RuntimeSettings {
   offlineAfterMinutes: number; staleAfterDays: number; scanIntervalMinutes: number; dnsTimeoutMs: number; hostnameRefreshHours: number; uplinkHeuristicMinMacs: number; uplinkHeuristicRatio: number;
 }
 
+export type UserRole = 'Viewer' | 'Admin';
+export interface Me { authRequired: boolean; authenticated: boolean; username?: string | null; role?: UserRole | null }
+export interface UserDto { id: number; username: string; role: UserRole; disabled: boolean; locked: boolean; createdAt: string; lastLoginAt?: string | null }
+
 export class ApiError extends Error {
   constructor(public status: number, message: string, public fieldErrors: Record<string, string[]> = {}) { super(message); }
 }
@@ -93,6 +97,7 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
   if (res.status === 204) return undefined as T;
   const ct = res.headers.get('content-type') ?? '';
   const body = ct.includes('json') ? await res.json() : null;
+  if (res.status === 401 && !url.startsWith('/api/auth/')) window.dispatchEvent(new Event('spf-unauthorized'));
   if (!res.ok) {
     const msg = body?.detail ?? body?.title ?? `Request failed (${res.status})`;
     throw new ApiError(res.status, msg, body?.errors ?? {});
@@ -122,6 +127,14 @@ export const api = {
   search: (q: string) => request<SearchResponse>(`/api/search?q=${encodeURIComponent(q)}`),
   device: (id: number) => request<DeviceDetail>(`/api/devices/${id}`),
   trace: (id: number) => request<TraceResult>(`/api/devices/${id}/trace`),
+  me: () => request<Me>('/api/auth/me'),
+  login: (username: string, password: string) => request<Me>('/api/auth/login', json('POST', { username, password })),
+  logout: () => request<void>('/api/auth/logout', { method: 'POST' }),
+  changePassword: (currentPassword: string, newPassword: string) => request<void>('/api/auth/change-password', json('POST', { currentPassword, newPassword })),
+  users: () => request<UserDto[]>('/api/users'),
+  createUser: (u: { username: string; password: string; role: UserRole }) => request<UserDto>('/api/users', json('POST', u)),
+  updateUser: (id: number, u: { role?: UserRole; disabled?: boolean; newPassword?: string }) => request<UserDto>(`/api/users/${id}`, json('PUT', u)),
+  deleteUser: (id: number) => request<void>(`/api/users/${id}`, { method: 'DELETE' }),
   settings: () => request<RuntimeSettings>('/api/settings'),
   saveSettings: (s: RuntimeSettings) => request<RuntimeSettings>('/api/settings', json('PUT', s)),
   topology: () => request<Topology>('/api/topology'),

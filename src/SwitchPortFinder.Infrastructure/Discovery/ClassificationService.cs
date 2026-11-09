@@ -26,7 +26,7 @@ public class ClassificationService(AppDbContext db, IOptions<DiscoveryOptions> o
         finally { Gate.Release(); }
     }
 
-    private sealed record PRow(int Id, int SwitchId, int IfIndex, string Name, bool OperUp, string? PhysAddress, PortType Type, NeighborConfidence Confidence, long? NeighborId);
+    private sealed record PRow(int Id, int SwitchId, int IfIndex, string Name, bool OperUp, string? PhysAddress, PortType Type, NeighborConfidence Confidence, long? NeighborId, PortSupport Support, int VlanCount);
     private sealed record NRow(long Id, int SwitchId, int PortId, NeighborProtocol Protocol, string? ChassisMac, string? MgmtIp, string? SysName, NeighborCaps Caps, int? MatchedSwitchId, string? Evidence);
 
     /// <summary>
@@ -39,13 +39,13 @@ public class ClassificationService(AppDbContext db, IOptions<DiscoveryOptions> o
         await db.SaveChangesAsync(ct);   // make this unit of work's pending changes visible to the reads below
         var switches = await db.Switches.AsNoTracking().Select(s => new { s.Id, s.Name, s.ManagementIp, s.SysName }).ToListAsync(ct);
         var macsBySwitch = (await db.SwitchMacs.AsNoTracking().Select(m => new { m.SwitchId, m.Mac }).ToListAsync(ct)).GroupBy(m => m.SwitchId).ToDictionary(g => g.Key, g => g.Select(m => m.Mac).ToHashSet());
-        var ports = await db.SwitchPorts.AsNoTracking().Select(p => new PRow(p.Id, p.SwitchId, p.IfIndex, p.Name, p.OperUp, p.PhysAddress, p.PortType, p.Confidence, p.NeighborId)).ToListAsync(ct);
+        var ports = await db.SwitchPorts.AsNoTracking().Select(p => new PRow(p.Id, p.SwitchId, p.IfIndex, p.Name, p.OperUp, p.PhysAddress, p.PortType, p.Confidence, p.NeighborId, p.Support, p.VlanCount)).ToListAsync(ct);
         foreach (var p in ports.Where(p => p.PhysAddress is not null)) { if (!macsBySwitch.TryGetValue(p.SwitchId, out var set)) macsBySwitch[p.SwitchId] = set = []; set.Add(p.PhysAddress!); }
         var neighbors = await db.Neighbors.AsNoTracking().Select(n => new NRow(n.Id, n.SwitchId, n.PortId, n.Protocol, n.ChassisMac, n.MgmtIp, n.SysName, n.Caps, n.MatchedSwitchId, n.Evidence)).ToListAsync(ct);
         var obs = await db.Observations.AsNoTracking().Select(x => new { x.SwitchId, x.PortId, x.Mac, x.Vlan, x.LastSeen }).ToListAsync(ct);
 
         var swRefs = switches.Select(s => new SwitchRef(s.Id, s.Name, s.ManagementIp, s.SysName, macsBySwitch.GetValueOrDefault(s.Id) ?? [])).ToList();
-        var portRefs = ports.Select(p => new PortRef(p.Id, p.SwitchId, p.IfIndex, p.Name, p.OperUp)).ToList();
+        var portRefs = ports.Select(p => new PortRef(p.Id, p.SwitchId, p.IfIndex, p.Name, p.OperUp, p.Support, p.VlanCount)).ToList();
         var nbRefs = neighbors.Where(n => n.Protocol != NeighborProtocol.Inferred).Select(n => new NeighborRef(n.Id, n.SwitchId, n.PortId, n.Protocol, n.ChassisMac, n.MgmtIp, n.SysName, n.Caps)).ToList();
         var obsRefs = obs.Select(x => new ObsRef(x.SwitchId, x.PortId, x.Mac)).ToList();
         var result = UplinkClassifier.Classify(swRefs, portRefs, nbRefs, obsRefs, o.UplinkHeuristicMinMacs, o.UplinkHeuristicRatio);

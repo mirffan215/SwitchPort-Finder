@@ -3,7 +3,7 @@ using SwitchPortFinder.Domain.Enums;
 namespace SwitchPortFinder.Application.Discovery;
 
 public record SwitchRef(int Id, string Name, string Ip, string? SysName, IReadOnlySet<string> Macs);
-public record PortRef(int PortId, int SwitchId, int IfIndex, string Name, bool OperUp);
+public record PortRef(int PortId, int SwitchId, int IfIndex, string Name, bool OperUp, PortSupport Support = PortSupport.None, int VlanCount = 0);
 public record NeighborRef(long Id, int SwitchId, int PortId, NeighborProtocol Protocol, string? ChassisMac, string? MgmtIp, string? SysName, NeighborCaps Caps);
 public record ObsRef(int SwitchId, int PortId, string Mac);
 
@@ -78,24 +78,27 @@ public static class UplinkClassifier
             {
                 var x = owners[0].First()!;
                 verdicts[p.PortId] = new PortVerdict(p.PortId, PortType.SwitchUplink, NeighborConfidence.LikelySwitch,
-                    $"MAC table: this port learned {owners[0].Count()} MAC address(es) belonging to switch {x.Name}", x.Id, null, true);
+                    $"MAC table: this port learned {owners[0].Count()} MAC address(es) belonging to switch {x.Name}{SupportText(p)}", x.Id, null, true);
                 continue;
             }
 
             // 3b: unusually many MACs that are ALSO learned on edge-like ports (fewer MACs) of other switches.
-            if (macs.Count < minMacs) continue;
+            // Supporting evidence (STP root port / tagged VLANs / "uplink" description) is NEVER enough by itself; it only lowers the MAC-count bar by one,
+            // and the overlap ratio and an absolute minimum of 2 foreign-edge MACs are still required.
+            var needMacs = p.Support != PortSupport.None ? Math.Max(2, minMacs - 1) : minMacs;
+            if (macs.Count < needMacs) continue;
             var elsewhere = new List<ObsRef>();
             foreach (var m in macs)
             {
                 var edge = obsByMac[m].Where(o => o.SwitchId != p.SwitchId && macsByPort[o.PortId].Count < macs.Count).OrderBy(o => macsByPort[o.PortId].Count).FirstOrDefault();
                 if (edge is not null) elsewhere.Add(edge);
             }
-            if (elsewhere.Count >= minMacs - 1 && elsewhere.Count >= ratio * macs.Count)
+            if (elsewhere.Count >= Math.Max(2, needMacs - 1) && elsewhere.Count >= ratio * macs.Count)
             {
                 var top = elsewhere.GroupBy(o => o.SwitchId).OrderByDescending(g => g.Count()).First();
                 int? linked = top.Count() >= ratio * elsewhere.Count ? top.Key : null;
                 verdicts[p.PortId] = new PortVerdict(p.PortId, PortType.SwitchUplink, NeighborConfidence.LikelySwitch,
-                    $"MAC table: {elsewhere.Count} of {macs.Count} MACs on this port are also learned on edge ports of other switches", linked, null, true);
+                    $"MAC table: {elsewhere.Count} of {macs.Count} MACs on this port are also learned on edge ports of other switches{SupportText(p)}", linked, null, true);
             }
         }
 
@@ -118,6 +121,16 @@ public static class UplinkClassifier
             else if (Short(n.SysName) is { } k && byName.TryGetValue(k, out var c)) m = c;
             return m is not null && m.Id != localSwitchId ? m : null;
         }
+    }
+
+    /// <summary>Human-readable supporting evidence, appended to the evidence text. Informational only.</summary>
+    public static string SupportText(PortRef p)
+    {
+        var parts = new List<string>();
+        if (p.Support.HasFlag(PortSupport.StpRootPort)) parts.Add("it is the spanning-tree root port");
+        if (p.Support.HasFlag(PortSupport.TaggedVlans)) parts.Add($"it carries tagged VLANs ({p.VlanCount} VLAN memberships)");
+        if (p.Support.HasFlag(PortSupport.DescriptionHint)) parts.Add("its description suggests an uplink");
+        return parts.Count == 0 ? "" : "; supporting evidence: " + string.Join(", ", parts);
     }
 
     private static int Rank(PortVerdict v) => v.Type == PortType.SwitchUplink ? 3 : v.Type == PortType.Endpoint ? 2 : 1;

@@ -1,26 +1,91 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { api, type CredentialInput, type ImportCommit, type ImportPreview, type ProfileDto, type RuntimeSettings } from '../api';
+import { api, type CredentialInput, type ImportCommit, type ImportPreview, type ProfileDto, type RuntimeSettings, type UserRole } from '../api';
+import { useAuth } from '../components/Auth';
 import { ErrorBox, Field } from '../components/Bits';
 import CredentialFields, { emptyCredential } from '../components/CredentialFields';
 
-type Tab = 'profiles' | 'import' | 'general';
+type Tab = 'profiles' | 'import' | 'general' | 'users' | 'account';
 
 export default function SettingsPage() {
-  const [tab, setTab] = useState<Tab>('import');
+  const { me, canWrite } = useAuth();
+  const [tab, setTab] = useState<Tab>(canWrite ? 'import' : 'account');
   return (
     <section>
       <h1>Settings</h1>
       <div className="tabs">
-        <button className={tab === 'import' ? 'active' : ''} onClick={() => setTab('import')}>Admin · Import Switches</button>
-        <button className={tab === 'profiles' ? 'active' : ''} onClick={() => setTab('profiles')}>Admin · Credential Profiles</button>
-        <button className={tab === 'general' ? 'active' : ''} onClick={() => setTab('general')}>General</button>
+        {canWrite && <button className={tab === 'import' ? 'active' : ''} onClick={() => setTab('import')}>Admin · Import Switches</button>}
+        {canWrite && <button className={tab === 'profiles' ? 'active' : ''} onClick={() => setTab('profiles')}>Admin · Credential Profiles</button>}
+        {canWrite && <button className={tab === 'general' ? 'active' : ''} onClick={() => setTab('general')}>General</button>}
+        {canWrite && me.authRequired && <button className={tab === 'users' ? 'active' : ''} onClick={() => setTab('users')}>Admin · Users</button>}
+        {me.authRequired && <button className={tab === 'account' ? 'active' : ''} onClick={() => setTab('account')}>My account</button>}
       </div>
-      {tab === 'import' && <ImportTab />}
-      {tab === 'profiles' && <ProfilesTab />}
-      {tab === 'general' && <GeneralTab />}
+      {!canWrite && !me.authRequired && <p>Not available.</p>}
+      {canWrite && tab === 'import' && <ImportTab />}
+      {canWrite && tab === 'profiles' && <ProfilesTab />}
+      {canWrite && tab === 'general' && <GeneralTab />}
+      {canWrite && tab === 'users' && <UsersTab />}
+      {tab === 'account' && <AccountTab />}
     </section>
+  );
+}
+
+function AccountTab() {
+  const [cur, setCur] = useState(''); const [pw, setPw] = useState(''); const [pw2, setPw2] = useState(''); const [done, setDone] = useState(false);
+  const change = useMutation({ mutationFn: () => api.changePassword(cur, pw), onSuccess: () => { setDone(true); setCur(''); setPw(''); setPw2(''); } });
+  return (
+    <form className="form" onSubmit={(e) => { e.preventDefault(); setDone(false); change.mutate(); }}>
+      <h3>Change password</h3>
+      <Field label="Current password"><input type="password" autoComplete="current-password" value={cur} onChange={(e) => setCur(e.target.value)} required /></Field>
+      <Field label="New password" hint="At least 12 characters; must not contain your username."><input type="password" autoComplete="new-password" value={pw} onChange={(e) => setPw(e.target.value)} required /></Field>
+      <Field label="Repeat new password"><input type="password" autoComplete="new-password" value={pw2} onChange={(e) => setPw2(e.target.value)} required /></Field>
+      {pw2 && pw !== pw2 && <div className="alert error">The new passwords do not match.</div>}
+      <ErrorBox error={change.error} />
+      {done && <div className="alert success">✓ Password changed.</div>}
+      <div className="buttons"><button className="btn primary" disabled={change.isPending || !cur || !pw || pw !== pw2}>Change password</button></div>
+    </form>
+  );
+}
+
+function UsersTab() {
+  const qc = useQueryClient(); const { me } = useAuth();
+  const { data, error } = useQuery({ queryKey: ['users'], queryFn: api.users });
+  const refresh = () => qc.invalidateQueries({ queryKey: ['users'] });
+  const [name, setName] = useState(''); const [pw, setPw] = useState(''); const [role, setRole] = useState<UserRole>('Viewer');
+  const create = useMutation({ mutationFn: () => api.createUser({ username: name, password: pw, role }), onSuccess: () => { setName(''); setPw(''); refresh(); } });
+  const update = useMutation({ mutationFn: (a: { id: number; body: { role?: UserRole; disabled?: boolean; newPassword?: string } }) => api.updateUser(a.id, a.body), onSuccess: refresh });
+  const del = useMutation({ mutationFn: api.deleteUser, onSuccess: refresh });
+  return (
+    <div>
+      <p className="muted"><strong>Admin</strong> can change anything. <strong>Viewer</strong> can search, browse, trace and export, but cannot add, edit, scan or delete. Passwords are stored only as salted hashes. An account is locked for a while after repeated wrong passwords.</p>
+      <ErrorBox error={error ?? update.error ?? del.error} />
+      <div className="tablewrap"><table>
+        <thead><tr><th>User</th><th>Role</th><th>Status</th><th>Last sign-in</th><th /></tr></thead>
+        <tbody>{data?.map((u) => (
+          <tr key={u.id}>
+            <td>{u.username}{u.username.toLowerCase() === me.username?.toLowerCase() && <span className="tag">you</span>}</td>
+            <td><select value={u.role} onChange={(e) => update.mutate({ id: u.id, body: { role: e.target.value as UserRole } })}><option>Viewer</option><option>Admin</option></select></td>
+            <td>{u.disabled ? <span className="badge bad">Disabled</span> : u.locked ? <span className="badge warnb">Locked</span> : <span className="badge ok">Active</span>}</td>
+            <td>{u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleString() : '—'}</td>
+            <td className="actions">
+              <button className="link" onClick={() => update.mutate({ id: u.id, body: { disabled: !u.disabled } })}>{u.disabled ? 'Enable' : 'Disable'}</button>
+              <button className="link" onClick={() => { const p = prompt(`New password for ${u.username} (12+ characters):`); if (p) update.mutate({ id: u.id, body: { newPassword: p } }); }}>Reset password</button>
+              <button className="link danger" onClick={() => confirm(`Delete ${u.username}?`) && del.mutate(u.id)}>Delete</button>
+            </td>
+          </tr>))}</tbody>
+      </table></div>
+      <form className="form modal" onSubmit={(e) => { e.preventDefault(); create.mutate(); }}>
+        <h3>Add user</h3>
+        <div className="row">
+          <Field label="Username"><input value={name} onChange={(e) => setName(e.target.value)} required autoComplete="off" /></Field>
+          <Field label="Password" hint="At least 12 characters."><input type="password" value={pw} onChange={(e) => setPw(e.target.value)} required autoComplete="new-password" /></Field>
+          <Field label="Role"><select value={role} onChange={(e) => setRole(e.target.value as UserRole)}><option>Viewer</option><option>Admin</option></select></Field>
+        </div>
+        <ErrorBox error={create.error} />
+        <div className="buttons"><button className="btn primary" disabled={create.isPending}>Add user</button></div>
+      </form>
+    </div>
   );
 }
 

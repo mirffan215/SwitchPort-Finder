@@ -55,7 +55,7 @@ public sealed class SnmpSwitchScanner(ISnmpClient snmp, IOptions<SnmpOptions> sn
             var (model, serial) = await EntityInfo(target, ct);
             res.System = new SystemInfo(T(Oids.SysName), T(Oids.SysDescr), objId,
                 vbs.FirstOrDefault(v => v.Oid == Oids.SysUpTime)?.Value.Number ?? 0, model, serial);
-            res.DetectedManufacturer = VendorDetector.Detect(objId);
+            res.DetectedManufacturer = VendorDetector.Detect(objId, T(Oids.SysDescr));
             return null;
         });
         if (!res.Reachable) return res;
@@ -63,6 +63,7 @@ public sealed class SnmpSwitchScanner(ISnmpClient snmp, IOptions<SnmpOptions> sn
         var effective = VendorDetector.Effective(req.Selected, res.DetectedManufacturer);
         var provider = ProviderRegistry.For(effective);
         var basePortMap = new Dictionary<int, int>();
+        await FillVendorInfo(target, provider, res, ct);   // model/serial from vendor MIBs when ENTITY-MIB had none
 
         // 2. Interfaces
         await Run(Steps.Interfaces, async () =>
@@ -110,6 +111,7 @@ public sealed class SnmpSwitchScanner(ISnmpClient snmp, IOptions<SnmpOptions> sn
                 try { foreach (var (ifx, v) in OidTable.Column(await snmp.WalkAsync(target, Oids.CiscoVmVlan, ct), Oids.CiscoVmVlan)) res.PvidByIfIndex[ifx] = (int)v.Number; }
                 catch (SnmpException) { }
             }
+            await CollectSupport(target, res, basePortMap, ct);
             res.Vlans.Sort();
             if (res.Vlans.Count == 0) warn ??= "No VLAN information available.";
             if (warn is not null) res.Errors.Add(new ScanError(Steps.Vlans, "OidUnavailable", warn));
@@ -217,6 +219,51 @@ public sealed class SnmpSwitchScanner(ISnmpClient snmp, IOptions<SnmpOptions> sn
         }
         else await onStep(new StepResult(Steps.Cdp, StepState.Skipped, "CDP does not apply to this manufacturer."));
         return res;
+    }
+
+    /// <summary>Spanning-tree root port, tagged-VLAN membership and description hints. Optional, never fails the step.</summary>
+    internal async Task CollectSupport(SnmpTarget t, ScanResult res, IReadOnlyDictionary<int, int> basePortMap, CancellationToken ct)
+    {
+        try
+        {
+            int? root = await TryGet(t, Oids.Dot1dStpRootPort, ct) is { } v ? (int)v.Number : null;
+            var vlans = new Dictionary<int, (int, int)>();
+            try
+            {
+                var eg = await snmp.WalkAsync(t, Oids.Dot1qVlanStaticEgressPorts, ct);
+                if (eg.Count > 0) vlans = SupportParser.VlanMembership(eg, await snmp.WalkAsync(t, Oids.Dot1qVlanStaticUntaggedPorts, ct), basePortMap);
+            }
+            catch (SnmpException) { /* VLAN membership is optional */ }
+            foreach (var kv in SupportParser.Build(res.Interfaces, root, basePortMap, vlans)) res.Support[kv.Key] = kv.Value;
+        }
+        catch (SnmpException) { /* optional */ }
+    }
+
+    /// <summary>Vendor model/serial fallbacks (only OIDs verified against the vendor MIB). Optional: any failure is ignored.</summary>
+    internal async Task FillVendorInfo(SnmpTarget t, ISwitchDiscoveryProvider provider, ScanResult res, CancellationToken ct)
+    {
+        if (res.System is not { } sys) return;
+        async Task<string?> First(IReadOnlyList<VendorOid> oids)
+        {
+            foreach (var o in oids)
+            {
+                try
+                {
+                    if (o.Scalar) { if (await TryGet(t, o.Oid, ct) is { } v && v.ToString().Trim() is { Length: > 0 } text) return text; }
+                    else
+                    {
+                        var rows = await snmp.WalkAsync(t, o.Oid, ct);
+                        var hit = OidTable.Column(rows, o.Oid).Select(c => c.Value).FirstOrDefault(v => !v.IsMissing && v.ToString().Trim().Length > 0);
+                        if (hit is not null) return hit.ToString().Trim();
+                    }
+                }
+                catch (SnmpException) { /* optional */ }
+            }
+            return null;
+        }
+        var model = string.IsNullOrWhiteSpace(sys.Model) ? await First(provider.ModelOids) : sys.Model;
+        var serial = string.IsNullOrWhiteSpace(sys.Serial) ? await First(provider.SerialOids) : sys.Serial;
+        res.System = sys with { Model = model, Serial = serial };
     }
 
     private static string LldpUnavailable(ScanResult res)

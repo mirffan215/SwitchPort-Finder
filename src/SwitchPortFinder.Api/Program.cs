@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using SwitchPortFinder.Api.Infrastructure;
 using SwitchPortFinder.Application.Common;
 using SwitchPortFinder.Discovery;
@@ -21,9 +22,14 @@ builder.Services.Configure<DiscoveryOptions>(builder.Configuration.GetSection(Di
 builder.Services.Configure<ExportOptions>(builder.Configuration.GetSection(ExportOptions.Section));
 builder.Services.Configure<ImportOptions>(builder.Configuration.GetSection(ImportOptions.Section));
 builder.Services.Configure<SecurityOptions>(builder.Configuration.GetSection(SecurityOptions.Section));
+builder.Services.Configure<AuthOptions>(builder.Configuration.GetSection(AuthOptions.Section));
+var authOptions = builder.Configuration.GetSection(AuthOptions.Section).Get<AuthOptions>() ?? new AuthOptions();
 builder.WebHost.ConfigureKestrel(k => k.Limits.MaxRequestBodySize = 20 * 1024 * 1024);
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddDiscovery();
+builder.Services.AddHttpContextAccessor();
+builder.Services.RemoveAll<SwitchPortFinder.Application.Abstractions.IUserAuthorizationService>();
+builder.Services.AddSingleton<SwitchPortFinder.Application.Abstractions.IUserAuthorizationService, HttpContextUserAuthorizationService>();
 
 builder.Services.AddControllers().AddJsonOptions(o =>
     o.JsonSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter()))
@@ -47,13 +53,21 @@ builder.Services.AddSwaggerGen();
 builder.Services.Configure<FormOptions>(o => o.MultipartBodyLengthLimit = builder.Configuration.GetValue("Import:MaxFileBytes", 10 * 1024 * 1024));
 
 builder.Services.AddScoped<IAuthorizationHandler, AdminOnlyHandler>();
-builder.Services.AddAuthorization(o => o.AddPolicy(Policies.AdminOnly, p => p.AddRequirements(new AdminOnlyRequirement())));
+builder.Services.AddAuthorization(o =>
+{
+    o.AddPolicy(Policies.AdminOnly, p => p.AddRequirements(new AdminOnlyRequirement()));
+    if (authOptions.IsLocal) o.FallbackPolicy = new Microsoft.AspNetCore.Authorization.AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build();   // every endpoint needs a login unless [AllowAnonymous]
+});
+if (authOptions.IsLocal)
+    builder.Services.AddAuthentication(AuthSetup.Scheme).AddCookie(AuthSetup.Scheme, o => AuthSetup.Configure(o, authOptions));
 
 // The SNMP test endpoints make the server send packets to a user-supplied address: rate-limit them per client.
 builder.Services.AddRateLimiter(o =>
 {
     o.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
     var perMinute = builder.Configuration.GetValue("Security:SnmpTestsPerMinute", 30);
+    o.AddPolicy("login", ctx => RateLimitPartition.GetFixedWindowLimiter(ctx.Connection.RemoteIpAddress?.ToString() ?? "local",
+        _ => new FixedWindowRateLimiterOptions { PermitLimit = authOptions.LoginsPerMinute, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
     o.AddPolicy("snmp-test", ctx => RateLimitPartition.GetFixedWindowLimiter(ctx.Connection.RemoteIpAddress?.ToString() ?? "local",
         _ => new FixedWindowRateLimiterOptions { PermitLimit = perMinute, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
 });
@@ -73,6 +87,7 @@ if (app.Configuration.GetValue("Database:AutoMigrate", false))
     if (db.Database.IsSqlite()) db.Database.EnsureCreated(); else db.Database.Migrate();
 }
 await app.Services.GetRequiredService<SwitchPortFinder.Infrastructure.Persistence.SettingsService>().LoadAsync();
+using (var scope = app.Services.CreateScope()) { try { await scope.ServiceProvider.GetRequiredService<SwitchPortFinder.Infrastructure.Security.UserService>().EnsureBootstrapAdminAsync(default); } catch (Exception ex) { app.Logger.LogWarning(ex, "Could not create the bootstrap administrator (is the database migrated?)"); } }
 
 if (app.Environment.IsDevelopment())
 {
@@ -83,11 +98,13 @@ if (app.Environment.IsDevelopment())
 // Plain HTTP in V1. To enable HTTPS later add an Https endpoint under Kestrel:Endpoints and call app.UseHttpsRedirection().
 app.UseDefaultFiles();
 app.UseStaticFiles();
+app.UseAuthentication();
 app.UseAuthorization();
+app.UseMiddleware<WriteRequiresAdminMiddleware>();
 app.MapControllers();
-app.MapGet("/api/health", () => Results.Ok(new { status = "ok" }));
-app.MapFallback("/api/{**path}", () => Results.Problem(statusCode: 404, title: "Not found"));   // unknown API paths are JSON 404s, never the HTML shell
-app.MapFallbackToFile("index.html");   // React SPA routes (/switches/1 etc.)
+app.MapGet("/api/health", () => Results.Ok(new { status = "ok" })).AllowAnonymous();
+app.MapFallback("/api/{**path}", () => Results.Problem(statusCode: 404, title: "Not found")).AllowAnonymous();   // unknown API paths are JSON 404s, never the HTML shell
+app.MapFallbackToFile("index.html").AllowAnonymous();   // React SPA routes (/switches/1 etc.)
 
 app.Run();
 

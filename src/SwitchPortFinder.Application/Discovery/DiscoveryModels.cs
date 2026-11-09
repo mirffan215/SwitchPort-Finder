@@ -41,6 +41,8 @@ public enum FdbKind { Learned, Self, Static, Other, Invalid }
 /// <summary>One forwarding-table row. <see cref="IfIndex"/> is already mapped from the bridge port (null when unmappable).</summary>
 public record FdbEntry(string Mac, int? Vlan, int BridgePort, int? IfIndex, FdbKind Kind);
 
+public record SupportInfo(PortSupport Flags, int VlanCount);
+
 public record ArpInfo(string Ip, string Mac, int? IfIndex);
 
 public class ScanResult
@@ -50,6 +52,8 @@ public class ScanResult
     public List<InterfaceInfo> Interfaces { get; } = [];
     public Dictionary<int, int> PvidByIfIndex { get; } = [];
     public List<int> Vlans { get; } = [];
+    /// <summary>Supporting evidence per ifIndex (STP root port, tagged VLAN membership, description hint).</summary>
+    public Dictionary<int, SupportInfo> Support { get; } = [];
     public List<FdbEntry> Fdb { get; } = [];
     public string FdbSource { get; set; } = "";
     public List<ArpInfo> Arp { get; } = [];

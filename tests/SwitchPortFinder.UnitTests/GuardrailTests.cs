@@ -59,12 +59,18 @@ public class GuardrailTests
     }
 
     [Fact]
-    public void Credentials_are_never_interpolated_into_log_messages_in_production_code()
+    public void Credentials_are_never_passed_to_log_calls_in_production_code()
     {
-        // Cheap tripwire: a log call that mentions a secret-bearing member by name.
-        var secretNames = new Regex(@"\b(Community|AuthPassword|PrivPassword|Password|EncryptedSecrets|\.Username)\b");
+        // Cheap tripwire: a log call whose *arguments* (string literals removed) mention a secret-bearing member. Message text such as
+        // "bad password for {User}" is fine; passing a password/community/hash value is not.
+        var secretNames = new Regex(@"\b(Community|AuthPassword|PrivPassword|Password|PasswordHash|NewPassword|CurrentPassword|EncryptedSecrets)\b");
+        var username = new Regex(@"\.Username\b");
         var logCall = new Regex(@"\blog(ger)?\.Log(Trace|Debug|Information|Warning|Error|Critical)\(|_log\.");
-        var hits = Lines(Files("src", ".cs")).Where(l => logCall.IsMatch(l.Text) && secretNames.IsMatch(l.Text)).ToList();
+        var literal = new Regex("\"(?:[^\"\\\\]|\\\\.)*\"");
+        var hits = Lines(Files("src", ".cs")).Where(l => logCall.IsMatch(l.Text)).Select(l => (l, args: literal.Replace(l.Text[logCall.Match(l.Text).Index..], "\"\"")))   // only the log call itself, not an `if (...)` before it on the same line
+            .Where(x => secretNames.IsMatch(x.args)
+                // SNMPv3 usernames are credentials; the portal's own ACCOUNT names (UserService) are not, and are logged for audit.
+                || (username.IsMatch(x.args) && !x.l.File.EndsWith("UserService.cs"))).Select(x => x.l).ToList();
         hits.Should().BeEmpty(string.Join("; ", hits.Select(h => $"{Path.GetFileName(h.File)}:{h.Line}")));
     }
 }

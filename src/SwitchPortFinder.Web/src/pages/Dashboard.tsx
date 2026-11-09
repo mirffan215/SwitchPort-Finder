@@ -2,15 +2,17 @@ import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { api } from '../api';
 import { ErrorBox, StateBadge, ago } from '../components/Bits';
+import { useAuth } from '../components/Auth';
 
 const BADGE: Record<string, string> = { Completed: 'ok', CompletedWithWarnings: 'warnb', Failed: 'bad', Running: 'info', Queued: 'muted' };
 
 export default function Dashboard() {
+  const { canWrite } = useAuth();
   const { data: d, error } = useQuery({ queryKey: ['dashboard'], queryFn: api.dashboard, refetchInterval: 15_000 });
   const last = d?.lastDiscovery;
   return (
     <section>
-      <div className="toolbar"><h1>Dashboard</h1><div className="spacer" /><Link className="btn" to="/switches/new">+ Add Switch</Link></div>
+      <div className="toolbar"><h1>Dashboard</h1><div className="spacer" />{canWrite && <Link className="btn" to="/switches/new">+ Add Switch</Link>}</div>
       <ErrorBox error={error} />
       <div className="cards">
         <Card n={d?.switches} label="Switches" to="/switches" />

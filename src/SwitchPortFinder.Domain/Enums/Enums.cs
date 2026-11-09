@@ -47,3 +47,9 @@ public enum NeighborCaps
 {
     None = 0, Other = 1, Repeater = 2, Bridge = 4, WlanAp = 8, Router = 16, Telephone = 32, Docsis = 64, Station = 128
 }
+
+/// <summary>Supporting (never sufficient alone) evidence that a port may be an inter-switch link.</summary>
+[Flags]
+public enum PortSupport { None = 0, StpRootPort = 1, TaggedVlans = 2, DescriptionHint = 4 }
+
+public enum UserRole { Viewer = 0, Admin = 1 }

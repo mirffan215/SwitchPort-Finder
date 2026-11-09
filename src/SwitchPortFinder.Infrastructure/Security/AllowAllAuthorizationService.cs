@@ -7,4 +7,5 @@ public class AllowAllAuthorizationService : IUserAuthorizationService
 {
     public Task<bool> IsAdminAsync(CancellationToken ct = default) => Task.FromResult(true);
     public string CurrentUserName => "system";
+    public bool IsAuthenticated => true;
 }

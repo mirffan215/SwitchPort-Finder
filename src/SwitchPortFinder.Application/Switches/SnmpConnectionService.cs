@@ -28,7 +28,7 @@ public class SnmpConnectionService(ISnmpClient snmp, IOptions<SnmpOptions> optio
             string? Text(string oid) => vbs.FirstOrDefault(v => v.Oid == oid) is { Value.IsMissing: false } v ? v.Value.ToString() : null;
             var sysObj = Text(Oids.SysObjectId);
             long? up = vbs.FirstOrDefault(v => v.Oid == Oids.SysUpTime) is { Value.IsMissing: false } u ? u.Value.Number : null;
-            var detected = VendorDetector.Detect(sysObj);
+            var detected = VendorDetector.Detect(sysObj, Text(Oids.SysDescr));
             log.LogInformation("SNMP test succeeded for {Ip} in {Elapsed} ms (detected {Vendor})", ip, sw.ElapsedMilliseconds, detected);
             return new TestConnectionResult(true, "SNMP connection successful", null, Text(Oids.SysName), Text(Oids.SysDescr), sysObj,
                 up, detected, VendorDetector.DisplayName(detected), VendorDetector.Mismatch(selected, detected), sw.ElapsedMilliseconds);

@@ -3,12 +3,14 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, type JobSummary } from '../api';
 import { ErrorBox, fmtDate } from '../components/Bits';
 import ScanProgress from '../components/ScanProgress';
+import { useAuth } from '../components/Auth';
 
 const BADGE: Record<string, string> = { Completed: 'ok', CompletedWithWarnings: 'warnb', Failed: 'bad', Running: 'info', Queued: 'muted' };
 
 export default function DiscoveryPage() {
   const { data, error } = useQuery({ queryKey: ['jobs'], queryFn: () => api.jobs(), refetchInterval: (q) => (q.state.data?.some((j) => j.status === 'Queued' || j.status === 'Running') ? 2000 : false) });
   const qc = useQueryClient();
+  const { canWrite } = useAuth();
   const [open, setOpen] = useState<JobSummary | null>(null);
   const [status, setStatus] = useState(''); const [sw, setSw] = useState('');
   const scanAll = useMutation({ mutationFn: api.scanAll, onSuccess: () => qc.invalidateQueries({ queryKey: ['jobs'] }) });
@@ -20,7 +22,7 @@ export default function DiscoveryPage() {
       <div className="toolbar"><h1>Discovery</h1><div className="spacer" />
         <select value={sw} onChange={(e) => setSw(e.target.value)} aria-label="Switch filter"><option value="">All switches</option>{switches.map((n) => <option key={n}>{n}</option>)}</select>
         <select value={status} onChange={(e) => setStatus(e.target.value)} aria-label="Status filter"><option value="">All statuses</option><option>Completed</option><option value="CompletedWithWarnings">Completed (warnings)</option><option>Failed</option><option>Running</option><option>Queued</option></select>
-        <button className="btn primary" disabled={scanAll.isPending} onClick={() => scanAll.mutate()}>Scan all switches</button></div>
+        {canWrite && <button className="btn primary" disabled={scanAll.isPending} onClick={() => scanAll.mutate()}>Scan all switches</button>}</div>
       <ErrorBox error={error ?? scanAll.error} />
       <div className="tablewrap">
         <table>

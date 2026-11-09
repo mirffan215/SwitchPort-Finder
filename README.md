@@ -3,9 +3,12 @@
 Internal web portal that answers **"Which switch and which port is this device connected to?"**
 Read-only against network equipment (SNMP GET / GETNEXT / GETBULK / walk only — there is no SET anywhere in the code).
 
-> **Status: Phase 1 of 6 (Foundation).** Implemented: add/edit/list/delete switches (manufacturer dropdown), SNMPv2c/v3
-> connection test (real SNMP via SharpSnmpLib), encrypted credential storage, credential profiles, bulk import/export
-> (CSV + Excel, preview → commit). Discovery, search, trace, topology and export of devices come in later phases.
+> **Status: Phase 2 of 6 (Core discovery).** Implemented: switch management, SNMPv2c/v3 test, encrypted credentials, credential
+> profiles, bulk import/export, and **discovery** — background scan queue, system info, interfaces, VLANs, MAC/FDB
+> (Q-BRIDGE → BRIDGE-MIB, Cisco per-VLAN `community@vlan` / context `vlan-N`, bridge-port→ifIndex mapping), ARP from L3/flagged
+> switches with a global IP→MAC join, reverse-DNS hostnames ("Unknown Device" otherwise), port table, device list, job history.
+> **Not yet:** LLDP/CDP, uplink classification (so uplink ports can currently still list downstream MACs — fixed in Phase 3),
+> global search, trace, topology, device export.
 
 ## Quick start (development)
 

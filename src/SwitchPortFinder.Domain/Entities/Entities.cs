@@ -47,6 +47,9 @@ public class Switch
     public string? Location { get; set; }
     public string? Notes { get; set; }
     public bool UseAsArpSource { get; set; }
+    /// <summary>Set by discovery when the device routes (ipForwarding=1) and has an ARP table.</summary>
+    public bool ArpAutoDetected { get; set; }
+    public string? SerialNumber { get; set; }
     public string? SysObjectId { get; set; }
     public string? SysName { get; set; }
     public string? SysDescr { get; set; }

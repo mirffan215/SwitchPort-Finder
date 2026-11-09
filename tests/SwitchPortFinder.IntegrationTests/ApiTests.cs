@@ -176,7 +176,13 @@ public class ApiTests(ApiFixture fx)
         var responses = new StringBuilder();
         async Task<string> Capture(HttpResponseMessage r) { var s = await r.Content.ReadAsStringAsync(); responses.AppendLine(s); return s; }
 
-        await Capture(await _http.PostAsJsonAsync("/api/switches", V2("Leak-v2", Ip(), secrets[0]), Json));
+        var leakSw = await Ok<SwitchDetailDto>(await _http.PostAsJsonAsync("/api/switches", V2("Leak-v2", Ip(), secrets[0]), Json));
+        var scanResp = await _http.PostAsync($"/api/switches/{leakSw.Id}/scan", null);          // a discovery job must not log or return credentials either
+        var jobId = (await scanResp.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("jobId").GetInt32();
+        for (var i = 0; i < 100; i++) { var js = await Capture(await _http.GetAsync($"/api/discovery/jobs/{jobId}")); if (!js.Contains("\"Queued\"") && !js.Contains("\"Running\"")) break; await Task.Delay(100); }
+        await Capture(await _http.GetAsync("/api/discovery/jobs"));
+        await Capture(await _http.GetAsync($"/api/switches/{leakSw.Id}/ports"));
+        await Capture(await _http.GetAsync("/api/devices"));
         await Capture(await _http.PostAsJsonAsync("/api/switches", new SwitchRequest { Name = "Leak-v3", ManagementIp = Ip(), Credential = new CredentialInput { Version = SnmpVersion.V3, Username = secrets[3], AuthProtocol = SnmpAuthProtocol.Sha1, AuthPassword = secrets[1], PrivProtocol = SnmpPrivProtocol.Aes128, PrivPassword = secrets[2] } }, Json));
         await Capture(await _http.PostAsJsonAsync("/api/switches/test", new TestConnectionRequest { ManagementIp = "192.0.2.50", Credential = new CredentialInput { Version = SnmpVersion.V3, Username = secrets[3], AuthProtocol = SnmpAuthProtocol.Sha1, AuthPassword = secrets[1], PrivProtocol = SnmpPrivProtocol.Aes128, PrivPassword = secrets[2] } }, Json));
         await Capture(await _http.PostAsJsonAsync("/api/switches/test", new TestConnectionRequest { ManagementIp = "192.0.2.51", Credential = new CredentialInput { Version = SnmpVersion.V2c, Community = "bad" } }, Json));

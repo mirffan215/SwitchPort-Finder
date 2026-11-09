@@ -31,4 +31,8 @@
     <ProjectReference Include="..\..\src\SwitchPortFinder.Infrastructure\SwitchPortFinder.Infrastructure.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Compile Include="..\SwitchPortFinder.UnitTests\Support\ScriptedSnmp.cs" Link="Support\ScriptedSnmp.cs" />
+  </ItemGroup>
+
 </Project>

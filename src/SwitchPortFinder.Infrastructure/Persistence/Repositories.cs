@@ -11,6 +11,9 @@ public class SwitchRepository(AppDbContext db) : ISwitchRepository
     public Task<Switch?> GetAsync(int id, CancellationToken ct) => Full.FirstOrDefaultAsync(s => s.Id == id, ct);
     public Task<Switch?> GetByIpAsync(string ip, CancellationToken ct) => Full.FirstOrDefaultAsync(s => s.ManagementIp == ip, ct);
 
+    public Task<Dictionary<int, int>> PortCountsAsync(CancellationToken ct) =>
+        db.SwitchPorts.GroupBy(p => p.SwitchId).Select(g => new { g.Key, N = g.Count() }).ToDictionaryAsync(g => g.Key, g => g.N, ct);
+
     public async Task<Dictionary<string, Switch>> GetByIpsAsync(IEnumerable<string> ips, CancellationToken ct)
     {
         var result = new Dictionary<string, Switch>();
@@ -21,7 +24,13 @@ public class SwitchRepository(AppDbContext db) : ISwitchRepository
     }
 
     public async Task AddAsync(Switch sw, CancellationToken ct) => await db.Switches.AddAsync(sw, ct);
-    public Task DeleteAsync(Switch sw, CancellationToken ct) { db.Switches.Remove(sw); return Task.CompletedTask; }
+    /// <summary>Devices located on this switch keep their record but lose the location (SQL Server forbids a second cascade path).</summary>
+    public async Task DeleteAsync(Switch sw, CancellationToken ct)
+    {
+        await db.Devices.Where(d => d.SwitchId == sw.Id || d.IpSourceSwitchId == sw.Id)
+            .ExecuteUpdateAsync(s => s.SetProperty(d => d.PortId, (int?)null).SetProperty(d => d.SwitchId, (int?)null).SetProperty(d => d.IpSourceSwitchId, (int?)null), ct);
+        db.Switches.Remove(sw);
+    }
     public Task SaveAsync(CancellationToken ct) => db.SaveChangesAsync(ct);
 }
 

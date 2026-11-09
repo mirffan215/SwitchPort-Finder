@@ -46,6 +46,17 @@ export interface ImportRow { rowNumber: number; name: string; managementIp: stri
 export interface ImportPreview { previewId: string; fileName: string; mode: string; total: number; new: number; update: number; skipped: number; errors: number; rows: ImportRow[] }
 export interface ImportCommit { batchId: number; total: number; created: number; updated: number; skipped: number; errors: number; switchIds: number[] }
 
+export type PortType = 'Unknown' | 'Endpoint' | 'SwitchUplink' | 'Down';
+export type JobStatus = 'Queued' | 'Running' | 'Completed' | 'CompletedWithWarnings' | 'Failed';
+export interface StepResult { name: string; state: 'Pending' | 'Running' | 'Ok' | 'Warning' | 'Failed' | 'Skipped'; message?: string | null }
+export interface JobSummary { id: number; switchId: number; switchName: string; status: JobStatus; queuedAt: string; startedAt?: string | null; completedAt?: string | null; durationSeconds?: number | null; portsFound: number; devicesFound: number; neighborsFound: number; errorCount: number; summary?: string | null }
+export interface JobDetail { job: JobSummary; steps: StepResult[]; errors: { step: string; code: string; message: string; createdAt: string }[] }
+export interface PortDevice { deviceId: number; hostname: string; ip?: string | null; mac: string; vlan?: number | null; lastSeen: string; state: 'Active' | 'Offline' | 'Stale'; lowConfidence: boolean }
+export interface PortRow { portId: number; ifIndex: number; name: string; alias?: string | null; status: 'UP' | 'DOWN'; type: PortType; speedMbps: number; vlan?: number | null; macCount: number; physAddress?: string | null; devices: PortDevice[] }
+export interface PortsResponse { summary: { total: number; connected: number; down: number; uplinks: number; lastScan?: string | null }; ports: PortRow[]; hasArpSource: boolean }
+export interface DeviceRow { id: number; hostname: string; hostnameSource: string; ip?: string | null; mac: string; switchId?: number | null; switchName?: string | null; portId?: number | null; ifIndex?: number | null; portName?: string | null; vlan?: number | null; state: 'Active' | 'Offline' | 'Stale'; firstSeen: string; lastSeen: string; lowConfidence: boolean }
+export interface Paged<T> { items: T[]; total: number; page: number; pageSize: number }
+
 export class ApiError extends Error {
   constructor(public status: number, message: string, public fieldErrors: Record<string, string[]> = {}) { super(message); }
 }
@@ -74,6 +85,13 @@ export const api = {
   testUnsaved: (r: { managementIp: string; manufacturer: Manufacturer; credentialProfileId?: number | null; credential?: CredentialInput | null; switchId?: number }) =>
     request<TestResult>('/api/switches/test', json('POST', r)),
   testSaved: (id: number) => request<TestResult>(`/api/switches/${id}/test`, { method: 'POST' }),
+  scan: (id: number) => request<{ jobId: number }>(`/api/switches/${id}/scan`, { method: 'POST' }),
+  scanAll: () => request<{ jobIds: number[] }>('/api/switches/scan-all', { method: 'POST' }),
+  ports: (id: number) => request<PortsResponse>(`/api/switches/${id}/ports`),
+  job: (id: number) => request<JobDetail>(`/api/discovery/jobs/${id}`),
+  jobs: (switchId?: number) => request<JobSummary[]>(`/api/discovery/jobs?take=100${switchId ? `&switchId=${switchId}` : ''}`),
+  devices: (p: Record<string, string | number | boolean | undefined>) =>
+    request<Paged<DeviceRow>>('/api/devices?' + new URLSearchParams(Object.entries(p).filter(([, v]) => v !== undefined && v !== '').map(([k, v]) => [k, String(v)]))),
   listProfiles: () => request<ProfileDto[]>('/api/credential-profiles'),
   createProfile: (r: { name: string; description?: string; credential: CredentialInput }) => request<ProfileDto>('/api/credential-profiles', json('POST', r)),
   updateProfile: (id: number, r: { name: string; description?: string; credential: CredentialInput }) => request<ProfileDto>(`/api/credential-profiles/${id}`, json('PUT', r)),

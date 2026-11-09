@@ -41,3 +41,23 @@ export function Field({ label, hint, children }: { label: string; hint?: string;
 }
 
 export const fmtDate = (s?: string | null) => (s ? new Date(s).toLocaleString() : '—');
+
+export function ago(s?: string | null): string {
+  if (!s) return '—';
+  const sec = Math.max(0, (Date.now() - new Date(s).getTime()) / 1000);
+  if (sec < 60) return 'just now';
+  if (sec < 3600) return `${Math.floor(sec / 60)} minute${Math.floor(sec / 60) === 1 ? '' : 's'} ago`;
+  if (sec < 86400) return `${Math.floor(sec / 3600)} hour${Math.floor(sec / 3600) === 1 ? '' : 's'} ago`;
+  return `${Math.floor(sec / 86400)} day(s) ago`;
+}
+
+const TYPE_LABEL: Record<string, string> = { Endpoint: 'Endpoint', SwitchUplink: 'Switch Uplink', Unknown: 'Unknown', Down: 'Down' };
+export function PortTypeBadge({ type }: { type: string }) {
+  const cls = type === 'Endpoint' ? 'ok' : type === 'SwitchUplink' ? 'info' : type === 'Down' ? 'muted' : 'warnb';
+  const icon = type === 'Endpoint' ? '●' : type === 'SwitchUplink' ? '⇅' : type === 'Down' ? '○' : '?';
+  return <span className={`badge ${cls}`}>{icon} {TYPE_LABEL[type] ?? type}</span>;
+}
+
+export function StateBadge({ state }: { state: string }) {
+  return <span className={`badge ${state === 'Active' ? 'ok' : state === 'Offline' ? 'warnb' : 'muted'}`}>{state}</span>;
+}

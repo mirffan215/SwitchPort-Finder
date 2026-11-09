@@ -11,6 +11,9 @@ export default function SwitchesPage() {
   const [filter, setFilter] = useState('');
   const del = useMutation({ mutationFn: api.deleteSwitch, onSuccess: () => qc.invalidateQueries({ queryKey: ['switches'] }) });
   const test = useMutation({ mutationFn: api.testSaved, onSuccess: () => qc.invalidateQueries({ queryKey: ['switches'] }) });
+  const scan = useMutation({ mutationFn: api.scan, onSuccess: () => { setNote('Scan queued — follow it on the Discovery page.'); setTimeout(() => qc.invalidateQueries({ queryKey: ['switches'] }), 3000); } });
+  const scanAll = useMutation({ mutationFn: api.scanAll, onSuccess: (r) => setNote(`${r.jobIds.length} scan(s) queued — follow them on the Discovery page.`) });
+  const [note, setNote] = useState('');
 
   const rows = (data ?? []).filter((s) =>
     (!vendor || s.manufacturer === vendor) &&
@@ -26,9 +29,11 @@ export default function SwitchesPage() {
           <option value="">All manufacturers</option>
           {MANUFACTURERS.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
         </select>
+        <button className="btn" disabled={scanAll.isPending || (data?.length ?? 0) === 0} onClick={() => scanAll.mutate()}>Scan all switches</button>
         <Link className="btn primary" to="/switches/new">+ Add Switch</Link>
       </div>
-      <ErrorBox error={error ?? del.error ?? test.error} />
+      <ErrorBox error={error ?? del.error ?? test.error ?? scan.error ?? scanAll.error} />
+      {note && <div className="alert success">{note} <Link to="/discovery">Open Discovery</Link></div>}
       {isLoading ? <p>Loading…</p> : (
         <div className="tablewrap">
           <table>
@@ -45,7 +50,8 @@ export default function SwitchesPage() {
                   <td>{fmtDate(s.lastScanAt)}</td>
                   <td className="actions">
                     <Link to={`/switches/${s.id}`}>Open</Link>
-                    <button className="link" disabled={test.isPending} onClick={() => test.mutate(s.id)} title="Phase 1: tests SNMP connectivity. Full discovery scan arrives in Phase 2.">Test</button>
+                    <button className="link" disabled={scan.isPending} onClick={() => scan.mutate(s.id)}>Scan</button>
+                    <button className="link" disabled={test.isPending} onClick={() => test.mutate(s.id)} title="Test SNMP connectivity only">Test</button>
                     <Link to={`/switches/${s.id}/edit`}>Edit</Link>
                     <button className="link danger" onClick={() => confirm(`Delete ${s.name}?`) && del.mutate(s.id)}>Delete</button>
                   </td>

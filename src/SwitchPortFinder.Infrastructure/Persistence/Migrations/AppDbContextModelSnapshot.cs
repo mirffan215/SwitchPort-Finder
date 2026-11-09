@@ -22,6 +22,41 @@ namespace SwitchPortFinder.Infrastructure.Persistence.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
+            modelBuilder.Entity("SwitchPortFinder.Domain.Entities.ArpEntry", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("Ip")
+                        .IsRequired()
+                        .HasMaxLength(45)
+                        .HasColumnType("nvarchar(45)");
+
+                    b.Property<string>("Mac")
+                        .IsRequired()
+                        .HasMaxLength(12)
+                        .HasColumnType("nchar(12)")
+                        .IsFixedLength();
+
+                    b.Property<DateTime>("ObservedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("SourceSwitchId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Mac");
+
+                    b.HasIndex("SourceSwitchId", "Ip")
+                        .IsUnique();
+
+                    b.ToTable("ArpEntries");
+                });
+
             modelBuilder.Entity("SwitchPortFinder.Domain.Entities.CredentialProfile", b =>
                 {
                     b.Property<int>("Id")
@@ -68,6 +103,212 @@ namespace SwitchPortFinder.Infrastructure.Persistence.Migrations
                         .IsUnique();
 
                     b.ToTable("CredentialProfiles");
+                });
+
+            modelBuilder.Entity("SwitchPortFinder.Domain.Entities.Device", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("FirstSeen")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Hostname")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<DateTime?>("HostnameCheckedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("HostnameSource")
+                        .HasColumnType("int");
+
+                    b.Property<string>("IpAddress")
+                        .HasMaxLength(45)
+                        .HasColumnType("nvarchar(45)");
+
+                    b.Property<DateTime?>("IpObservedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("IpSourceSwitchId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("LastSeen")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("LowConfidence")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Mac")
+                        .IsRequired()
+                        .HasMaxLength(12)
+                        .HasColumnType("nchar(12)")
+                        .IsFixedLength();
+
+                    b.Property<int?>("PortId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("SwitchId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("Vlan")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Hostname");
+
+                    b.HasIndex("IpAddress");
+
+                    b.HasIndex("LastSeen");
+
+                    b.HasIndex("Mac")
+                        .IsUnique();
+
+                    b.HasIndex("PortId");
+
+                    b.HasIndex("SwitchId");
+
+                    b.HasIndex("SwitchId", "LastSeen");
+
+                    b.ToTable("Devices");
+                });
+
+            modelBuilder.Entity("SwitchPortFinder.Domain.Entities.DeviceObservation", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTime>("FirstSeen")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsStatic")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime>("LastSeen")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Mac")
+                        .IsRequired()
+                        .HasMaxLength(12)
+                        .HasColumnType("nchar(12)")
+                        .IsFixedLength();
+
+                    b.Property<int>("PortId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("SwitchId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("Vlan")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("LastSeen");
+
+                    b.HasIndex("Mac");
+
+                    b.HasIndex("PortId");
+
+                    b.HasIndex("SwitchId", "Mac")
+                        .IsUnique();
+
+                    b.ToTable("Observations");
+                });
+
+            modelBuilder.Entity("SwitchPortFinder.Domain.Entities.DiscoveryError", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("JobId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Message")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("Step")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("JobId");
+
+                    b.ToTable("DiscoveryErrors");
+                });
+
+            modelBuilder.Entity("SwitchPortFinder.Domain.Entities.DiscoveryJob", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("DevicesFound")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ErrorCount")
+                        .HasColumnType("int");
+
+                    b.Property<int>("NeighborsFound")
+                        .HasColumnType("int");
+
+                    b.Property<int>("PortsFound")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("QueuedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("StartedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<string>("StepsJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Summary")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int>("SwitchId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("QueuedAt");
+
+                    b.HasIndex("SwitchId", "Status");
+
+                    b.ToTable("DiscoveryJobs");
                 });
 
             modelBuilder.Entity("SwitchPortFinder.Domain.Entities.ImportBatch", b =>
@@ -122,6 +363,9 @@ namespace SwitchPortFinder.Infrastructure.Persistence.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<bool>("ArpAutoDetected")
+                        .HasColumnType("bit");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
@@ -165,6 +409,10 @@ namespace SwitchPortFinder.Infrastructure.Persistence.Migrations
                     b.Property<string>("Notes")
                         .HasMaxLength(1000)
                         .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("SerialNumber")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
 
                     b.Property<int>("Status")
                         .HasColumnType("int");
@@ -237,6 +485,132 @@ namespace SwitchPortFinder.Infrastructure.Persistence.Migrations
                     b.ToTable("SwitchCredentials");
                 });
 
+            modelBuilder.Entity("SwitchPortFinder.Domain.Entities.SwitchPort", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("AdminUp")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Alias")
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<string>("Descr")
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<int>("IfIndex")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("LastSeen")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("Mtu")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<bool>("OperUp")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("PhysAddress")
+                        .HasMaxLength(12)
+                        .HasColumnType("nchar(12)")
+                        .IsFixedLength();
+
+                    b.Property<int>("PortType")
+                        .HasColumnType("int");
+
+                    b.Property<long>("SpeedMbps")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("SwitchId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("Vlan")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Name");
+
+                    b.HasIndex("SwitchId", "IfIndex")
+                        .IsUnique();
+
+                    b.ToTable("SwitchPorts");
+                });
+
+            modelBuilder.Entity("SwitchPortFinder.Domain.Entities.ArpEntry", b =>
+                {
+                    b.HasOne("SwitchPortFinder.Domain.Entities.Switch", null)
+                        .WithMany()
+                        .HasForeignKey("SourceSwitchId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("SwitchPortFinder.Domain.Entities.Device", b =>
+                {
+                    b.HasOne("SwitchPortFinder.Domain.Entities.SwitchPort", "Port")
+                        .WithMany()
+                        .HasForeignKey("PortId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("SwitchPortFinder.Domain.Entities.Switch", "Switch")
+                        .WithMany()
+                        .HasForeignKey("SwitchId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Port");
+
+                    b.Navigation("Switch");
+                });
+
+            modelBuilder.Entity("SwitchPortFinder.Domain.Entities.DeviceObservation", b =>
+                {
+                    b.HasOne("SwitchPortFinder.Domain.Entities.SwitchPort", "Port")
+                        .WithMany()
+                        .HasForeignKey("PortId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("SwitchPortFinder.Domain.Entities.Switch", null)
+                        .WithMany()
+                        .HasForeignKey("SwitchId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.Navigation("Port");
+                });
+
+            modelBuilder.Entity("SwitchPortFinder.Domain.Entities.DiscoveryError", b =>
+                {
+                    b.HasOne("SwitchPortFinder.Domain.Entities.DiscoveryJob", null)
+                        .WithMany("Errors")
+                        .HasForeignKey("JobId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("SwitchPortFinder.Domain.Entities.DiscoveryJob", b =>
+                {
+                    b.HasOne("SwitchPortFinder.Domain.Entities.Switch", "Switch")
+                        .WithMany()
+                        .HasForeignKey("SwitchId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Switch");
+                });
+
             modelBuilder.Entity("SwitchPortFinder.Domain.Entities.Switch", b =>
                 {
                     b.HasOne("SwitchPortFinder.Domain.Entities.CredentialProfile", "CredentialProfile")
@@ -261,6 +635,22 @@ namespace SwitchPortFinder.Infrastructure.Persistence.Migrations
                         .IsRequired();
 
                     b.Navigation("Switch");
+                });
+
+            modelBuilder.Entity("SwitchPortFinder.Domain.Entities.SwitchPort", b =>
+                {
+                    b.HasOne("SwitchPortFinder.Domain.Entities.Switch", "Switch")
+                        .WithMany()
+                        .HasForeignKey("SwitchId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Switch");
+                });
+
+            modelBuilder.Entity("SwitchPortFinder.Domain.Entities.DiscoveryJob", b =>
+                {
+                    b.Navigation("Errors");
                 });
 
             modelBuilder.Entity("SwitchPortFinder.Domain.Entities.Switch", b =>

@@ -19,8 +19,11 @@ public class SwitchService(
         return IPAddress.TryParse(t, out var a) ? a.ToString() : null;
     }
 
-    public async Task<List<SwitchSummaryDto>> ListAsync(CancellationToken ct) =>
-        (await switches.ListAsync(ct)).Select(ToSummary).ToList();
+    public async Task<List<SwitchSummaryDto>> ListAsync(CancellationToken ct)
+    {
+        var counts = await switches.PortCountsAsync(ct);
+        return (await switches.ListAsync(ct)).Select(s => ToSummary(s) with { PortCount = counts.GetValueOrDefault(s.Id) }).ToList();
+    }
 
     public async Task<SwitchDetailDto> GetAsync(int id, CancellationToken ct) =>
         ToDetail(await Load(id, ct));

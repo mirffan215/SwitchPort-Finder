@@ -22,6 +22,7 @@ public interface ISwitchRepository
     Task<List<Switch>> ListAsync(CancellationToken ct);
     Task<Switch?> GetAsync(int id, CancellationToken ct);
     Task<Switch?> GetByIpAsync(string ip, CancellationToken ct);
+    Task<Dictionary<int, int>> PortCountsAsync(CancellationToken ct);
     Task<Dictionary<string, Switch>> GetByIpsAsync(IEnumerable<string> ips, CancellationToken ct);
     Task AddAsync(Switch sw, CancellationToken ct);
     Task DeleteAsync(Switch sw, CancellationToken ct);
@@ -55,4 +56,15 @@ public interface ISnmpClient
     Task<IReadOnlyList<SnmpVarBind>> GetNextAsync(SnmpTarget target, IEnumerable<string> oids, CancellationToken ct);
     /// <summary>Walks the subtree below <paramref name="rootOid"/> (GETBULK, GETNEXT fallback).</summary>
     Task<IReadOnlyList<SnmpVarBind>> WalkAsync(SnmpTarget target, string rootOid, CancellationToken ct);
+}
+
+public interface IHostnameResolver
+{
+    /// <summary>Reverse DNS with timeout and caching. Returns null on any failure; never throws.</summary>
+    Task<string?> ResolveAsync(string ip, CancellationToken ct);
+}
+
+public interface IScanQueue
+{
+    ValueTask EnqueueAsync(int jobId, CancellationToken ct = default);
 }

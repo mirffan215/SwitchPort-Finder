@@ -1,0 +1,46 @@
+using SwitchPortFinder.Application.Common;
+using SwitchPortFinder.Domain.Enums;
+
+namespace SwitchPortFinder.Application.Discovery;
+
+public record JobSummaryDto(
+    int Id, int SwitchId, string SwitchName, JobStatus Status, DateTime QueuedAt, DateTime? StartedAt, DateTime? CompletedAt,
+    double? DurationSeconds, int PortsFound, int DevicesFound, int NeighborsFound, int ErrorCount, string? Summary);
+
+public record JobErrorDto(string Step, string Code, string Message, DateTime CreatedAt);
+
+public record JobDetailDto(JobSummaryDto Job, IReadOnlyList<StepResult> Steps, IReadOnlyList<JobErrorDto> Errors);
+
+public record PortDeviceDto(int DeviceId, string Hostname, string? Ip, string Mac, int? Vlan, DateTime LastSeen, DeviceState State, bool LowConfidence);
+
+public record PortRowDto(
+    int PortId, int IfIndex, string Name, string? Alias, string Status, PortType Type, long SpeedMbps, int? Vlan,
+    int MacCount, string? PhysAddress, IReadOnlyList<PortDeviceDto> Devices);
+
+public record PortSummary(int Total, int Connected, int Down, int Uplinks, DateTime? LastScan);
+
+public record PortsResponse(PortSummary Summary, IReadOnlyList<PortRowDto> Ports, bool HasArpSource);
+
+public record DeviceDto(
+    int Id, string Hostname, HostnameSource HostnameSource, string? Ip, string Mac, int? SwitchId, string? SwitchName,
+    int? PortId, int? IfIndex, string? PortName, int? Vlan, DeviceState State, DateTime FirstSeen, DateTime LastSeen, bool LowConfidence);
+
+public record Paged<T>(IReadOnlyList<T> Items, int Total, int Page, int PageSize);
+
+public class DeviceQuery
+{
+    public int Page { get; set; } = 1;
+    public int PageSize { get; set; } = 50;
+    public string? Sort { get; set; }
+    public bool Desc { get; set; }
+    public string? Q { get; set; }
+    public int? SwitchId { get; set; }
+    public DeviceState? State { get; set; }
+}
+
+public static class DeviceStates
+{
+    public static DeviceState Compute(DateTime lastSeen, DateTime now, DiscoveryOptions o) =>
+        now - lastSeen <= TimeSpan.FromMinutes(o.OfflineAfterMinutes) ? DeviceState.Active
+        : now - lastSeen <= TimeSpan.FromDays(o.StaleAfterDays) ? DeviceState.Offline : DeviceState.Stale;
+}

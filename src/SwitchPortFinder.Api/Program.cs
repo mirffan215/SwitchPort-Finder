@@ -13,6 +13,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Host.UseSerilog((ctx, cfg) => cfg.ReadFrom.Configuration(ctx.Configuration).WriteTo.Console());
 
 builder.Services.Configure<SnmpOptions>(builder.Configuration.GetSection(SnmpOptions.Section));
+builder.Services.Configure<DiscoveryOptions>(builder.Configuration.GetSection(DiscoveryOptions.Section));
 builder.Services.Configure<ImportOptions>(builder.Configuration.GetSection(ImportOptions.Section));
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddDiscovery();

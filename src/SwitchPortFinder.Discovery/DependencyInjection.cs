@@ -1,5 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using SwitchPortFinder.Application.Abstractions;
+using SwitchPortFinder.Application.Discovery;
 using SwitchPortFinder.Discovery.Snmp;
 
 namespace SwitchPortFinder.Discovery;
@@ -10,6 +11,7 @@ public static class DependencyInjection
     public static IServiceCollection AddDiscovery(this IServiceCollection services)
     {
         services.AddSingleton<ISnmpClient, SharpSnmpClient>();
+        services.AddScoped<ISwitchScanner, SnmpSwitchScanner>();
         return services;
     }
 }

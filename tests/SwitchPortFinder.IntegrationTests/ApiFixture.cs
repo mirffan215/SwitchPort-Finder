@@ -13,10 +13,13 @@ namespace SwitchPortFinder.IntegrationTests;
 public sealed class FakeSnmpClient : ISnmpClient
 {
     public List<SnmpTarget> Calls { get; } = [];
+    /// <summary>Scripted network used by discovery tests (walks and per-IP system data).</summary>
+    public SwitchPortFinder.TestSupport.ScriptedSnmp Net { get; } = new();
 
     public Task<IReadOnlyList<SnmpVarBind>> GetAsync(SnmpTarget t, IEnumerable<string> oids, CancellationToken ct)
     {
         lock (Calls) Calls.Add(t);
+        if (Net.Gets.Keys.Any(k => k.StartsWith(t.Address + "|"))) return Net.GetAsync(t, oids, ct);
         var c = t.Credentials;
         if (c.Version == SnmpVersion.V2c && c.Community == "bad") throw new SnmpException(SnmpFailure.Timeout, "timeout");
         if (c.Version == SnmpVersion.V3 && c.AuthPassword == "wrongpassword") throw new SnmpException(SnmpFailure.AuthenticationFailed, "auth");
@@ -31,7 +34,13 @@ public sealed class FakeSnmpClient : ISnmpClient
         return Task.FromResult(r);
     }
     public Task<IReadOnlyList<SnmpVarBind>> GetNextAsync(SnmpTarget t, IEnumerable<string> o, CancellationToken ct) => throw new NotSupportedException();
-    public Task<IReadOnlyList<SnmpVarBind>> WalkAsync(SnmpTarget t, string r, CancellationToken ct) => throw new NotSupportedException();
+    public Task<IReadOnlyList<SnmpVarBind>> WalkAsync(SnmpTarget t, string r, CancellationToken ct) => Net.WalkAsync(t, r, ct);
+}
+
+public sealed class FakeResolver : SwitchPortFinder.Application.Abstractions.IHostnameResolver
+{
+    public Dictionary<string, string> Names { get; } = [];
+    public Task<string?> ResolveAsync(string ip, CancellationToken ct) => Task.FromResult(Names.TryGetValue(ip, out var n) ? n : null);
 }
 
 public sealed class ApiFixture : WebApplicationFactory<Program>, IDisposable
@@ -64,6 +73,9 @@ public sealed class ApiFixture : WebApplicationFactory<Program>, IDisposable
             s.RemoveAll<ISnmpClient>();
             s.AddSingleton<FakeSnmpClient>();
             s.AddSingleton<ISnmpClient>(sp => sp.GetRequiredService<FakeSnmpClient>());
+            s.RemoveAll<SwitchPortFinder.Application.Abstractions.IHostnameResolver>();
+            s.AddSingleton<FakeResolver>();
+            s.AddSingleton<SwitchPortFinder.Application.Abstractions.IHostnameResolver>(sp => sp.GetRequiredService<FakeResolver>());
         });
     }
 

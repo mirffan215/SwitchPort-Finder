@@ -1,42 +1,117 @@
+import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link, useParams } from 'react-router-dom';
-import { api } from '../api';
-import { ErrorBox, StatusBadge, TestResultBox, fmtDate } from '../components/Bits';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
+import { api, type PortRow } from '../api';
+import { ErrorBox, PortTypeBadge, StateBadge, StatusBadge, TestResultBox, ago, fmtDate } from '../components/Bits';
+import ScanProgress from '../components/ScanProgress';
 
 export default function SwitchPage() {
   const id = Number(useParams().id);
+  const [sp, setSp] = useSearchParams();
+  const highlight = sp.get('port') ? Number(sp.get('port')) : undefined;
   const qc = useQueryClient();
-  const { data: s, error, isLoading } = useQuery({ queryKey: ['switch', id], queryFn: () => api.getSwitch(id) });
-  const test = useMutation({ mutationFn: () => api.testSaved(id), onSuccess: () => { qc.invalidateQueries({ queryKey: ['switch', id] }); qc.invalidateQueries({ queryKey: ['switches'] }); } });
-  if (isLoading) return <p>Loading…</p>;
-  if (error || !s) return <ErrorBox error={error ?? new Error('Switch not found')} />;
+  const sw = useQuery({ queryKey: ['switch', id], queryFn: () => api.getSwitch(id) });
+  const ports = useQuery({ queryKey: ['ports', id], queryFn: () => api.ports(id) });
+  const [jobId, setJobId] = useState<number | null>(null);
+  const [scanning, setScanning] = useState(false);
+  const [selected, setSelected] = useState<number | undefined>(highlight);
+
+  const scan = useMutation({ mutationFn: () => api.scan(id), onSuccess: (r) => { setJobId(r.jobId); setScanning(true); } });
+  const test = useMutation({ mutationFn: () => api.testSaved(id), onSuccess: () => qc.invalidateQueries({ queryKey: ['switch', id] }) });
+  const refresh = () => { qc.invalidateQueries({ queryKey: ['switch', id] }); qc.invalidateQueries({ queryKey: ['ports', id] }); };
+
+  // Open Switch from search/devices: ?port=<ifIndex> highlights, scrolls to and opens that port.
+  useEffect(() => {
+    if (highlight === undefined || !ports.data) return;
+    setSelected(highlight);
+    document.getElementById(`port-${highlight}`)?.scrollIntoView({ block: 'center' });
+  }, [highlight, ports.data]);
+
+  if (sw.isLoading) return <p>Loading…</p>;
+  if (sw.error || !sw.data) return <ErrorBox error={sw.error ?? new Error('Switch not found')} />;
+  const s = sw.data; const sum = ports.data?.summary;
+  const sel = ports.data?.ports.find((p) => p.ifIndex === selected);
+
   return (
     <section>
       <div className="toolbar">
         <h1>{s.name}</h1>
-        <span className="muted">· {s.managementIp} · {s.manufacturerName}</span>
+        <span className="muted">· {s.managementIp} · {s.manufacturerName}{sum ? ` · ${sum.total} Ports · ${sum.connected} Connected · ${sum.down} Down · ${sum.uplinks} Switch Uplinks` : ''}</span>
         <StatusBadge status={s.status} />
         <div className="spacer" />
-        <button className="btn" disabled={test.isPending} onClick={() => test.mutate()}>{test.isPending ? 'Testing…' : 'Test SNMP'}</button>
-        <button className="btn" disabled title="Discovery scanning arrives in Phase 2">Scan Now</button>
+        <button className="btn primary" disabled={scan.isPending || scanning} onClick={() => scan.mutate()}>Scan Now</button>
+        <button className="btn" onClick={refresh}>Refresh</button>
+        <button className="btn" disabled={test.isPending} onClick={() => test.mutate()}>Test SNMP</button>
         <Link className="btn" to={`/switches/${id}/edit`}>Edit</Link>
       </div>
+      <ErrorBox error={scan.error ?? test.error ?? ports.error} />
+      {jobId && <ScanProgress jobId={jobId} onDone={() => { setScanning(false); refresh(); }} onClose={() => setJobId(null)} />}
       {test.data && <TestResultBox r={test.data} />}
-      <ErrorBox error={test.error} />
       {s.vendorMismatch && <div className="alert warn">⚠ Selected manufacturer ({s.manufacturerName}) differs from the detected vendor.</div>}
-      <dl className="kv big">
-        <dt>Management IP</dt><dd>{s.managementIp}</dd>
-        <dt>Manufacturer</dt><dd>{s.manufacturerName}</dd>
-        <dt>Model</dt><dd>{s.model ?? '—'}</dd>
-        <dt>Location</dt><dd>{s.location ?? '—'}</dd>
-        <dt>ARP source</dt><dd>{s.useAsArpSource ? 'Yes' : 'No (auto-detected during discovery)'}</dd>
-        <dt>SNMP</dt><dd>{s.credentialProfileName ? `Profile: ${s.credentialProfileName}` : s.credential ? `${s.credential.version} (credentials stored encrypted)` : '—'}</dd>
-        <dt>sysName</dt><dd>{s.sysName ?? '—'}</dd>
-        <dt>sysDescr</dt><dd>{s.sysDescr ?? '—'}</dd>
-        <dt>sysObjectID</dt><dd>{s.sysObjectId ?? '—'}</dd>
-        <dt>Last scan</dt><dd>{fmtDate(s.lastScanAt)}</dd>
-      </dl>
-      <p className="muted">Ports, MAC addresses and IPs appear here after Phase 2 (discovery).</p>
+      <p className="muted">Last scan: {fmtDate(s.lastScanAt)}{s.sysName ? ` · sysName ${s.sysName}` : ''}{s.model ? ` · ${s.model}` : ''}</p>
+      {ports.data && !ports.data.hasArpSource && (
+        <div className="alert warn">Mark your core / L3 switch as an ARP source (Edit → “Use as ARP source”) to see IP addresses.</div>
+      )}
+
+      {ports.data && ports.data.ports.length === 0 ? (
+        <p>No ports yet. Click <strong>Scan Now</strong> to discover ports, MAC addresses and IPs.</p>
+      ) : (
+        <div className="split">
+          <div className="tablewrap">
+            <table>
+              <thead><tr><th>Port</th><th>Status</th><th>Type</th><th>Device</th><th>IP</th><th>MAC</th><th>VLAN</th></tr></thead>
+              <tbody>
+                {ports.data?.ports.map((p) => {
+                  const d = p.devices[0]; const more = p.macCount - (d ? 1 : 0);
+                  return (
+                    <tr key={p.portId} id={`port-${p.ifIndex}`} className={`clickable ${selected === p.ifIndex ? 'highlight' : ''} ${p.type === 'Down' ? 'dim' : ''}`}
+                        onClick={() => { setSelected(p.ifIndex); setSp({}, { replace: true }); }}>
+                      <td>{p.name}</td>
+                      <td><span className={p.status === 'UP' ? 'up' : 'down'}>{p.status}</span></td>
+                      <td><PortTypeBadge type={p.type} /></td>
+                      <td>{p.type === 'Down' ? '—' : d ? <>{d.hostname}{more > 0 && <span className="muted"> (+{more} more)</span>}</> : '—'}</td>
+                      <td>{p.type === 'Down' ? '—' : d?.ip ?? (d ? <span className="muted">Unknown</span> : '—')}</td>
+                      <td className="mono">{p.type === 'Down' ? '—' : d?.mac ?? '—'}</td>
+                      <td>{p.vlan ?? d?.vlan ?? '—'}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          {sel && <PortPanel sw={s.name} p={sel} onClose={() => setSelected(undefined)} />}
+        </div>
+      )}
     </section>
+  );
+}
+
+function PortPanel({ sw, p, onClose }: { sw: string; p: PortRow; onClose: () => void }) {
+  return (
+    <aside className="panel">
+      <div className="toolbar"><h3>{sw} · {p.name}</h3><div className="spacer" /><button className="link" onClick={onClose}>✕</button></div>
+      <dl className="kv">
+        <dt>Description</dt><dd>{p.alias ?? '—'}</dd>
+        <dt>Status</dt><dd>{p.status}</dd>
+        <dt>Type</dt><dd><PortTypeBadge type={p.type} /></dd>
+        <dt>Speed</dt><dd>{p.speedMbps ? `${p.speedMbps} Mbps` : '—'}</dd>
+        <dt>VLAN</dt><dd>{p.vlan ?? '—'}</dd>
+        <dt>Port MAC</dt><dd className="mono">{p.physAddress ?? '—'}</dd>
+        <dt>MACs learned</dt><dd>{p.macCount}</dd>
+      </dl>
+      {p.devices.length > 0 && <h4>Devices</h4>}
+      {p.devices.map((d) => (
+        <dl className="kv devbox" key={d.deviceId}>
+          <dt>Hostname</dt><dd>{d.hostname}</dd>
+          <dt>IP</dt><dd>{d.ip ?? 'Unknown'}</dd>
+          <dt>MAC</dt><dd className="mono">{d.mac}</dd>
+          <dt>VLAN</dt><dd>{d.vlan ?? '—'}</dd>
+          <dt>State</dt><dd><StateBadge state={d.state} /></dd>
+          <dt>Last seen</dt><dd>{ago(d.lastSeen)}</dd>
+          {d.lowConfidence && <><dt>Location</dt><dd className="warn">Lower confidence (MAC also seen on another switch)</dd></>}
+        </dl>
+      ))}
+      {p.macCount > p.devices.length && <p className="muted">Showing {p.devices.length} of {p.macCount} devices.</p>}
+    </aside>
   );
 }

@@ -5,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 using SwitchPortFinder.Application.Abstractions;
 using SwitchPortFinder.Application.Import;
 using SwitchPortFinder.Application.Switches;
+using SwitchPortFinder.Infrastructure.Discovery;
 using SwitchPortFinder.Infrastructure.Persistence;
 using SwitchPortFinder.Infrastructure.Security;
 
@@ -39,6 +40,15 @@ public static class DependencyInjection
         services.AddScoped<SwitchService>();
         services.AddScoped<CredentialProfileService>();
         services.AddScoped<SwitchImportService>();
+        services.AddSingleton<ScanQueue>();
+        services.AddSingleton<IScanQueue>(sp => sp.GetRequiredService<ScanQueue>());
+        services.AddSingleton<IHostnameResolver, DnsHostnameResolver>();
+        services.AddScoped<ScanResultWriter>();
+        services.AddScoped<DiscoveryJobRunner>();
+        services.AddScoped<DiscoveryService>();
+        services.AddScoped<PortQueryService>();
+        services.AddScoped<DeviceQueryService>();
+        services.AddHostedService<DiscoveryWorker>();
         return services;
     }
 }

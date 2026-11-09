@@ -1,0 +1,95 @@
+using SwitchPortFinder.Domain.Enums;
+
+namespace SwitchPortFinder.Domain.Entities;
+
+public class SwitchPort
+{
+    public int Id { get; set; }
+    public int SwitchId { get; set; }
+    public Switch? Switch { get; set; }
+    public int IfIndex { get; set; }
+    public string Name { get; set; } = "";
+    public string? Descr { get; set; }
+    public string? Alias { get; set; }
+    public bool AdminUp { get; set; }
+    public bool OperUp { get; set; }
+    public long SpeedMbps { get; set; }
+    public string? PhysAddress { get; set; }
+    public int Mtu { get; set; }
+    public int? Vlan { get; set; }
+    public PortType PortType { get; set; }
+    public DateTime LastSeen { get; set; }
+}
+
+/// <summary>A sighting of a MAC in one switch's forwarding table (one row per switch+MAC, refreshed each scan).</summary>
+public class DeviceObservation
+{
+    public long Id { get; set; }
+    public string Mac { get; set; } = "";
+    public int SwitchId { get; set; }
+    public int PortId { get; set; }
+    public SwitchPort? Port { get; set; }
+    public int? Vlan { get; set; }
+    public bool IsStatic { get; set; }
+    public DateTime FirstSeen { get; set; }
+    public DateTime LastSeen { get; set; }
+}
+
+public class Device
+{
+    public int Id { get; set; }
+    public string Mac { get; set; } = "";
+    public string Hostname { get; set; } = "Unknown Device";
+    public HostnameSource HostnameSource { get; set; }
+    public DateTime? HostnameCheckedAt { get; set; }
+    public string? IpAddress { get; set; }
+    public int? IpSourceSwitchId { get; set; }
+    public DateTime? IpObservedAt { get; set; }
+    public int? SwitchId { get; set; }
+    public Switch? Switch { get; set; }
+    public int? PortId { get; set; }
+    public SwitchPort? Port { get; set; }
+    public int? Vlan { get; set; }
+    /// <summary>True when the location was chosen with the "fewest MACs on the port" tie-break (lower confidence).</summary>
+    public bool LowConfidence { get; set; }
+    public DateTime FirstSeen { get; set; }
+    public DateTime LastSeen { get; set; }
+}
+
+/// <summary>An IP→MAC mapping read from an ARP source, with where and when it was seen.</summary>
+public class ArpEntry
+{
+    public long Id { get; set; }
+    public int SourceSwitchId { get; set; }
+    public string Ip { get; set; } = "";
+    public string Mac { get; set; } = "";
+    public DateTime ObservedAt { get; set; }
+}
+
+public class DiscoveryJob
+{
+    public int Id { get; set; }
+    public int SwitchId { get; set; }
+    public Switch? Switch { get; set; }
+    public JobStatus Status { get; set; }
+    public DateTime QueuedAt { get; set; }
+    public DateTime? StartedAt { get; set; }
+    public DateTime? CompletedAt { get; set; }
+    public string? StepsJson { get; set; }
+    public int PortsFound { get; set; }
+    public int DevicesFound { get; set; }
+    public int NeighborsFound { get; set; }
+    public int ErrorCount { get; set; }
+    public string? Summary { get; set; }
+    public List<DiscoveryError> Errors { get; set; } = [];
+}
+
+public class DiscoveryError
+{
+    public int Id { get; set; }
+    public int JobId { get; set; }
+    public string Step { get; set; } = "";
+    public string Code { get; set; } = "";
+    public string Message { get; set; } = "";
+    public DateTime CreatedAt { get; set; }
+}

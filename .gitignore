@@ -1,0 +1,10 @@
+bin/
+obj/
+node_modules/
+src/SwitchPortFinder.Api/wwwroot/
+src/SwitchPortFinder.Api/keys/
+*.db
+*.db-wal
+*.db-shm
+.vs/
+*.user

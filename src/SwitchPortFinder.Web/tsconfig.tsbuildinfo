@@ -1,0 +1,1 @@
+{"root":["./src/App.tsx","./src/api.ts","./src/main.tsx","./src/components/Bits.tsx","./src/components/CredentialFields.tsx","./src/components/Layout.tsx","./src/pages/Dashboard.tsx","./src/pages/Placeholders.tsx","./src/pages/SettingsPage.tsx","./src/pages/SwitchFormPage.tsx","./src/pages/SwitchPage.tsx","./src/pages/SwitchesPage.tsx","./vite.config.ts"],"version":"5.9.3"}

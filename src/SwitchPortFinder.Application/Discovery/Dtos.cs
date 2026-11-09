@@ -51,3 +51,8 @@ public static class DeviceStates
         now - lastSeen <= TimeSpan.FromMinutes(o.OfflineAfterMinutes) ? DeviceState.Active
         : now - lastSeen <= TimeSpan.FromDays(o.StaleAfterDays) ? DeviceState.Offline : DeviceState.Stale;
 }
+
+public record SightingDto(int SwitchId, string SwitchName, int PortId, int IfIndex, string PortName, bool IsUplink, int MacsOnPort, int? Vlan, DateTime LastSeen);
+
+public record DeviceDetailDto(
+    DeviceDto Device, string? IpSourceSwitch, DateTime? IpObservedAt, string LocationNote, IReadOnlyList<SightingDto> Sightings);

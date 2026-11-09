@@ -115,6 +115,27 @@ public abstract class AcceptanceBase(IsolatedApiFixture fx)
         var pc = devs.Items.Should().ContainSingle(d => d.Mac == "AA:BB:CC:DD:EE:01").Subject;
         pc.SwitchName.Should().Be("ACCESS-SW-01"); pc.PortName.Should().Be("Gi1/0/15"); pc.LowConfidence.Should().BeFalse(); pc.Ip.Should().Be(PcIp); pc.Hostname.Should().Be("PC-001");
         devs.Items.Should().NotContain(d => d.Mac == "AA:BB:CC:00:0B:18" || d.Mac == "AA:BB:CC:00:0A:18", "switches are not devices");
+
+        // Searching each identifier locates ACCESS-SW-01 Gi1/0/15 (spec 15).
+        foreach (var q in new[] { "AA:BB:CC:DD:EE:01", "aabb.ccdd.ee01", "10.10.50.101", "PC-001" })
+        {
+            var found = (await Http.GetFromJsonAsync<SearchResponse>($"/api/search?q={Uri.EscapeDataString(q)}", Json))!;
+            var hit = found.Devices.Should().ContainSingle(d => d.Mac == "AA:BB:CC:DD:EE:01", $"query '{q}'").Subject;
+            hit.SwitchName.Should().Be("ACCESS-SW-01", q); hit.PortName.Should().Be("Gi1/0/15", q); hit.IfIndex.Should().Be(15, q); hit.SwitchId.Should().Be(access, q);
+            hit.Ip.Should().Be(PcIp); hit.Vlan.Should().Be(50); hit.State.Should().Be(DeviceState.Active);
+        }
+
+        // Trace: CORE-SW-01 —Gi1/0/24→ ACCESS-SW-01 —Gi1/0/15→ PC-001.
+        var trace = (await Http.GetFromJsonAsync<TraceResult>($"/api/devices/{pc.Id}/trace", Json))!;
+        trace.Partial.Should().BeFalse(trace.Message);
+        trace.Hops.Select(h => (h.SwitchName, h.PortName, h.IsFinal)).Should().Equal(("CORE-SW-01", "Gi1/0/24", false), ("ACCESS-SW-01", "Gi1/0/15", true));
+        trace.Hops[0].LinkConfidence.Should().Be(expected);
+        trace.Final.Should().Match<FinalLocation>(f => f.Hostname == "PC-001" && f.Ip == PcIp && f.SwitchName == "ACCESS-SW-01" && f.PortName == "Gi1/0/15" && f.Vlan == 50 && f.Mac == "AA:BB:CC:DD:EE:01");
+
+        // Device details.
+        var detail = (await Http.GetFromJsonAsync<DeviceDetailDto>($"/api/devices/{pc.Id}", Json))!;
+        detail.IpSourceSwitch.Should().Be("CORE-SW-01", "the IP came from the core's ARP table");
+        detail.Sightings.Should().HaveCount(2).And.Contain(x => x.SwitchName == "CORE-SW-01" && x.IsUplink).And.Contain(x => x.SwitchName == "ACCESS-SW-01" && !x.IsUplink);
     }
 }
 
@@ -133,6 +154,66 @@ public class AcceptanceWithLldpTests(IsolatedApiFixture fx) : AcceptanceBase(fx)
         var nb = (await Http.GetFromJsonAsync<List<NeighborRowDto>>($"/api/switches/{core}/neighbors", Json))!.Single();
         nb.Neighbor.Protocol.Should().Be(NeighborProtocol.Lldp); nb.Neighbor.RemotePort.Should().Be("Gi1/0/24"); nb.Neighbor.RemotePortIfIndex.Should().Be(24, "so Open Switch can highlight the remote port");
         nb.Neighbor.Capabilities.Should().Contain("Bridge"); nb.Neighbor.RemoteIp.Should().Be(AccessIp);
+    }
+}
+
+public class SearchApiTests(IsolatedApiFixture fx) : AcceptanceBase(fx), IClassFixture<IsolatedApiFixture>
+{
+    private async Task<SearchResponse> S(string q) => (await Http.GetFromJsonAsync<SearchResponse>($"/api/search?q={Uri.EscapeDataString(q)}", Json))!;
+
+    [Fact]
+    public async Task Search_covers_devices_switches_and_ports_and_is_safe_and_case_insensitive()
+    {
+        await Reset(); BuildNetwork(lldp: true);
+        var core = await AddSwitch("CORE-SW-01", CoreIp, arp: true); var access = await AddSwitch("ACCESS-SW-01", AccessIp);
+        await Scan(core); await Scan(access);
+
+        // switch name (any case) and switch IP
+        (await S("core-sw")).Switches.Should().ContainSingle(s => s.Name == "CORE-SW-01");
+        (await S("10.10.50.11")).Switches.Should().ContainSingle(s => s.ManagementIp == AccessIp);
+        // switch name also finds the devices connected to that switch
+        (await S("access-sw")).Devices.Should().ContainSingle(d => d.Hostname == "PC-001");
+        // port name: one hit per switch, with enough detail to open it
+        var ports = (await S("Gi1/0/24")).Ports;
+        ports.Should().HaveCount(2).And.OnlyContain(p => p.Type == PortType.SwitchUplink && p.PortName == "Gi1/0/24");
+        (await S("Gi1/0/15")).Ports.Should().ContainSingle().Which.Should().Match<PortHit>(p => p.SwitchName == "ACCESS-SW-01" && p.IfIndex == 15 && p.SwitchId == access);
+        // partial MACs (>= 4 hex chars), any separator style
+        (await S("aabb.ccdd")).Devices.Should().ContainSingle(d => d.Mac == "AA:BB:CC:DD:EE:01");
+        (await S("AA-BB-CC-DD")).Devices.Should().ContainSingle(d => d.Mac == "AA:BB:CC:DD:EE:01");
+        (await S("aab")).Devices.Should().BeEmpty("3 hex characters is too short to be a MAC fragment, and no text matches");
+        // partial IP: exact hit is ranked first
+        (await S("10.10.50.10")).Devices.Should().ContainSingle(d => d.Ip == PcIp);
+        // an IP fragment must not be misread as a MAC fragment ('10.10.50' → hex 101050)
+        (await S("10.10.50")).Devices.Should().OnlyContain(d => d.Ip!.StartsWith("10.10.50"));
+        // no match, too short, and LIKE wildcards are treated literally
+        (await S("no-such-thing")).Devices.Should().BeEmpty();
+        (await S("a")).Devices.Should().BeEmpty();
+        foreach (var wild in new[] { "%", "_", "%%", "[a-z]", "\\", "' OR 1=1 --" })
+        { var r = await S(wild); r.Devices.Should().BeEmpty(wild); r.Switches.Should().BeEmpty(wild); r.Ports.Should().BeEmpty(wild); }
+        // empty query is a clean empty result, not an error
+        (await Http.GetAsync("/api/search?q=")).StatusCode.Should().Be(HttpStatusCode.OK);
+        (await Http.GetAsync("/api/search")).StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task Device_details_and_trace_for_unknown_ids_are_404()
+    {
+        (await Http.GetAsync("/api/devices/999999")).StatusCode.Should().Be(HttpStatusCode.NotFound);
+        (await Http.GetAsync("/api/devices/999999/trace")).StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task A_device_seen_only_behind_an_uplink_has_no_location_and_the_trace_says_so()
+    {
+        await Reset(); BuildNetwork(lldp: true);
+        var core = await AddSwitch("CORE-SW-01", CoreIp, arp: true);
+        await Scan(core);   // access switch is NOT registered: PC is only known behind the core's uplink
+        var coreUp = (await Ports(core)).Ports.Single(p => p.Name == "Gi1/0/24");
+        coreUp.Type.Should().Be(PortType.SwitchUplink, "LLDP says an (unregistered) bridge is on this port"); coreUp.Neighbor!.CanAdd.Should().BeTrue("external switch → Add this switch");
+        var pc = (await S("PC-001")).Devices.Single();
+        pc.SwitchId.Should().BeNull("an uplink is never a device's location");
+        var trace = (await Http.GetFromJsonAsync<TraceResult>($"/api/devices/{pc.Id}/trace", Json))!;
+        trace.Partial.Should().BeTrue(); trace.Final.Should().BeNull(); trace.Hops.Should().BeEmpty(); trace.Message.Should().Contain("not been seen on an edge port");
     }
 }
 

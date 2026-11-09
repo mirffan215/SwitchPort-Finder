@@ -49,6 +49,8 @@ public static class DependencyInjection
         services.AddScoped<DiscoveryService>();
         services.AddScoped<PortQueryService>();
         services.AddScoped<DeviceQueryService>();
+        services.AddScoped<SearchService>();
+        services.AddScoped<TraceService>();
         services.AddHostedService<DiscoveryWorker>();
         return services;
     }

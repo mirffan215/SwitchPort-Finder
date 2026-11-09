@@ -6,7 +6,7 @@ a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:under
 h1 { font-size:22px; margin:0 0 12px; } h3 { margin-top:0; }
 .header { display:flex; gap:16px; align-items:center; padding:10px 20px; background:var(--panel); border-bottom:1px solid var(--line); flex-wrap:wrap; }
 .brand { font-weight:700; font-size:18px; }
-.search { flex:1; min-width:220px; max-width:640px; } .search input { width:100%; padding:10px 14px; font-size:15px; border-radius:8px; }
+.search { flex:1; min-width:220px; max-width:640px; position:relative; } .search input { width:100%; padding:10px 14px; font-size:15px; border-radius:8px; }
 .nav { display:flex; gap:4px; padding:0 20px; background:var(--panel); border-bottom:1px solid var(--line); overflow-x:auto; }
 .nav a { padding:10px 14px; color:var(--muted); border-bottom:2px solid transparent; white-space:nowrap; } .nav a.active { color:var(--text); border-bottom-color:var(--accent); }
 .main { padding:20px; max-width:1200px; margin:0 auto; }
@@ -49,3 +49,12 @@ ul.steps { list-style:none; padding:0; margin:8px 0; } ul.steps li { padding:2px
 @media (max-width:900px) { .split { flex-direction:column; } .panel { width:100%; } }
 
 .btn.small { padding:1px 8px; font-size:12px; margin-left:4px; }
+
+.dropdown { position:absolute; top:100%; left:0; right:0; z-index:20; background:var(--panel); border:1px solid var(--line); border-radius:8px; margin-top:4px; box-shadow:0 8px 24px rgba(0,0,0,.18); max-height:70vh; overflow:auto; }
+.dropdown .grp { font-size:11px; text-transform:uppercase; color:var(--muted); padding:8px 12px 2px; } .dropdown .hit { display:block; padding:7px 12px; color:var(--text); } .dropdown .hit:hover { background:rgba(31,111,235,.08); text-decoration:none; } .dropdown .all { color:var(--accent); border-top:1px solid var(--line); } .pad { padding:10px 12px; } .small { font-size:12px; }
+.result { background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:12px 14px; margin:10px 0; } .result-head { margin-bottom:6px; } .result .tag { margin:0 8px 0 0; }
+.kv.cols { grid-template-columns:repeat(4, max-content 1fr); gap:4px 14px; margin-bottom:10px; } @media (max-width:900px) { .kv.cols { grid-template-columns:max-content 1fr; } }
+.trace { display:flex; flex-direction:column; align-items:center; margin:16px 0; } .node { border:1px solid var(--line); background:var(--panel); border-radius:8px; padding:10px 22px; min-width:260px; text-align:center; } .devnode { border-color:var(--ok); border-width:2px; }
+.edge { display:flex; flex-direction:column; align-items:center; gap:2px; padding:2px 0; } .edge .line { width:2px; height:14px; background:var(--muted); } .portlabel { font-size:13px; padding:2px 10px; border:1px dashed var(--line); border-radius:10px; }
+.result.final { border-color:var(--ok); max-width:760px; margin:0 auto; } h2 { font-size:17px; margin:20px 0 6px; }
+.mono { white-space:nowrap; }

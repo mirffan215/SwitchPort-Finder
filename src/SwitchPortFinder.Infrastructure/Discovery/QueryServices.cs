@@ -42,7 +42,7 @@ public class PortQueryService(AppDbContext db, IOptions<DiscoveryOptions> opt)
             .OrderBy(r => NaturalKey(r.PortName), StringComparer.Ordinal).ToList();
     }
 
-    private async Task<Dictionary<long, NeighborDto>> NeighborsFor(List<long> ids, CancellationToken ct)
+    public async Task<Dictionary<long, NeighborDto>> NeighborsFor(List<long> ids, CancellationToken ct)
     {
         var result = new Dictionary<long, NeighborDto>();
         if (ids.Count == 0) return result;
@@ -97,9 +97,11 @@ public class DeviceQueryService(AppDbContext db, IOptions<DiscoveryOptions> opt)
         }
         if (!string.IsNullOrWhiteSpace(q.Q))
         {
-            var t = q.Q.Trim(); var mac = MacAddress.PartialKey(t);
-            query = query.Where(d => (d.Hostname != null && d.Hostname.Contains(t)) || (d.IpAddress != null && d.IpAddress.Contains(t))
-                || (mac != null && d.Mac.Contains(mac)) || (d.Switch != null && d.Switch.Name.Contains(t)) || (d.Port != null && d.Port.Name.Contains(t)));
+            var t = q.Q.Trim(); var mac = ParsedQuery.Parse(t)?.MacKey;
+            var pat = SqlText.Contains(t);
+            query = query.Where(d => EF.Functions.Like(d.Hostname, pat, SqlText.Escape) || (d.IpAddress != null && EF.Functions.Like(d.IpAddress, pat, SqlText.Escape))
+                || (mac != null && EF.Functions.Like(d.Mac, "%" + mac + "%")) || (d.Switch != null && EF.Functions.Like(d.Switch.Name, pat, SqlText.Escape))
+                || (d.Port != null && EF.Functions.Like(d.Port.Name, pat, SqlText.Escape)));
         }
         var total = await query.CountAsync(ct);
         query = (q.Sort?.ToLowerInvariant(), q.Desc) switch
@@ -116,5 +118,24 @@ public class DeviceQueryService(AppDbContext db, IOptions<DiscoveryOptions> opt)
           d.PortId, IfIndex = d.Port != null ? (int?)d.Port.IfIndex : null, PortName = d.Port != null ? d.Port.Name : null, d.Vlan, d.FirstSeen, d.LastSeen, d.LowConfidence }).ToListAsync(ct);
         return new Paged<DeviceDto>(items.Select(d => new DeviceDto(d.Id, d.Hostname, d.HostnameSource, d.IpAddress, MacAddress.Format(d.Mac), d.SwitchId, d.SwitchName,
             d.PortId, d.IfIndex, d.PortName, d.Vlan, DeviceStates.Compute(d.LastSeen, now, o), d.FirstSeen, d.LastSeen, d.LowConfidence)).ToList(), total, page, size);
+    }
+
+    public async Task<DeviceDetailDto> GetAsync(int id, CancellationToken ct)
+    {
+        var o = opt.Value; var now = DateTime.UtcNow;
+        var d = await db.Devices.AsNoTracking().Include(x => x.Switch).Include(x => x.Port).FirstOrDefaultAsync(x => x.Id == id, ct) ?? throw new NotFoundException($"Device {id} not found.");
+        var ipSource = d.IpSourceSwitchId is { } sid ? await db.Switches.AsNoTracking().Where(s => s.Id == sid).Select(s => s.Name).FirstOrDefaultAsync(ct) : null;
+        var obs = await db.Observations.AsNoTracking().Where(x => x.Mac == d.Mac).Join(db.SwitchPorts.AsNoTracking(), x => x.PortId, p => p.Id, (x, p) => new { x.SwitchId, x.Vlan, x.LastSeen, p })
+            .ToListAsync(ct);
+        var names = await db.Switches.AsNoTracking().Where(s => obs.Select(x => x.SwitchId).Contains(s.Id)).ToDictionaryAsync(s => s.Id, s => s.Name, ct);
+        var portIds = obs.Select(x => x.p.Id).ToList();
+        var counts = await db.Observations.AsNoTracking().Where(x => portIds.Contains(x.PortId)).GroupBy(x => x.PortId).Select(g => new { g.Key, N = g.Count() }).ToDictionaryAsync(g => g.Key, g => g.N, ct);
+        var sightings = obs.OrderByDescending(x => x.LastSeen).Select(x => new SightingDto(x.SwitchId, names.GetValueOrDefault(x.SwitchId, "?"), x.p.Id, x.p.IfIndex, x.p.Name,
+            x.p.PortType == PortType.SwitchUplink, counts.GetValueOrDefault(x.p.Id), x.Vlan, x.LastSeen)).ToList();
+        var dto = new DeviceDto(d.Id, d.Hostname, d.HostnameSource, d.IpAddress, MacAddress.Format(d.Mac), d.SwitchId, d.Switch?.Name, d.PortId, d.Port?.IfIndex, d.Port?.Name, d.Vlan,
+            DeviceStates.Compute(d.LastSeen, now, o), d.FirstSeen, d.LastSeen, d.LowConfidence);
+        var note = d.SwitchId is null ? "Not seen on an edge port yet: it has only been learned behind switch uplinks. Scan the switch it connects to."
+            : d.LowConfidence ? "Seen on more than one edge port; the port with the fewest MAC addresses was chosen." : "Learned on an edge port (not a switch uplink).";
+        return new DeviceDetailDto(dto, ipSource, d.IpObservedAt, note, sightings);
     }
 }

@@ -63,6 +63,17 @@ export interface PortsResponse { summary: { total: number; connected: number; do
 export interface DeviceRow { id: number; hostname: string; hostnameSource: string; ip?: string | null; mac: string; switchId?: number | null; switchName?: string | null; portId?: number | null; ifIndex?: number | null; portName?: string | null; vlan?: number | null; state: 'Active' | 'Offline' | 'Stale'; firstSeen: string; lastSeen: string; lowConfidence: boolean }
 export interface Paged<T> { items: T[]; total: number; page: number; pageSize: number }
 
+export interface SwitchHit { id: number; name: string; managementIp: string; manufacturerName: string; status: string; model?: string | null }
+export interface PortHit { switchId: number; switchName: string; switchIp: string; portId: number; ifIndex: number; portName: string; alias?: string | null; status: string; type: PortType }
+export interface SearchResponse { query: string; devices: DeviceRow[]; switches: SwitchHit[]; ports: PortHit[]; truncated: boolean }
+export interface Sighting { switchId: number; switchName: string; portId: number; ifIndex: number; portName: string; isUplink: boolean; macsOnPort: number; vlan?: number | null; lastSeen: string }
+export interface DeviceDetail { device: DeviceRow; ipSourceSwitch?: string | null; ipObservedAt?: string | null; locationNote: string; sightings: Sighting[] }
+export interface TraceHop { switchId: number; switchName: string; switchIp: string; portId?: number | null; portName?: string | null; ifIndex?: number | null; linkConfidence?: NeighborConfidence | null; isFinal: boolean }
+export interface TraceResult {
+  hops: TraceHop[]; partial: boolean; message?: string | null;
+  final?: { deviceId: number; hostname: string; ip?: string | null; mac: string; switchId: number; switchName: string; portName?: string | null; ifIndex?: number | null; vlan?: number | null; lowConfidence: boolean } | null;
+}
+
 export class ApiError extends Error {
   constructor(public status: number, message: string, public fieldErrors: Record<string, string[]> = {}) { super(message); }
 }
@@ -98,6 +109,9 @@ export const api = {
   jobs: (switchId?: number) => request<JobSummary[]>(`/api/discovery/jobs?take=100${switchId ? `&switchId=${switchId}` : ''}`),
   devices: (p: Record<string, string | number | boolean | undefined>) =>
     request<Paged<DeviceRow>>('/api/devices?' + new URLSearchParams(Object.entries(p).filter(([, v]) => v !== undefined && v !== '').map(([k, v]) => [k, String(v)]))),
+  search: (q: string) => request<SearchResponse>(`/api/search?q=${encodeURIComponent(q)}`),
+  device: (id: number) => request<DeviceDetail>(`/api/devices/${id}`),
+  trace: (id: number) => request<TraceResult>(`/api/devices/${id}/trace`),
   listProfiles: () => request<ProfileDto[]>('/api/credential-profiles'),
   createProfile: (r: { name: string; description?: string; credential: CredentialInput }) => request<ProfileDto>('/api/credential-profiles', json('POST', r)),
   updateProfile: (id: number, r: { name: string; description?: string; credential: CredentialInput }) => request<ProfileDto>(`/api/credential-profiles/${id}`, json('PUT', r)),

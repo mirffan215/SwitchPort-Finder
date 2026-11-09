@@ -3,12 +3,12 @@
 Internal web portal that answers **"Which switch and which port is this device connected to?"**
 Read-only against network equipment (SNMP GET / GETNEXT / GETBULK / walk only — there is no SET anywhere in the code).
 
-> **Status: Phase 3 of 6 (Neighbors).** Implemented: switch management, SNMPv2c/v3 test, encrypted credentials, bulk import/export,
-> discovery (ports, VLANs, MAC/FDB incl. Cisco per-VLAN, ARP with global IP→MAC join, hostnames), and now **LLDP + CDP neighbors,
-> switch-uplink classification** (Confirmed via LLDP/CDP, Likely via the MAC-table heuristic when LLDP/CDP is off), the
-> **edge-port rule** (devices are located only on non-uplink ports; uplinks never list downstream devices) and **Open Switch**
-> navigation between neighbors.
-> **Not yet:** global search, trace, topology, device export, dashboard counts.
+> **Status: Phase 4 of 6 (Search & trace).** Implemented: switch management, SNMPv2c/v3, encrypted credentials, bulk import/export,
+> discovery (ports, VLANs, MAC/FDB incl. Cisco per-VLAN, ARP, hostnames), LLDP/CDP neighbors with uplink classification and the
+> edge-port rule, and now **global search** (MAC in any format or fragment, IP, hostname, switch name/IP, port name — debounced
+> grouped dropdown plus a results page with *Open Switch* / *Trace Device*), **device details** and the **trace** (root switch →
+> egress ports → final edge port, "Path partially determined" when a hop cannot be proven).
+> **Not yet:** topology graph, dashboard counts, device export (CSV/Excel), performance and security hardening.
 
 ## Quick start (development)
 

@@ -58,6 +58,24 @@ export default function SwitchPage() {
       {ports.data && ports.data.ports.length === 0 ? (
         <p>No ports yet. Click <strong>Scan Now</strong> to discover ports, MAC addresses and IPs.</p>
       ) : (
+        <>
+        <div>
+        <h2>Front panel port matrix <span className="muted small">(click a port to inspect)</span></h2>
+        <div className="portgrid">
+          {ports.data?.ports.map((p) => {
+            const d = p.devices[0];
+            const cls = p.type === 'Down' ? 'down' : p.type === 'SwitchUplink' ? 'uplink' : p.type === 'Unknown' ? 'unk' : 'up';
+            return (
+              <button key={p.portId} type="button" className={`pbtn ${cls} ${selected === p.ifIndex ? 'sel' : ''}`} title={`${p.name} · ${p.status}`}
+                      onClick={() => { setSelected(p.ifIndex); setSp({}, { replace: true }); document.getElementById(`port-${p.ifIndex}`)?.scrollIntoView({ block: 'nearest' }); }}>
+                <span className="pn"><span>{p.status}</span><span>{p.type === 'SwitchUplink' ? '⇅' : p.type === 'Down' ? '○' : '●'}</span></span>
+                <span className="pi">{p.name}</span>
+                <span className="pd">{p.type === 'SwitchUplink' ? (p.neighbor?.connectedSwitchName ?? p.neighbor?.remoteName ?? 'Uplink') : p.type === 'Down' ? 'Unused' : d?.hostname ?? p.alias ?? '—'}</span>
+              </button>
+            );
+          })}
+        </div>
+        </div>
         <div className="split">
           <div className="tablewrap">
             <table>
@@ -88,6 +106,7 @@ export default function SwitchPage() {
           </div>
           {sel && <PortPanel sw={s.name} p={sel} onClose={() => setSelected(undefined)} />}
         </div>
+        </>
       )}
     </section>
   );

@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { api } from '../api';
-import { ErrorBox, StateBadge, ago } from '../components/Bits';
+import { ErrorBox, StateBadge, StatusBadge, ago } from '../components/Bits';
 import { useAuth } from '../components/Auth';
 
 const BADGE: Record<string, string> = { Completed: 'ok', CompletedWithWarnings: 'warnb', Failed: 'bad', Running: 'info', Queued: 'muted' };
@@ -9,6 +9,7 @@ const BADGE: Record<string, string> = { Completed: 'ok', CompletedWithWarnings: 
 export default function Dashboard() {
   const { canWrite } = useAuth();
   const { data: d, error } = useQuery({ queryKey: ['dashboard'], queryFn: api.dashboard, refetchInterval: 15_000 });
+  const sws = useQuery({ queryKey: ['switches'], queryFn: api.listSwitches });
   const last = d?.lastDiscovery;
   return (
     <section>
@@ -23,6 +24,19 @@ export default function Dashboard() {
         <div className="card"><div className="num sm">{last ? ago(last.completedAt ?? last.queuedAt) : '—'}</div><div>Last Discovery</div>{last && <small className={`badge ${BADGE[last.status]}`}>{last.switchName}: {last.status === 'CompletedWithWarnings' ? 'warnings' : last.status}</small>}</div>
       </div>
       {d && d.switches === 0 && <div className="alert">No switches yet. <Link to="/switches/new">Add your first switch</Link> or <Link to="/settings">import a list</Link>.</div>}
+      {sws.data && sws.data.length > 0 && (<>
+        <h2>Switch Health Overview <Link className="small" to="/switches">view all</Link></h2>
+        <div className="health">
+          {sws.data.slice(0, 8).map((x) => (
+            <Link key={x.id} className="hcard" to={`/switches/${x.id}`}>
+              <div className="top"><span>{x.name}</span><StatusBadge status={x.status} /></div>
+              <div className="sub">{x.manufacturerName}{x.model ? ` ${x.model}` : ''}{x.location ? ` · ${x.location}` : ''}</div>
+              <div className="meter"><span>Ports</span><b>{x.portCount}</b></div>
+              <div className="meter"><span>Last scan</span><b>{ago(x.lastScanAt)}</b></div>
+            </Link>
+          ))}
+        </div>
+      </>)}
       <div className="two">
         <div>
           <h2>Recent Discovery Jobs <Link className="small" to="/discovery">all</Link></h2>

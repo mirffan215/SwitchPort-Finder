@@ -51,6 +51,8 @@ public static class DependencyInjection
         services.AddScoped<DeviceQueryService>();
         services.AddScoped<SearchService>();
         services.AddScoped<TraceService>();
+        services.AddScoped<TopologyService>();
+        services.AddScoped<DashboardService>();
         services.AddHostedService<DiscoveryWorker>();
         return services;
     }

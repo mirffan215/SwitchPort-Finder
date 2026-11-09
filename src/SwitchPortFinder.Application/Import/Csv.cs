@@ -5,6 +5,8 @@ namespace SwitchPortFinder.Application.Import;
 /// <summary>Minimal RFC 4180 CSV reader/writer (quoted fields, escaped quotes, embedded newlines).</summary>
 public static class Csv
 {
+    private static readonly System.Text.RegularExpressions.Regex PlainNumber = new(@"^-\d+(\.\d+)?$", System.Text.RegularExpressions.RegexOptions.Compiled);
+
     public static List<List<string>> Parse(string text, char delimiter) =>
         ParseRecords(text, delimiter).Select(r => r.Fields).ToList();
 
@@ -49,8 +51,8 @@ public static class Csv
     public static string Escape(string? value)
     {
         value ??= "";
-        // Also neutralise spreadsheet formula injection when the file is opened in Excel.
-        if (value.Length > 0 && value[0] is '=' or '+' or '@' || (value.Length > 0 && value[0] == '-' && value.Length > 1 && !char.IsDigit(value[1])))
+        // Neutralise spreadsheet formula injection: a leading = + @ TAB CR is dangerous, and so is '-' unless the whole value is a plain number.
+        if (value.Length > 0 && (value[0] is '=' or '+' or '@' or '\t' or '\r' || (value[0] == '-' && !PlainNumber.IsMatch(value))))
             value = "'" + value;
         return value.IndexOfAny([',', '"', '\r', '\n', ';']) >= 0 ? "\"" + value.Replace("\"", "\"\"") + "\"" : value;
     }

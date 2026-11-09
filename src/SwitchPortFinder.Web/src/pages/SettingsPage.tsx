@@ -19,7 +19,14 @@ export default function SettingsPage() {
       </div>
       {tab === 'import' && <ImportTab />}
       {tab === 'profiles' && <ProfilesTab />}
-      {tab === 'general' && <p className="muted">Timeouts, retries, concurrency and schedule are set in <code>appsettings.json</code> (see CONFIGURATION.md). A settings UI arrives in Phase 6.</p>}
+      {tab === 'general' && (
+        <div>
+          <h3>Export</h3>
+          <p>All devices: <a href="/api/export/devices?format=csv">CSV</a> · <a href="/api/export/devices?format=xlsx">Excel</a> &nbsp;(the Devices page exports the current filters). Switches without credentials: <a href="/api/admin/export/switches?format=csv">CSV</a> · <a href="/api/admin/export/switches?format=xlsx">Excel</a>.</p>
+          <h3>Configuration</h3>
+          <p className="muted">Timeouts, retries, concurrency, offline/stale thresholds and the scan schedule are set in <code>appsettings.json</code> (see CONFIGURATION.md). A settings UI arrives in Phase 6.</p>
+        </div>
+      )}
     </section>
   );
 }

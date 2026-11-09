@@ -234,3 +234,115 @@ public class AcceptanceWithoutLldpTests(IsolatedApiFixture fx) : AcceptanceBase(
         (await Http.GetFromJsonAsync<List<NeighborRowDto>>($"/api/switches/{core}/neighbors", Json))!.Single().Neighbor.Protocol.Should().Be(NeighborProtocol.Inferred);
     }
 }
+
+public class Phase5ApiTests(IsolatedApiFixture fx) : AcceptanceBase(fx), IClassFixture<IsolatedApiFixture>
+{
+    private async Task<(int core, int access)> Setup(bool lldp = true, string? pcHostname = null)
+    {
+        await Reset(); BuildNetwork(lldp);
+        if (pcHostname is not null) Fx.Services.GetService(typeof(FakeResolver)).As<FakeResolver>().Names[PcIp] = pcHostname;
+        var core = await AddSwitch("CORE-SW-01", CoreIp, arp: true); var access = await AddSwitch("ACCESS-SW-01", AccessIp);
+        await Scan(core); await Scan(access);
+        return (core, access);
+    }
+
+    [Theory]
+    [InlineData(true, NeighborConfidence.ConfirmedSwitch)] [InlineData(false, NeighborConfidence.LikelySwitch)]
+    public async Task Topology_shows_one_paired_edge_between_the_switches_rooted_at_the_core(bool lldp, NeighborConfidence expected)
+    {
+        var (core, access) = await Setup(lldp);
+        var t = (await Http.GetFromJsonAsync<TopologyResponse>("/api/topology", Json))!;
+        t.Nodes.Should().HaveCount(2);
+        var c = t.Nodes.Single(n => n.SwitchId == core); var a = t.Nodes.Single(n => n.SwitchId == access);
+        (c.Level, c.IsRoot, a.Level, a.IsRoot).Should().Be((0, true, 1, false), "the ARP-source core is the root");
+        c.Uplinks.Should().Be(1); a.Devices.Should().Be(1); a.Name.Should().Be("ACCESS-SW-01"); a.Status.Should().Be("Reachable");
+        var e = t.Edges.Should().ContainSingle("A→B and B→A are one link").Subject;
+        (e.SourceSwitchId, e.TargetSwitchId, e.SourcePort, e.TargetPort).Should().Be((core, access, "Gi1/0/24", "Gi1/0/24"));
+        e.Confidence.Should().Be(expected);
+        e.SourceIfIndex.Should().Be(24, "so clicking the link can open the port details");
+    }
+
+    [Fact]
+    public async Task Topology_draws_an_unregistered_neighbor_as_an_external_node()
+    {
+        await Reset(); BuildNetwork(true);
+        var core = await AddSwitch("CORE-SW-01", CoreIp, arp: true); await Scan(core);   // ACCESS-SW-01 is not registered
+        var t = (await Http.GetFromJsonAsync<TopologyResponse>("/api/topology", Json))!;
+        t.Nodes.Should().HaveCount(2);
+        var ghost = t.Nodes.Single(n => n.External); ghost.Name.Should().Be("ACCESS-SW-01"); ghost.SwitchId.Should().BeNull(); ghost.Ip.Should().Be(AccessIp);
+        t.Edges.Should().ContainSingle().Which.TargetSwitchId.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task Dashboard_counts_recent_jobs_and_recently_discovered_devices()
+    {
+        var (_, _) = await Setup();
+        var d = (await Http.GetFromJsonAsync<DashboardDto>("/api/dashboard", Json))!;
+        (d.Switches, d.Devices, d.ConnectedPorts, d.SwitchUplinks, d.OfflineDevices).Should().Be((2, 1, 3, 2, 0));
+        d.LastDiscovery.Should().NotBeNull(); d.LastDiscovery!.Status.Should().BeOneOf(JobStatus.Completed, JobStatus.CompletedWithWarnings);
+        d.RecentJobs.Should().HaveCount(2).And.OnlyContain(j => j.CompletedAt != null);
+        d.RecentDevices.Should().ContainSingle().Which.Hostname.Should().Be("PC-001");
+    }
+
+    [Fact]
+    public async Task Dashboard_is_clean_when_nothing_exists_yet()
+    {
+        await Reset();
+        var d = (await Http.GetFromJsonAsync<DashboardDto>("/api/dashboard", Json))!;
+        (d.Switches, d.ConnectedPorts, d.SwitchUplinks).Should().Be((0, 0, 0)); d.LastDiscovery.Should().BeNull(); d.RecentJobs.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task Csv_export_has_the_spec_columns_and_respects_filters_and_sorting()
+    {
+        await Setup();
+        var all = await Http.GetAsync("/api/export/devices?format=csv");
+        all.StatusCode.Should().Be(HttpStatusCode.OK); all.Content.Headers.ContentType!.MediaType.Should().Be("text/csv");
+        all.Content.Headers.ContentDisposition!.FileName.Should().EndWith(".csv");
+        var rows = SwitchPortFinder.Application.Import.Csv.Parse((await all.Content.ReadAsStringAsync()).TrimStart('﻿'), ',');
+        rows[0].Should().Equal("Switch", "Port", "MAC", "IP", "Hostname", "VLAN", "Status", "Last Seen");
+        rows.Should().HaveCount(2);
+        rows[1].Take(7).Should().Equal("ACCESS-SW-01", "Gi1/0/15", "AA:BB:CC:DD:EE:01", PcIp, "PC-001", "50", "Active");
+
+        async Task<int> Count(string qs) => SwitchPortFinder.Application.Import.Csv.Parse((await Http.GetStringAsync($"/api/export/devices?format=csv&{qs}")).TrimStart('﻿'), ',').Count - 1;
+        (await Count("q=PC-001")).Should().Be(1);
+        (await Count("q=aabb.ccdd.ee01")).Should().Be(1, "same MAC matching as search");
+        (await Count("q=nothing-matches")).Should().Be(0, "a filter with no hits exports just the header row");
+        (await Count("state=Stale")).Should().Be(0);
+        (await Count("state=Active")).Should().Be(1);
+        (await Count("switchId=999999")).Should().Be(0);
+        (await Count("pageSize=1&page=2")).Should().Be(1, "paging parameters are ignored: the export is never paged");
+    }
+
+    [Fact]
+    public async Task Discovery_job_list_can_be_filtered_by_switch_and_records_neighbors_found()
+    {
+        var (core, _) = await Setup();
+        var jobs = (await Http.GetFromJsonAsync<List<JobSummaryDto>>($"/api/discovery/jobs?switchId={core}", Json))!;
+        jobs.Should().ContainSingle().Which.Should().Match<JobSummaryDto>(j => j.NeighborsFound == 1 && j.DurationSeconds != null && j.PortsFound == 1);
+    }
+}
+
+/// <summary>Own database: the hostname must be resolved for the first time with the hostile DNS answer.</summary>
+public class ExportInjectionTests(IsolatedApiFixture fx) : AcceptanceBase(fx), IClassFixture<IsolatedApiFixture>
+{
+    [Fact]
+    public async Task Excel_export_opens_and_formula_looking_hostnames_stay_text()
+    {
+        await Reset(); BuildNetwork(true);
+        Fx.Services.GetService(typeof(FakeResolver)).As<FakeResolver>().Names[PcIp] = "=HYPERLINK(\"http://evil\",\"x\")";   // a hostile reverse-DNS answer
+        var core = await AddSwitch("CORE-SW-01", CoreIp, arp: true); var access = await AddSwitch("ACCESS-SW-01", AccessIp);
+        await Scan(core); await Scan(access);
+        var resp = await Http.GetAsync("/api/export/devices?format=xlsx");
+        resp.StatusCode.Should().Be(HttpStatusCode.OK);
+        resp.Content.Headers.ContentType!.MediaType.Should().Be("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+        using var wb = new ClosedXML.Excel.XLWorkbook(new MemoryStream(await resp.Content.ReadAsByteArrayAsync()));
+        var ws = wb.Worksheet(1);
+        ws.Cell(1, 1).GetString().Should().Be("Switch"); ws.Cell(2, 1).GetString().Should().Be("ACCESS-SW-01"); ws.Cell(2, 3).GetString().Should().Be("AA:BB:CC:DD:EE:01");
+        ws.Cell(2, 5).HasFormula.Should().BeFalse(); ws.Cell(2, 5).GetString().Should().StartWith("=HYPERLINK");
+        // CSV variant is neutralised with a leading apostrophe.
+        var csv = SwitchPortFinder.Application.Import.Csv.Parse((await Http.GetStringAsync("/api/export/devices?format=csv")).TrimStart('﻿'), ',');
+        csv[1][4].Should().StartWith("'=HYPERLINK");
+    }
+
+}

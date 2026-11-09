@@ -16,3 +16,10 @@ public class ImportOptions
     public int MaxFileBytes { get; set; } = 10 * 1024 * 1024;
     public int PreviewTtlMinutes { get; set; } = 30;
 }
+
+public class ExportOptions
+{
+    public const string Section = "Export";
+    /// <summary>Largest device export allowed in one request (keeps memory bounded).</summary>
+    public int MaxDeviceRows { get; set; } = 250_000;
+}

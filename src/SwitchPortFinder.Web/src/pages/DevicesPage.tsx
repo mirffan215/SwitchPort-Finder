@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { api } from '../api';
 import { ErrorBox, StateBadge, ago } from '../components/Bits';
 
@@ -10,13 +10,16 @@ export default function DevicesPage() {
   const [q, setQ] = useState(''); const [dq, setDq] = useState('');
   const [page, setPage] = useState(1); const [size, setSize] = useState(50);
   const [sort, setSort] = useState('lastseen'); const [desc, setDesc] = useState(true);
-  const [state, setState] = useState('');
+  const [sp] = useSearchParams();
+  const [state, setState] = useState(sp.get('state') ?? '');
   useEffect(() => { const t = setTimeout(() => { setDq(q); setPage(1); }, 300); return () => clearTimeout(t); }, [q]);   // debounce
   const { data, error, isFetching } = useQuery({
     queryKey: ['devices', dq, page, size, sort, desc, state],
     queryFn: () => api.devices({ q: dq, page, pageSize: size, sort, desc, state }),
     placeholderData: keepPreviousData,
   });
+  // Export uses exactly the filters and sorting currently applied (never the page).
+  const exportHref = (fmt: string) => `/api/export/devices?${new URLSearchParams({ format: fmt, ...(dq ? { q: dq } : {}), ...(state ? { state } : {}), sort, desc: String(desc) })}`;
   const pages = data ? Math.max(1, Math.ceil(data.total / data.pageSize)) : 1;
   const th = (k: string, label: string) => k
     ? <th key={label} className="sortable" onClick={() => { if (sort === k) setDesc(!desc); else { setSort(k); setDesc(false); } }}>{label}{sort === k ? (desc ? ' ▼' : ' ▲') : ''}</th>
@@ -26,6 +29,7 @@ export default function DevicesPage() {
       <div className="toolbar">
         <h1>Devices</h1><div className="spacer" />
         <input placeholder="Filter hostname / IP / MAC / switch / port" value={q} onChange={(e) => setQ(e.target.value)} style={{ minWidth: 280 }} />
+        <a className="btn" href={exportHref('csv')} download>Export CSV</a><a className="btn" href={exportHref('xlsx')} download>Export Excel</a>
         <select value={state} onChange={(e) => { setState(e.target.value); setPage(1); }} aria-label="State"><option value="">All states</option><option>Active</option><option>Offline</option><option>Stale</option></select>
       </div>
       <ErrorBox error={error} />

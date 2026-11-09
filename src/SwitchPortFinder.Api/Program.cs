@@ -14,6 +14,7 @@ builder.Host.UseSerilog((ctx, cfg) => cfg.ReadFrom.Configuration(ctx.Configurati
 
 builder.Services.Configure<SnmpOptions>(builder.Configuration.GetSection(SnmpOptions.Section));
 builder.Services.Configure<DiscoveryOptions>(builder.Configuration.GetSection(DiscoveryOptions.Section));
+builder.Services.Configure<ExportOptions>(builder.Configuration.GetSection(ExportOptions.Section));
 builder.Services.Configure<ImportOptions>(builder.Configuration.GetSection(ImportOptions.Section));
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddDiscovery();

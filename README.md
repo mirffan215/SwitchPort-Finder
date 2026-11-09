@@ -3,12 +3,13 @@
 Internal web portal that answers **"Which switch and which port is this device connected to?"**
 Read-only against network equipment (SNMP GET / GETNEXT / GETBULK / walk only — there is no SET anywhere in the code).
 
-> **Status: Phase 4 of 6 (Search & trace).** Implemented: switch management, SNMPv2c/v3, encrypted credentials, bulk import/export,
-> discovery (ports, VLANs, MAC/FDB incl. Cisco per-VLAN, ARP, hostnames), LLDP/CDP neighbors with uplink classification and the
-> edge-port rule, and now **global search** (MAC in any format or fragment, IP, hostname, switch name/IP, port name — debounced
-> grouped dropdown plus a results page with *Open Switch* / *Trace Device*), **device details** and the **trace** (root switch →
-> egress ports → final edge port, "Path partially determined" when a hop cannot be proven).
-> **Not yet:** topology graph, dashboard counts, device export (CSV/Excel), performance and security hardening.
+> **Status: Phase 5 of 6 (Topology, history, export).** Implemented: switch management, SNMPv2c/v3, encrypted credentials, bulk
+> import/export, discovery (ports, VLANs, MAC/FDB incl. Cisco per-VLAN, ARP, hostnames), LLDP/CDP neighbors with uplink
+> classification and the edge-port rule, global search, device details and trace, and now the **topology graph** (React Flow, fully
+> bundled; click a switch to open it, click a link to open its port), the **dashboard** (counts, recent jobs, recently discovered
+> devices), **discovery history** with filters, and **device export to CSV/Excel** that respects the current filters.
+> **Not yet (Phase 6):** performance test at 500 switches / 50k devices, security review, error-handling review, full documentation,
+> production publish, settings UI.
 
 ## Quick start (development)
 

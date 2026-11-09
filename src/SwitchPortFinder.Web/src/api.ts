@@ -74,6 +74,11 @@ export interface TraceResult {
   final?: { deviceId: number; hostname: string; ip?: string | null; mac: string; switchId: number; switchName: string; portName?: string | null; ifIndex?: number | null; vlan?: number | null; lowConfidence: boolean } | null;
 }
 
+export interface TopoNode { id: string; switchId?: number | null; name: string; ip?: string | null; vendor?: string | null; status?: string | null; external: boolean; isRoot: boolean; level: number; order: number; ports: number; uplinks: number; devices: number }
+export interface TopoEdge { id: string; source: string; target: string; sourceSwitchId: number; sourcePortId: number; sourcePort: string; sourceIfIndex: number; targetSwitchId?: number | null; targetPort?: string | null; targetIfIndex?: number | null; confidence: NeighborConfidence; protocol: string }
+export interface Topology { nodes: TopoNode[]; edges: TopoEdge[] }
+export interface Dashboard { switches: number; devices: number; connectedPorts: number; switchUplinks: number; offlineDevices: number; lastDiscovery?: JobSummary | null; recentJobs: JobSummary[]; recentDevices: DeviceRow[] }
+
 export class ApiError extends Error {
   constructor(public status: number, message: string, public fieldErrors: Record<string, string[]> = {}) { super(message); }
 }
@@ -112,6 +117,8 @@ export const api = {
   search: (q: string) => request<SearchResponse>(`/api/search?q=${encodeURIComponent(q)}`),
   device: (id: number) => request<DeviceDetail>(`/api/devices/${id}`),
   trace: (id: number) => request<TraceResult>(`/api/devices/${id}/trace`),
+  topology: () => request<Topology>('/api/topology'),
+  dashboard: () => request<Dashboard>('/api/dashboard'),
   listProfiles: () => request<ProfileDto[]>('/api/credential-profiles'),
   createProfile: (r: { name: string; description?: string; credential: CredentialInput }) => request<ProfileDto>('/api/credential-profiles', json('POST', r)),
   updateProfile: (id: number, r: { name: string; description?: string; credential: CredentialInput }) => request<ProfileDto>(`/api/credential-profiles/${id}`, json('PUT', r)),

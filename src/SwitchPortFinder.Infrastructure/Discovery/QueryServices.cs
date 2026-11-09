@@ -79,10 +79,10 @@ public class PortQueryService(AppDbContext db, IOptions<DiscoveryOptions> opt)
 
 public class DeviceQueryService(AppDbContext db, IOptions<DiscoveryOptions> opt)
 {
-    public async Task<Paged<DeviceDto>> ListAsync(DeviceQuery q, CancellationToken ct)
+    /// <summary>Shared by the paged list and the export so "respect the current filters" is true by construction.</summary>
+    private IQueryable<Device> Filter(DeviceQuery q, DateTime now)
     {
-        var page = Math.Max(1, q.Page); var size = Math.Clamp(q.PageSize, 1, 200);
-        var o = opt.Value; var now = DateTime.UtcNow;
+        var o = opt.Value;
         var query = db.Devices.AsNoTracking().AsQueryable();
         if (q.SwitchId is { } sid) query = query.Where(d => d.SwitchId == sid);
         if (q.State is { } st)
@@ -103,22 +103,48 @@ public class DeviceQueryService(AppDbContext db, IOptions<DiscoveryOptions> opt)
                 || (mac != null && EF.Functions.Like(d.Mac, "%" + mac + "%")) || (d.Switch != null && EF.Functions.Like(d.Switch.Name, pat, SqlText.Escape))
                 || (d.Port != null && EF.Functions.Like(d.Port.Name, pat, SqlText.Escape)));
         }
-        var total = await query.CountAsync(ct);
-        query = (q.Sort?.ToLowerInvariant(), q.Desc) switch
-        {
-            ("hostname", false) => query.OrderBy(d => d.Hostname), ("hostname", true) => query.OrderByDescending(d => d.Hostname),
-            ("ip", false) => query.OrderBy(d => d.IpAddress), ("ip", true) => query.OrderByDescending(d => d.IpAddress),
-            ("mac", false) => query.OrderBy(d => d.Mac), ("mac", true) => query.OrderByDescending(d => d.Mac),
-            ("switch", false) => query.OrderBy(d => d.Switch!.Name), ("switch", true) => query.OrderByDescending(d => d.Switch!.Name),
-            ("vlan", false) => query.OrderBy(d => d.Vlan), ("vlan", true) => query.OrderByDescending(d => d.Vlan),
-            ("lastseen", false) => query.OrderBy(d => d.LastSeen), _ => query.OrderByDescending(d => d.LastSeen),
-        };
-        var items = await query.Skip((page - 1) * size).Take(size).Select(d => new
+        return query;
+    }
+
+    private static IQueryable<Device> Sort(IQueryable<Device> query, DeviceQuery q) => (q.Sort?.ToLowerInvariant(), q.Desc) switch
+    {
+        ("hostname", false) => query.OrderBy(d => d.Hostname), ("hostname", true) => query.OrderByDescending(d => d.Hostname),
+        ("ip", false) => query.OrderBy(d => d.IpAddress), ("ip", true) => query.OrderByDescending(d => d.IpAddress),
+        ("mac", false) => query.OrderBy(d => d.Mac), ("mac", true) => query.OrderByDescending(d => d.Mac),
+        ("switch", false) => query.OrderBy(d => d.Switch!.Name), ("switch", true) => query.OrderByDescending(d => d.Switch!.Name),
+        ("vlan", false) => query.OrderBy(d => d.Vlan), ("vlan", true) => query.OrderByDescending(d => d.Vlan),
+        ("lastseen", false) => query.OrderBy(d => d.LastSeen), _ => query.OrderByDescending(d => d.LastSeen),
+    };
+
+    private async Task<List<DeviceDto>> Project(IQueryable<Device> query, DateTime now, CancellationToken ct)
+    {
+        var o = opt.Value;
+        var items = await query.Select(d => new
         { d.Id, d.Hostname, d.HostnameSource, d.IpAddress, d.Mac, d.SwitchId, SwitchName = d.Switch != null ? d.Switch.Name : null,
           d.PortId, IfIndex = d.Port != null ? (int?)d.Port.IfIndex : null, PortName = d.Port != null ? d.Port.Name : null, d.Vlan, d.FirstSeen, d.LastSeen, d.LowConfidence }).ToListAsync(ct);
-        return new Paged<DeviceDto>(items.Select(d => new DeviceDto(d.Id, d.Hostname, d.HostnameSource, d.IpAddress, MacAddress.Format(d.Mac), d.SwitchId, d.SwitchName,
-            d.PortId, d.IfIndex, d.PortName, d.Vlan, DeviceStates.Compute(d.LastSeen, now, o), d.FirstSeen, d.LastSeen, d.LowConfidence)).ToList(), total, page, size);
+        return items.Select(d => new DeviceDto(d.Id, d.Hostname, d.HostnameSource, d.IpAddress, MacAddress.Format(d.Mac), d.SwitchId, d.SwitchName,
+            d.PortId, d.IfIndex, d.PortName, d.Vlan, DeviceStates.Compute(d.LastSeen, now, o), d.FirstSeen, d.LastSeen, d.LowConfidence)).ToList();
     }
+
+    public async Task<Paged<DeviceDto>> ListAsync(DeviceQuery q, CancellationToken ct)
+    {
+        var page = Math.Max(1, q.Page); var size = Math.Clamp(q.PageSize, 1, 200); var now = DateTime.UtcNow;
+        var query = Filter(q, now);
+        var total = await query.CountAsync(ct);
+        return new Paged<DeviceDto>(await Project(Sort(query, q).Skip((page - 1) * size).Take(size), now, ct), total, page, size);
+    }
+
+    /// <summary>Every device matching the filters (no paging), same order as the list. Bounded by <paramref name="max"/>.</summary>
+    public async Task<(List<DeviceDto> Rows, int Total)> ExportAsync(DeviceQuery q, int max, CancellationToken ct)
+    {
+        var now = DateTime.UtcNow; var query = Filter(q, now);
+        var total = await query.CountAsync(ct);
+        if (total > max) throw new ValidationFailedException("export", $"{total} devices match; the export limit is {max}. Narrow the filters.");
+        return (await Project(Sort(query, q), now, ct), total);
+    }
+
+    public async Task<List<DeviceDto>> RecentAsync(int take, CancellationToken ct) =>
+        await Project(db.Devices.AsNoTracking().OrderByDescending(d => d.FirstSeen).ThenByDescending(d => d.Id).Take(take), DateTime.UtcNow, ct);
 
     public async Task<DeviceDetailDto> GetAsync(int id, CancellationToken ct)
     {

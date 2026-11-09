@@ -58,3 +58,11 @@ ul.steps { list-style:none; padding:0; margin:8px 0; } ul.steps li { padding:2px
 .edge { display:flex; flex-direction:column; align-items:center; gap:2px; padding:2px 0; } .edge .line { width:2px; height:14px; background:var(--muted); } .portlabel { font-size:13px; padding:2px 10px; border:1px dashed var(--line); border-radius:10px; }
 .result.final { border-color:var(--ok); max-width:760px; margin:0 auto; } h2 { font-size:17px; margin:20px 0 6px; }
 .mono { white-space:nowrap; }
+
+.topo { height:62vh; min-height:380px; border:1px solid var(--line); border-radius:8px; background:var(--panel); }
+.tnode { background:var(--panel); border:2px solid var(--line); border-radius:10px; padding:8px 14px; min-width:190px; text-align:center; cursor:pointer; color:var(--text); } .tnode.root { border-color:var(--accent); } .tnode.ext { border-style:dashed; color:var(--muted); }
+.tname { font-weight:700; } .tsub { font-size:11px; color:var(--muted); } .dot { display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--muted); margin-right:6px; } .dot.ok { background:var(--ok); } .dot.bad { background:var(--bad); }
+.legend { margin-left:12px; font-size:12px; color:var(--muted); } .legend .sw { display:inline-block; width:26px; border-top:2px solid var(--text); vertical-align:middle; margin-right:4px; } .legend .sw.dashed { border-top:2px dashed #d29922; } .legend .boxe { display:inline-block; width:14px; height:10px; border:2px dashed var(--muted); border-radius:3px; margin-right:4px; vertical-align:middle; }
+.react-flow { --xy-edge-label-background-color-default:var(--panel); --xy-edge-label-color-default:var(--text); --xy-background-color-default:var(--panel); --xy-controls-button-background-color-default:var(--panel); --xy-controls-button-color-default:var(--text); --xy-minimap-background-color-default:var(--panel); }
+.card.link { color:inherit; } .card.link:hover { border-color:var(--accent); text-decoration:none; } .num.sm { font-size:20px; } .num.warn { color:var(--warn); }
+.two { display:grid; grid-template-columns:1fr 1fr; gap:18px; } @media (max-width:1000px) { .two { grid-template-columns:1fr; } }

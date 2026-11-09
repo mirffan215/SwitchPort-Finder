@@ -5,12 +5,12 @@ import SwitchesPage from './pages/SwitchesPage';
 import SwitchFormPage from './pages/SwitchFormPage';
 import SwitchPage from './pages/SwitchPage';
 import SettingsPage from './pages/SettingsPage';
+import TopologyPage from './pages/TopologyPage';
 import DevicesPage from './pages/DevicesPage';
 import DiscoveryPage from './pages/DiscoveryPage';
 import DevicePage from './pages/DevicePage';
 import SearchPage from './pages/SearchPage';
 import TracePage from './pages/TracePage';
-import { Placeholder } from './pages/Placeholders';
 
 export default function App() {
   return (
@@ -24,7 +24,7 @@ export default function App() {
         <Route path="devices" element={<DevicesPage />} />
         <Route path="devices/:id" element={<DevicePage />} />
         <Route path="devices/:id/trace" element={<TracePage />} />
-        <Route path="topology" element={<Placeholder title="Topology" phase="Phase 5" />} />
+        <Route path="topology" element={<TopologyPage />} />
         <Route path="discovery" element={<DiscoveryPage />} />
         <Route path="settings" element={<SettingsPage />} />
         <Route path="search" element={<SearchPage />} />

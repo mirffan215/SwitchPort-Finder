@@ -52,7 +52,13 @@ export interface StepResult { name: string; state: 'Pending' | 'Running' | 'Ok' 
 export interface JobSummary { id: number; switchId: number; switchName: string; status: JobStatus; queuedAt: string; startedAt?: string | null; completedAt?: string | null; durationSeconds?: number | null; portsFound: number; devicesFound: number; neighborsFound: number; errorCount: number; summary?: string | null }
 export interface JobDetail { job: JobSummary; steps: StepResult[]; errors: { step: string; code: string; message: string; createdAt: string }[] }
 export interface PortDevice { deviceId: number; hostname: string; ip?: string | null; mac: string; vlan?: number | null; lastSeen: string; state: 'Active' | 'Offline' | 'Stale'; lowConfidence: boolean }
-export interface PortRow { portId: number; ifIndex: number; name: string; alias?: string | null; status: 'UP' | 'DOWN'; type: PortType; speedMbps: number; vlan?: number | null; macCount: number; physAddress?: string | null; devices: PortDevice[] }
+export type NeighborConfidence = 'Unknown' | 'Endpoint' | 'LikelySwitch' | 'ConfirmedSwitch';
+export interface Neighbor {
+  neighborId: number; protocol: 'Lldp' | 'Cdp' | 'Inferred'; connectedSwitchId?: number | null; connectedSwitchName?: string | null; connectedSwitchIp?: string | null;
+  remoteName?: string | null; remoteChassis?: string | null; remotePort?: string | null; remotePortIfIndex?: number | null; remoteIp?: string | null; platform?: string | null;
+  confidence: NeighborConfidence; evidence?: string | null; capabilities: string; canAdd: boolean;
+}
+export interface PortRow { portId: number; ifIndex: number; name: string; alias?: string | null; status: 'UP' | 'DOWN'; type: PortType; speedMbps: number; vlan?: number | null; macCount: number; physAddress?: string | null; devices: PortDevice[]; neighbor?: Neighbor | null }
 export interface PortsResponse { summary: { total: number; connected: number; down: number; uplinks: number; lastScan?: string | null }; ports: PortRow[]; hasArpSource: boolean }
 export interface DeviceRow { id: number; hostname: string; hostnameSource: string; ip?: string | null; mac: string; switchId?: number | null; switchName?: string | null; portId?: number | null; ifIndex?: number | null; portName?: string | null; vlan?: number | null; state: 'Active' | 'Offline' | 'Stale'; firstSeen: string; lastSeen: string; lowConfidence: boolean }
 export interface Paged<T> { items: T[]; total: number; page: number; pageSize: number }

@@ -43,6 +43,7 @@ public static class DependencyInjection
         services.AddSingleton<ScanQueue>();
         services.AddSingleton<IScanQueue>(sp => sp.GetRequiredService<ScanQueue>());
         services.AddSingleton<IHostnameResolver, DnsHostnameResolver>();
+        services.AddScoped<ClassificationService>();
         services.AddScoped<ScanResultWriter>();
         services.AddScoped<DiscoveryJobRunner>();
         services.AddScoped<DiscoveryService>();

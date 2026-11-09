@@ -24,7 +24,14 @@ public static class Oids
     // ENTITY-MIB
     public const string EntPhysicalSerial = "1.3.6.1.2.1.47.1.1.1.1.11";
     public const string EntPhysicalModel = "1.3.6.1.2.1.47.1.1.1.1.13";
+    // LLDP-MIB
+    public const string LldpLocChassisIdSubtype = "1.0.8802.1.1.2.1.3.1.0";
+    public const string LldpLocChassisId = "1.0.8802.1.1.2.1.3.2.0";
+    public const string LldpLocPortTable = "1.0.8802.1.1.2.1.3.7.1";
+    public const string LldpRemTable = "1.0.8802.1.1.2.1.4.1.1";
+    public const string LldpRemManAddrTable = "1.0.8802.1.1.2.1.4.2.1";
     // Cisco
+    public const string CdpCacheTable = "1.3.6.1.4.1.9.9.23.1.2.1.1";
     public const string CiscoVtpVlanState = "1.3.6.1.4.1.9.9.46.1.3.1.1.2";
     public const string CiscoVmVlan = "1.3.6.1.4.1.9.9.68.1.2.2.1.2";
 }

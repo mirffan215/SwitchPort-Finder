@@ -18,6 +18,9 @@ public class SwitchPort
     public int Mtu { get; set; }
     public int? Vlan { get; set; }
     public PortType PortType { get; set; }
+    public NeighborConfidence Confidence { get; set; }
+    /// <summary>The winning neighbor row that explains this port's classification (for uplinks).</summary>
+    public long? NeighborId { get; set; }
     public DateTime LastSeen { get; set; }
 }
 
@@ -92,4 +95,37 @@ public class DiscoveryError
     public string Code { get; set; } = "";
     public string Message { get; set; } = "";
     public DateTime CreatedAt { get; set; }
+}
+
+/// <summary>A neighbor seen on a port via LLDP or CDP, or an inferred switch link (Protocol = Inferred, from the FDB heuristic).</summary>
+public class SwitchNeighbor
+{
+    public long Id { get; set; }
+    public int SwitchId { get; set; }
+    public int PortId { get; set; }
+    public SwitchPort? Port { get; set; }
+    public NeighborProtocol Protocol { get; set; }
+    public string RemoteKey { get; set; } = "";
+    public string? ChassisId { get; set; }
+    public string? ChassisMac { get; set; }
+    public string? RemotePortId { get; set; }
+    public string? RemotePortDescr { get; set; }
+    public string? SysName { get; set; }
+    public string? SysDescr { get; set; }
+    public string? Platform { get; set; }
+    public NeighborCaps Caps { get; set; }
+    public string? MgmtIp { get; set; }
+    /// <summary>The registered switch this neighbor resolved to (by management IP, chassis MAC or system name), if any.</summary>
+    public int? MatchedSwitchId { get; set; }
+    public string? Evidence { get; set; }
+    public DateTime FirstSeen { get; set; }
+    public DateTime LastSeen { get; set; }
+}
+
+/// <summary>Every MAC a switch itself owns (all ifPhysAddress values, LLDP local chassis MAC). Used to recognise switches in other FDBs.</summary>
+public class SwitchMac
+{
+    public int Id { get; set; }
+    public int SwitchId { get; set; }
+    public string Mac { get; set; } = "";
 }

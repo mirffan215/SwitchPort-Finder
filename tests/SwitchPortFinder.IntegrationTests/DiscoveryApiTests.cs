@@ -16,10 +16,12 @@ public class DiscoveryApiTests(ApiFixture fx)
 {
     private readonly HttpClient _http = fx.CreateClient();
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web) { Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() } };
-    private const string PcMac = "AABBCCDDEE01", OtherMac = "AABBCCDDEE02", CoreMac = "AABBCCDD0A10", AccessMac = "AABBCCDD0B11";
     private static int _seed;
 
-    private record Net(string CoreIp, string AccessIp, string PcIp);
+    private record Net(string CoreIp, string AccessIp, string PcIp, string PcMac)
+    {
+        public string PcMacDisplay => SwitchPortFinder.Domain.MacAddress.Format(PcMac);
+    }
     private static string Cs(int n) => $"203.0.{n}.";
 
     /// <summary>Builds an isolated copy of the scenario so tests don't interfere (unique IP space per call).</summary>
@@ -27,6 +29,8 @@ public class DiscoveryApiTests(ApiFixture fx)
     {
         var n = Interlocked.Increment(ref _seed);
         var core = Cs(n) + "10"; var access = Cs(n) + "11"; var pc = Cs(n) + "101";
+        var PcMac = $"AABBCCDD{n:X2}01"; var OtherMac = $"AABBCCDD{n:X2}02";   // unique hosts per scenario
+        var CoreMac = $"AABBCC{n:X2}0A10"; var AccessMac = $"AABBCC{n:X2}0B11";   // switch MACs are unique per scenario (a known switch's MAC is never a 'device')
         var net = fx.Services.GetService(typeof(FakeSnmpClient)).As<FakeSnmpClient>().Net;
         net.WithSystem(core, "CORE-SW-01", "1.3.6.1.4.1.9.1.2134").WithSystem(access, "ACCESS-SW-01", "1.3.6.1.4.1.9.1.2135");
         // CORE: uplink Gi1/0/24 has learned the PC, the access switch and one more host (3 MACs) – plus it routes (ARP source).
@@ -44,7 +48,7 @@ public class DiscoveryApiTests(ApiFixture fx)
         net.Walk(access, "pub", Oids.Dot1qPvid, [Vb($"{Oids.Dot1qPvid}.15", new SnmpValue(SnmpValueKind.Gauge, 50))]);
         net.Walk(access, "pub", Oids.Dot1qTpFdbTable, Dot1qFdb((50, PcMac, 15, 3), (50, CoreMac, 24, 3)));
         fx.Services.GetService(typeof(FakeResolver)).As<FakeResolver>().Names[pc] = "PC-001";
-        return new Net(core, access, pc);
+        return new Net(core, access, pc, PcMac);
     }
 
     private async Task<int> AddSwitch(string name, string ip, bool arp = false)
@@ -86,7 +90,7 @@ public class DiscoveryApiTests(ApiFixture fx)
 
         var before = await Ports(access);
         var g15 = before.Ports.Single(p => p.Name == "Gi1/0/15");
-        g15.Devices.Should().ContainSingle().Which.Should().Match<PortDeviceDto>(d => d.Hostname == "Unknown Device" && d.Ip == null && d.Mac == "AA:BB:CC:DD:EE:01" && d.Vlan == 50);
+        g15.Devices.Should().ContainSingle().Which.Should().Match<PortDeviceDto>(d => d.Hostname == "Unknown Device" && d.Ip == null && d.Mac == n.PcMacDisplay && d.Vlan == 50);
         before.HasArpSource.Should().BeTrue("a switch flagged \"Use as ARP source\" exists, so the \"mark your core switch\" hint is not needed");
 
         // Now scan the core (ARP source). The IP→MAC join is GLOBAL, so the access-switch device gets its IP and hostname.
@@ -97,12 +101,12 @@ public class DiscoveryApiTests(ApiFixture fx)
         var after = await Ports(access);
         var row = after.Ports.Single(p => p.Name == "Gi1/0/15");
         row.Type.Should().Be(PortType.Endpoint); row.Status.Should().Be("UP"); row.SpeedMbps.Should().Be(1000); row.Vlan.Should().Be(50); row.Alias.Should().Be("PC-001 wall jack");
-        row.Devices.Should().ContainSingle().Which.Should().Match<PortDeviceDto>(d => d.Hostname == "PC-001" && d.Ip == n.PcIp && d.Mac == "AA:BB:CC:DD:EE:01");
+        row.Devices.Should().ContainSingle().Which.Should().Match<PortDeviceDto>(d => d.Hostname == "PC-001" && d.Ip == n.PcIp && d.Mac == n.PcMacDisplay);
         after.HasArpSource.Should().BeTrue();
 
-        // The PC was learned on 3 core-uplink MACs AND on the access edge port. Location = the port with the fewest MACs (access Gi1/0/15), lower confidence.
+        // The PC was learned on the core's uplink AND on the access edge port. Uplink sightings never count: location = access Gi1/0/15.
         var dev = (await _http.GetFromJsonAsync<Paged<DeviceDto>>("/api/devices?q=PC-001", Json))!.Items.Single();
-        dev.SwitchName.Should().Be("ACCESS-SW-01"); dev.PortName.Should().Be("Gi1/0/15"); dev.LowConfidence.Should().BeTrue();
+        dev.SwitchName.Should().Be("ACCESS-SW-01"); dev.PortName.Should().Be("Gi1/0/15"); dev.LowConfidence.Should().BeFalse("the core's Gi1/0/24 learned the access switch's own MAC, so it is an uplink and only one edge candidate remains");
         dev.HostnameSource.Should().Be(HostnameSource.ReverseDns); dev.State.Should().Be(DeviceState.Active);
 
         // Down port shows no device; unlearned up port is Unknown.
@@ -179,7 +183,7 @@ public class DiscoveryApiTests(ApiFixture fx)
         var p2 = (await _http.GetFromJsonAsync<Paged<DeviceDto>>($"/api/devices?switchId={access}&pageSize=1&page=2&sort=mac", Json))!;
         p1.Total.Should().Be(2); p1.Items.Should().HaveCount(1); p2.Items.Should().HaveCount(1);
         string.Compare(p1.Items[0].Mac, p2.Items[0].Mac, StringComparison.Ordinal).Should().BeNegative();
-        (await _http.GetFromJsonAsync<Paged<DeviceDto>>("/api/devices?q=aabb.ccdd.ee01&pageSize=500", Json))!.Items.Should().OnlyContain(d => d.Mac == "AA:BB:CC:DD:EE:01");
+        (await _http.GetFromJsonAsync<Paged<DeviceDto>>($"/api/devices?q={n.PcMac.ToLowerInvariant()}&pageSize=500", Json))!.Items.Should().ContainSingle().Which.Mac.Should().Be(n.PcMacDisplay);   // any MAC format / case
         (await _http.GetFromJsonAsync<Paged<DeviceDto>>("/api/devices?pageSize=100000", Json))!.PageSize.Should().BeLessThanOrEqualTo(200, "page size is clamped so the browser never loads everything");
         (await _http.GetFromJsonAsync<Paged<DeviceDto>>("/api/devices?state=Stale", Json))!.Items.Should().BeEmpty();
     }

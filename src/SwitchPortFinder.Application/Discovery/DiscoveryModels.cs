@@ -10,12 +10,22 @@ public static class Steps
     public const string Vlans = "VLANs";
     public const string MacTable = "MAC table";
     public const string Arp = "ARP";
+    public const string Lldp = "LLDP";
+    public const string Cdp = "CDP";
     public const string Correlation = "Device correlation";
 }
 
 public enum StepState { Pending, Running, Ok, Warning, Failed, Skipped }
 
 public record StepResult(string Name, StepState State, string? Message = null);
+
+/// <summary>A raw LLDP/CDP neighbor as collected from one local port.</summary>
+public record NeighborInfo(
+    NeighborProtocol Protocol, int LocalIfIndex, string? ChassisId, string? ChassisMac, string? RemotePortId, string? RemotePortDescr,
+    string? SysName, string? SysDescr, string? Platform, NeighborCaps Caps, string? MgmtIp)
+{
+    public string RemoteKey => $"{ChassisId}|{RemotePortId}";
+}
 
 public record ScanError(string Step, string Code, string Message);
 
@@ -42,6 +52,11 @@ public class ScanResult
     public string FdbSource { get; set; } = "";
     public List<ArpInfo> Arp { get; } = [];
     public bool IsLayer3 { get; set; }
+    public List<NeighborInfo> Neighbors { get; } = [];
+    /// <summary>Every MAC this switch owns (all ifPhysAddress values + LLDP local chassis MAC).</summary>
+    public HashSet<string> SwitchMacs { get; } = [];
+    public bool LldpCollected { get; set; }
+    public bool CdpCollected { get; set; }
     public bool Reachable { get; set; } = true;
     public List<StepResult> Steps { get; } = [];
     public List<ScanError> Errors { get; } = [];

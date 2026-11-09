@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
-import { api, type PortRow } from '../api';
-import { ErrorBox, PortTypeBadge, StateBadge, StatusBadge, TestResultBox, ago, fmtDate } from '../components/Bits';
+import { api, type Neighbor, type PortRow } from '../api';
+import { ConfidenceBadge, ErrorBox, PortTypeBadge, StateBadge, StatusBadge, TestResultBox, ago, fmtDate } from '../components/Bits';
 import ScanProgress from '../components/ScanProgress';
 
 export default function SwitchPage() {
@@ -63,15 +63,20 @@ export default function SwitchPage() {
               <tbody>
                 {ports.data?.ports.map((p) => {
                   const d = p.devices[0]; const more = p.macCount - (d ? 1 : 0);
+                  const up = p.type === 'SwitchUplink' && p.neighbor;
                   return (
                     <tr key={p.portId} id={`port-${p.ifIndex}`} className={`clickable ${selected === p.ifIndex ? 'highlight' : ''} ${p.type === 'Down' ? 'dim' : ''}`}
                         onClick={() => { setSelected(p.ifIndex); setSp({}, { replace: true }); }}>
                       <td>{p.name}</td>
                       <td><span className={p.status === 'UP' ? 'up' : 'down'}>{p.status}</span></td>
                       <td><PortTypeBadge type={p.type} /></td>
-                      <td>{p.type === 'Down' ? '—' : d ? <>{d.hostname}{more > 0 && <span className="muted"> (+{more} more)</span>}</> : '—'}</td>
-                      <td>{p.type === 'Down' ? '—' : d?.ip ?? (d ? <span className="muted">Unknown</span> : '—')}</td>
-                      <td className="mono">{p.type === 'Down' ? '—' : d?.mac ?? '—'}</td>
+                      {up ? (
+                        <td colSpan={3}><UplinkCell n={p.neighbor!} /></td>
+                      ) : (<>
+                        <td>{p.type === 'Down' ? '—' : d ? <>{d.hostname}{more > 0 && <span className="muted"> (+{more} more)</span>}</> : '—'}</td>
+                        <td>{p.type === 'Down' ? '—' : d?.ip ?? (d ? <span className="muted">Unknown</span> : '—')}</td>
+                        <td className="mono">{p.type === 'Down' ? '—' : d?.mac ?? '—'}</td>
+                      </>)}
                       <td>{p.vlan ?? d?.vlan ?? '—'}</td>
                     </tr>
                   );
@@ -83,6 +88,23 @@ export default function SwitchPage() {
         </div>
       )}
     </section>
+  );
+}
+
+function openTo(n: Neighbor) { return `/switches/${n.connectedSwitchId}${n.remotePortIfIndex ? `?port=${n.remotePortIfIndex}` : ''}`; }
+const addTo = (n: Neighbor) => `/switches/new?name=${encodeURIComponent(n.remoteName ?? '')}&ip=${encodeURIComponent(n.remoteIp ?? '')}`;
+
+/** Uplink rows show where the port leads — never the devices learned behind it. */
+function UplinkCell({ n }: { n: Neighbor }) {
+  return (
+    <span onClick={(e) => e.stopPropagation()}>
+      <strong>→ {n.connectedSwitchName ?? n.remoteName ?? 'Switch'}</strong>
+      {(n.connectedSwitchIp ?? n.remoteIp) && <span className="muted"> {n.connectedSwitchIp ?? n.remoteIp}</span>}
+      {n.remotePort && <span className="muted"> · {n.remotePort}</span>}{' '}
+      <ConfidenceBadge c={n.confidence} />{' '}
+      {n.connectedSwitchId ? <Link className="btn small" to={openTo(n)}>Open Switch</Link>
+        : n.canAdd ? <Link className="btn small" to={addTo(n)}>Add this switch</Link> : <span className="muted">(unmanaged)</span>}
+    </span>
   );
 }
 
@@ -99,6 +121,22 @@ function PortPanel({ sw, p, onClose }: { sw: string; p: PortRow; onClose: () => 
         <dt>Port MAC</dt><dd className="mono">{p.physAddress ?? '—'}</dd>
         <dt>MACs learned</dt><dd>{p.macCount}</dd>
       </dl>
+      {p.neighbor && (
+        <>
+          <h4>{p.type === 'SwitchUplink' ? 'Connected switch' : 'Neighbor'}</h4>
+          <dl className="kv">
+            <dt>Switch</dt><dd>{p.neighbor.connectedSwitchName ?? p.neighbor.remoteName ?? '—'}</dd>
+            <dt>Remote port</dt><dd>{p.neighbor.remotePort ?? '—'}</dd>
+            <dt>Remote IP</dt><dd>{p.neighbor.connectedSwitchIp ?? p.neighbor.remoteIp ?? '—'}</dd>
+            <dt>Confidence</dt><dd><ConfidenceBadge c={p.neighbor.confidence} /> <span className="muted">via {p.neighbor.protocol === 'Inferred' ? 'MAC table' : p.neighbor.protocol.toUpperCase()}</span></dd>
+            {p.neighbor.capabilities && <><dt>Capabilities</dt><dd>{p.neighbor.capabilities}</dd></>}
+            {p.neighbor.evidence && <><dt>Evidence</dt><dd className="muted">{p.neighbor.evidence}</dd></>}
+          </dl>
+          {p.neighbor.connectedSwitchId ? <Link className="btn primary" to={openTo(p.neighbor)}>Open Switch</Link>
+            : p.neighbor.canAdd ? <Link className="btn primary" to={addTo(p.neighbor)}>Add this switch</Link> : null}
+        </>
+      )}
+      {p.type === 'SwitchUplink' && <p className="muted">Devices learned behind an uplink are shown on the switch where they connect, not here.</p>}
       {p.devices.length > 0 && <h4>Devices</h4>}
       {p.devices.map((d) => (
         <dl className="kv devbox" key={d.deviceId}>
@@ -111,7 +149,7 @@ function PortPanel({ sw, p, onClose }: { sw: string; p: PortRow; onClose: () => 
           {d.lowConfidence && <><dt>Location</dt><dd className="warn">Lower confidence (MAC also seen on another switch)</dd></>}
         </dl>
       ))}
-      {p.macCount > p.devices.length && <p className="muted">Showing {p.devices.length} of {p.macCount} devices.</p>}
+      {p.type !== 'SwitchUplink' && p.macCount > p.devices.length && <p className="muted">Showing {p.devices.length} of {p.macCount} devices.</p>}
     </aside>
   );
 }

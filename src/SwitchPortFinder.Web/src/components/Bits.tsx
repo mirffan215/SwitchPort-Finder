@@ -61,3 +61,8 @@ export function PortTypeBadge({ type }: { type: string }) {
 export function StateBadge({ state }: { state: string }) {
   return <span className={`badge ${state === 'Active' ? 'ok' : state === 'Offline' ? 'warnb' : 'muted'}`}>{state}</span>;
 }
+
+export function ConfidenceBadge({ c }: { c: string }) {
+  const label = c === 'ConfirmedSwitch' ? 'Confirmed' : c === 'LikelySwitch' ? 'Likely' : c === 'Endpoint' ? 'Endpoint' : 'Unknown';
+  return <span className={`badge ${c === 'ConfirmedSwitch' ? 'ok' : c === 'LikelySwitch' ? 'warnb' : 'muted'}`} title="How strongly the evidence supports this classification">{label}</span>;
+}

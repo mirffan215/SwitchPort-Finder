@@ -3,12 +3,12 @@
 Internal web portal that answers **"Which switch and which port is this device connected to?"**
 Read-only against network equipment (SNMP GET / GETNEXT / GETBULK / walk only — there is no SET anywhere in the code).
 
-> **Status: Phase 2 of 6 (Core discovery).** Implemented: switch management, SNMPv2c/v3 test, encrypted credentials, credential
-> profiles, bulk import/export, and **discovery** — background scan queue, system info, interfaces, VLANs, MAC/FDB
-> (Q-BRIDGE → BRIDGE-MIB, Cisco per-VLAN `community@vlan` / context `vlan-N`, bridge-port→ifIndex mapping), ARP from L3/flagged
-> switches with a global IP→MAC join, reverse-DNS hostnames ("Unknown Device" otherwise), port table, device list, job history.
-> **Not yet:** LLDP/CDP, uplink classification (so uplink ports can currently still list downstream MACs — fixed in Phase 3),
-> global search, trace, topology, device export.
+> **Status: Phase 3 of 6 (Neighbors).** Implemented: switch management, SNMPv2c/v3 test, encrypted credentials, bulk import/export,
+> discovery (ports, VLANs, MAC/FDB incl. Cisco per-VLAN, ARP with global IP→MAC join, hostnames), and now **LLDP + CDP neighbors,
+> switch-uplink classification** (Confirmed via LLDP/CDP, Likely via the MAC-table heuristic when LLDP/CDP is off), the
+> **edge-port rule** (devices are located only on non-uplink ports; uplinks never list downstream devices) and **Open Switch**
+> navigation between neighbors.
+> **Not yet:** global search, trace, topology, device export, dashboard counts.
 
 ## Quick start (development)
 

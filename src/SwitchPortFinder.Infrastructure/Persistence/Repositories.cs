@@ -29,6 +29,10 @@ public class SwitchRepository(AppDbContext db) : ISwitchRepository
     {
         await db.Devices.Where(d => d.SwitchId == sw.Id || d.IpSourceSwitchId == sw.Id)
             .ExecuteUpdateAsync(s => s.SetProperty(d => d.PortId, (int?)null).SetProperty(d => d.SwitchId, (int?)null).SetProperty(d => d.IpSourceSwitchId, (int?)null), ct);
+        // Links that pointed at this switch lose their target: inferred links are dropped, LLDP/CDP rows fall back to "external switch".
+        await db.Neighbors.Where(n => n.Protocol == Domain.Enums.NeighborProtocol.Inferred && n.MatchedSwitchId == sw.Id).ExecuteDeleteAsync(ct);
+        await db.Neighbors.Where(n => n.MatchedSwitchId == sw.Id).ExecuteUpdateAsync(s => s.SetProperty(n => n.MatchedSwitchId, (int?)null), ct);
+        await db.SwitchPorts.Where(p => p.SwitchId == sw.Id).ExecuteUpdateAsync(s => s.SetProperty(p => p.NeighborId, (long?)null), ct);
         db.Switches.Remove(sw);
     }
     public Task SaveAsync(CancellationToken ct) => db.SaveChangesAsync(ct);

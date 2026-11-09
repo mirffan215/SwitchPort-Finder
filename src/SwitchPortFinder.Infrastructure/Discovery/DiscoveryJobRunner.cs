@@ -15,7 +15,7 @@ public class DiscoveryJobRunner(
     AppDbContext db, ISwitchRepository switches, SwitchService switchService, ISwitchScanner scanner,
     ScanResultWriter writer, ILogger<DiscoveryJobRunner> log)
 {
-    private static readonly string[] AllSteps = [Steps.System, Steps.Interfaces, Steps.Vlans, Steps.MacTable, Steps.Arp, Steps.Correlation];
+    private static readonly string[] AllSteps = [Steps.System, Steps.Interfaces, Steps.Vlans, Steps.MacTable, Steps.Arp, Steps.Lldp, Steps.Cdp, Steps.Correlation];
 
     public async Task RunAsync(int jobId, CancellationToken ct)
     {
@@ -52,7 +52,7 @@ public class DiscoveryJobRunner(
             await SetStep(new StepResult(Steps.Correlation, StepState.Running));
             var counts = await writer.WriteAsync(sw, result, ct);
             await SetStep(new StepResult(Steps.Correlation, StepState.Ok));
-            job.PortsFound = counts.Ports; job.DevicesFound = counts.Devices; job.ErrorCount = job.Errors.Count;
+            job.PortsFound = counts.Ports; job.DevicesFound = counts.Devices; job.NeighborsFound = counts.Neighbors; job.ErrorCount = job.Errors.Count;
             var warn = steps.Any(s => s.State is StepState.Warning or StepState.Failed);
             log.LogInformation("DiscoveryCompleted for {Switch}: {Ports} ports, {Devices} devices, {Errors} issues", sw.Name, counts.Ports, counts.Devices, job.Errors.Count);
             await Finish(job, warn ? JobStatus.CompletedWithWarnings : JobStatus.Completed, "Discovery completed.", steps);

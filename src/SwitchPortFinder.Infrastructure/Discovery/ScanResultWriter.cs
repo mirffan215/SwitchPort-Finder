@@ -13,11 +13,19 @@ namespace SwitchPortFinder.Infrastructure.Discovery;
 /// Persists a scan: ports, per-switch observations, devices (authoritative location), the global ARP IP→MAC join and hostnames.
 /// Incremental: unchanged rows are not rewritten (EF only issues UPDATEs for changed properties), LastSeen is refreshed.
 /// </summary>
-public class ScanResultWriter(AppDbContext db, IHostnameResolver dns, IOptions<DiscoveryOptions> opt)
+public class ScanResultWriter(AppDbContext db, IHostnameResolver dns, ClassificationService classification, IOptions<DiscoveryOptions> opt)
 {
-    public record Counts(int Ports, int Devices);
+    public record Counts(int Ports, int Devices, int Neighbors);
 
+    /// <summary>Serialised process-wide: parallel scans that see the same new MAC would otherwise race on the unique Device.Mac index.</summary>
     public async Task<Counts> WriteAsync(Switch sw, ScanResult r, CancellationToken ct)
+    {
+        await ClassificationService.Gate.WaitAsync(ct);
+        try { return await WriteCoreAsync(sw, r, ct); }
+        finally { ClassificationService.Gate.Release(); }
+    }
+
+    private async Task<Counts> WriteCoreAsync(Switch sw, ScanResult r, CancellationToken ct)
     {
         var o = opt.Value; var now = DateTime.UtcNow;
         ApplySwitch(sw, r, now);
@@ -43,10 +51,28 @@ public class ScanResultWriter(AppDbContext db, IHostnameResolver dns, IOptions<D
             if (!obs.TryGetValue(e.Mac, out var ob)) { ob = new DeviceObservation { SwitchId = sw.Id, Mac = e.Mac, FirstSeen = now }; db.Observations.Add(ob); obs[e.Mac] = ob; }
             ob.PortId = port.Id; ob.Vlan = e.Vlan ?? port.Vlan; ob.IsStatic = e.Kind == FdbKind.Static; ob.LastSeen = now;
         }
-        // Port types (Phase 3 adds uplink classification): Down / Endpoint (has learned MACs) / Unknown.
-        var withMacs = fdb.Select(e => e.IfIndex!.Value).ToHashSet();
-        foreach (var (ifx, p) in ports.Where(kv => r.Interfaces.Any(i => i.IfIndex == kv.Key)))
-            p.PortType = !p.OperUp ? PortType.Down : withMacs.Contains(ifx) ? PortType.Endpoint : PortType.Unknown;
+        await db.SaveChangesAsync(ct);
+
+        // ---- the switch's own MACs (so other switches' FDBs can recognise it) ----
+        var knownMacs = await db.SwitchMacs.Where(m => m.SwitchId == sw.Id).ToListAsync(ct);
+        var ownNow = r.SwitchMacs.Union(r.Interfaces.Where(i => i.Mac is not null).Select(i => i.Mac!)).ToHashSet();
+        db.SwitchMacs.RemoveRange(knownMacs.Where(m => !ownNow.Contains(m.Mac)));
+        foreach (var m in ownNow.Where(m => knownMacs.All(k => k.Mac != m))) db.SwitchMacs.Add(new SwitchMac { SwitchId = sw.Id, Mac = m });
+
+        // ---- LLDP / CDP neighbors: upsert what was seen; remove stale rows only for protocols that were actually collected ----
+        var nbExisting = await db.Neighbors.Where(n => n.SwitchId == sw.Id && n.Protocol != NeighborProtocol.Inferred).ToListAsync(ct);
+        var seenKeys = new HashSet<(int, NeighborProtocol, string)>();
+        foreach (var n in r.Neighbors)
+        {
+            if (!ports.TryGetValue(n.LocalIfIndex, out var np)) continue;
+            if (!seenKeys.Add((np.Id, n.Protocol, n.RemoteKey))) continue;
+            var row = nbExisting.FirstOrDefault(x => x.PortId == np.Id && x.Protocol == n.Protocol && x.RemoteKey == Trunc(n.RemoteKey, 300));
+            if (row is null) { row = new SwitchNeighbor { SwitchId = sw.Id, PortId = np.Id, Protocol = n.Protocol, RemoteKey = Trunc(n.RemoteKey, 300)!, FirstSeen = now }; db.Neighbors.Add(row); nbExisting.Add(row); }
+            row.ChassisId = Trunc(n.ChassisId, 255); row.ChassisMac = n.ChassisMac; row.RemotePortId = Trunc(n.RemotePortId, 255); row.RemotePortDescr = Trunc(n.RemotePortDescr, 255);
+            row.SysName = Trunc(n.SysName, 255); row.SysDescr = Trunc(n.SysDescr, 500); row.Platform = Trunc(n.Platform, 255); row.Caps = n.Caps; row.MgmtIp = n.MgmtIp; row.LastSeen = now;
+        }
+        foreach (var stale in nbExisting.Where(x => x.LastSeen != now && x.Id != 0 && ((x.Protocol == NeighborProtocol.Lldp && r.LldpCollected) || (x.Protocol == NeighborProtocol.Cdp && r.CdpCollected))))
+            db.Neighbors.Remove(stale);
         await db.SaveChangesAsync(ct);
 
         // ---- ARP entries from this source ----
@@ -63,8 +89,9 @@ public class ScanResultWriter(AppDbContext db, IHostnameResolver dns, IOptions<D
         }
 
         // ---- devices: create/refresh, choose authoritative location, global IP join ----
-        var scanMacs = fdb.Select(e => e.Mac).ToHashSet();
-        var touched = scanMacs.Union(arpMacs).ToList();
+        var allSwitchMacs = (await db.SwitchMacs.Select(m => m.Mac).Distinct().ToListAsync(ct)).ToHashSet();
+        var scanMacs = fdb.Select(e => e.Mac).Where(m => !allSwitchMacs.Contains(m)).ToHashSet();   // switches are not devices
+        var touched = scanMacs.Union(arpMacs.Where(m => !allSwitchMacs.Contains(m))).ToList();
         var devices = new Dictionary<string, Device>();
         foreach (var chunk in touched.Chunk(500))
             foreach (var d in await db.Devices.Where(d => chunk.Contains(d.Mac)).ToListAsync(ct)) devices[d.Mac] = d;
@@ -72,8 +99,10 @@ public class ScanResultWriter(AppDbContext db, IHostnameResolver dns, IOptions<D
             if (!devices.ContainsKey(mac)) { var d = new Device { Mac = mac, FirstSeen = now, LastSeen = now }; db.Devices.Add(d); devices[mac] = d; }
         foreach (var mac in scanMacs) devices[mac].LastSeen = now;
 
-        await ChooseLocations(scanMacs, devices, o, now, ct);
-        var ipChanged = await JoinIps(devices.Values.ToList(), ct);
+        await db.SaveChangesAsync(ct);
+        await classification.RunAsync(scanMacs, ct);        // ports, links, edge-only locations (spec 5.8)
+        await db.SaveChangesAsync(ct);
+        var ipChanged = await JoinIps(devices.Values.Where(d => d.Id != 0).ToList(), ct);
         await db.SaveChangesAsync(ct);
 
         // ---- hostnames (reverse DNS; never fails the scan) ----
@@ -93,7 +122,8 @@ public class ScanResultWriter(AppDbContext db, IHostnameResolver dns, IOptions<D
             else if (d.HostnameSource != HostnameSource.ReverseDns || ipChanged.Contains(d.Mac)) { d.Hostname = "Unknown Device"; d.HostnameSource = HostnameSource.None; }
         }
         await db.SaveChangesAsync(ct);
-        return new Counts(r.Interfaces.Count, scanMacs.Count);
+        var nbCount = await db.Neighbors.CountAsync(n => n.SwitchId == sw.Id && n.Protocol != NeighborProtocol.Inferred, ct);
+        return new Counts(r.Interfaces.Count, scanMacs.Count, nbCount);
     }
 
     private static void ApplySwitch(Switch sw, ScanResult r, DateTime now)
@@ -107,31 +137,6 @@ public class ScanResultWriter(AppDbContext db, IHostnameResolver dns, IOptions<D
         }
         sw.DetectedManufacturer = r.DetectedManufacturer;
         sw.ArpAutoDetected = r.IsLayer3;
-    }
-
-    /// <summary>
-    /// Authoritative location = where the MAC is learned. Phase 3 will exclude uplink ports; until then, when a MAC is seen on several
-    /// switches the port with the fewest MACs wins (flagged lower confidence), per the edge-port selection rule.
-    /// </summary>
-    private async Task ChooseLocations(HashSet<string> macs, Dictionary<string, Device> devices, DiscoveryOptions o, DateTime now, CancellationToken ct)
-    {
-        foreach (var chunk in macs.Chunk(500))
-        {
-            var rows = await db.Observations.Include(x => x.Port).Where(x => chunk.Contains(x.Mac)).ToListAsync(ct);
-            var portIds = rows.Select(x => x.PortId).Distinct().ToList();
-            var counts = new Dictionary<int, int>();
-            foreach (var pc in portIds.Chunk(500))
-                foreach (var g in await db.Observations.Where(x => pc.Contains(x.PortId)).GroupBy(x => x.PortId).Select(g => new { g.Key, N = g.Count() }).ToListAsync(ct))
-                    counts[g.Key] = g.N;
-            foreach (var g in rows.GroupBy(x => x.Mac))
-            {
-                var newest = g.Max(x => x.LastSeen);
-                var cands = g.Where(x => newest - x.LastSeen <= TimeSpan.FromMinutes(o.OfflineAfterMinutes)).ToList();
-                var best = cands.OrderBy(x => counts.GetValueOrDefault(x.PortId)).ThenByDescending(x => x.LastSeen).First();
-                var d = devices[g.Key];
-                d.SwitchId = best.SwitchId; d.PortId = best.PortId; d.Vlan = best.Vlan; d.LowConfidence = cands.Count > 1;
-            }
-        }
     }
 
     /// <summary>Global join: newest ARP observation for a MAC from ANY source switch (IPv4 preferred on ties). Returns MACs whose IP changed.</summary>

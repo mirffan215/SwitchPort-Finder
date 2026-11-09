@@ -13,9 +13,16 @@ public record JobDetailDto(JobSummaryDto Job, IReadOnlyList<StepResult> Steps, I
 
 public record PortDeviceDto(int DeviceId, string Hostname, string? Ip, string Mac, int? Vlan, DateTime LastSeen, DeviceState State, bool LowConfidence);
 
+public record NeighborDto(
+    long NeighborId, NeighborProtocol Protocol, int? ConnectedSwitchId, string? ConnectedSwitchName, string? ConnectedSwitchIp,
+    string? RemoteName, string? RemoteChassis, string? RemotePort, int? RemotePortIfIndex, string? RemoteIp, string? Platform,
+    NeighborConfidence Confidence, string? Evidence, string Capabilities, bool CanAdd);
+
 public record PortRowDto(
     int PortId, int IfIndex, string Name, string? Alias, string Status, PortType Type, long SpeedMbps, int? Vlan,
-    int MacCount, string? PhysAddress, IReadOnlyList<PortDeviceDto> Devices);
+    int MacCount, string? PhysAddress, IReadOnlyList<PortDeviceDto> Devices, NeighborDto? Neighbor);
+
+public record NeighborRowDto(int PortId, int IfIndex, string PortName, NeighborDto Neighbor);
 
 public record PortSummary(int Total, int Connected, int Down, int Uplinks, DateTime? LastScan);
 

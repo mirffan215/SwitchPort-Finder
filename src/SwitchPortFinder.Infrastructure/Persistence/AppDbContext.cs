@@ -15,6 +15,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<ArpEntry> ArpEntries => Set<ArpEntry>();
     public DbSet<DiscoveryJob> DiscoveryJobs => Set<DiscoveryJob>();
     public DbSet<DiscoveryError> DiscoveryErrors => Set<DiscoveryError>();
+    public DbSet<SwitchNeighbor> Neighbors => Set<SwitchNeighbor>();
+    public DbSet<SwitchMac> SwitchMacs => Set<SwitchMac>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -57,6 +59,31 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.HasIndex(x => new { x.SwitchId, x.IfIndex }).IsUnique();
             e.HasIndex(x => x.Name);
             e.HasOne(x => x.Switch).WithMany().HasForeignKey(x => x.SwitchId).OnDelete(DeleteBehavior.Cascade);
+        });
+        b.Entity<SwitchNeighbor>(e =>
+        {
+            e.Property(x => x.RemoteKey).HasMaxLength(300).IsRequired();
+            e.Property(x => x.ChassisId).HasMaxLength(255);
+            e.Property(x => x.ChassisMac).HasMaxLength(12).IsFixedLength();
+            e.Property(x => x.RemotePortId).HasMaxLength(255);
+            e.Property(x => x.RemotePortDescr).HasMaxLength(255);
+            e.Property(x => x.SysName).HasMaxLength(255);
+            e.Property(x => x.SysDescr).HasMaxLength(500);
+            e.Property(x => x.Platform).HasMaxLength(255);
+            e.Property(x => x.MgmtIp).HasMaxLength(45);
+            e.Property(x => x.Evidence).HasMaxLength(500);
+            e.HasIndex(x => new { x.PortId, x.Protocol, x.RemoteKey }).IsUnique();
+            e.HasIndex(x => x.SwitchId);
+            e.HasIndex(x => x.MatchedSwitchId);
+            e.HasOne(x => x.Port).WithMany().HasForeignKey(x => x.PortId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne<Switch>().WithMany().HasForeignKey(x => x.SwitchId).OnDelete(DeleteBehavior.NoAction);
+        });
+        b.Entity<SwitchMac>(e =>
+        {
+            e.Property(x => x.Mac).HasMaxLength(12).IsFixedLength().IsRequired();
+            e.HasIndex(x => new { x.SwitchId, x.Mac }).IsUnique();
+            e.HasIndex(x => x.Mac);
+            e.HasOne<Switch>().WithMany().HasForeignKey(x => x.SwitchId).OnDelete(DeleteBehavior.Cascade);
         });
         b.Entity<DeviceObservation>(e =>
         {

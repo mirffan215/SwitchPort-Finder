@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { api, MANUFACTURERS, type CredentialInput, type Manufacturer, type TestResult } from '../api';
 import { ErrorBox, Field, TestResultBox } from '../components/Bits';
 import CredentialFields, { emptyCredential } from '../components/CredentialFields';
@@ -9,12 +9,13 @@ export default function SwitchFormPage() {
   const { id } = useParams();
   const editId = id ? Number(id) : undefined;
   const nav = useNavigate();
+  const [prefill] = useSearchParams();   // "Add this switch" from an unregistered neighbor
   const qc = useQueryClient();
   const existing = useQuery({ queryKey: ['switch', editId], queryFn: () => api.getSwitch(editId!), enabled: !!editId });
   const profiles = useQuery({ queryKey: ['profiles'], queryFn: api.listProfiles });
 
-  const [name, setName] = useState('');
-  const [ip, setIp] = useState('');
+  const [name, setName] = useState(prefill.get('name') ?? '');
+  const [ip, setIp] = useState(prefill.get('ip') ?? '');
   const [manufacturer, setManufacturer] = useState<Manufacturer>('AutoDetect');
   const [other, setOther] = useState('');
   const [model, setModel] = useState('');

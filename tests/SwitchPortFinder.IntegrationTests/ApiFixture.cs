@@ -43,7 +43,7 @@ public sealed class FakeResolver : SwitchPortFinder.Application.Abstractions.IHo
     public Task<string?> ResolveAsync(string ip, CancellationToken ct) => Task.FromResult(Names.TryGetValue(ip, out var n) ? n : null);
 }
 
-public sealed class ApiFixture : WebApplicationFactory<Program>, IDisposable
+public class ApiFixture : WebApplicationFactory<Program>, IDisposable
 {
     public string Dir { get; } = Path.Combine(Path.GetTempPath(), "spf-it-" + Guid.NewGuid().ToString("N"));
     public string DbPath => Path.Combine(Dir, "test.db");
@@ -51,12 +51,16 @@ public sealed class ApiFixture : WebApplicationFactory<Program>, IDisposable
     public StringWriter Logs { get; } = new();
     private readonly TextWriter _origOut = Console.Out;
 
-    public ApiFixture()
+    public ApiFixture() : this(true) { }
+
+    protected ApiFixture(bool captureLogs)
     {
         Directory.CreateDirectory(Dir);
         // Serilog's console sink writes to Console.Out; capture it so tests can scan all log output.
-        Console.SetOut(new TeeWriter(_origOut, TextWriter.Synchronized(Logs)));
+        if (captureLogs) Console.SetOut(new TeeWriter(_origOut, TextWriter.Synchronized(Logs)));
+        _captured = captureLogs;
     }
+    private readonly bool _captured;
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -81,7 +85,7 @@ public sealed class ApiFixture : WebApplicationFactory<Program>, IDisposable
 
     public new void Dispose()
     {
-        Console.SetOut(_origOut);
+        if (_captured) Console.SetOut(_origOut);
         base.Dispose();
         try { Directory.Delete(Dir, true); } catch { /* best effort */ }
     }
@@ -95,5 +99,8 @@ public sealed class ApiFixture : WebApplicationFactory<Program>, IDisposable
         public override void Flush() { a.Flush(); b.Flush(); }
     }
 }
+
+/// <summary>Own database, no console capture: for test classes that need an isolated, fixed topology (IPs/MACs reused across scenarios).</summary>
+public sealed class IsolatedApiFixture : ApiFixture { public IsolatedApiFixture() : base(false) { } }
 
 [CollectionDefinition("api")] public class ApiCollection : ICollectionFixture<ApiFixture>;

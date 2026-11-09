@@ -47,3 +47,5 @@ th.sortable { cursor:pointer; user-select:none; }
 ul.steps { list-style:none; padding:0; margin:8px 0; } ul.steps li { padding:2px 0; } .ico { display:inline-block; width:1.4em; font-weight:700; }
 .step-ok .ico { color:var(--ok); } .step-warning .ico { color:var(--warn); } .step-failed .ico { color:var(--bad); } .step-pending,.step-skipped { color:var(--muted); }
 @media (max-width:900px) { .split { flex-direction:column; } .panel { width:100%; } }
+
+.btn.small { padding:1px 8px; font-size:12px; margin-left:4px; }

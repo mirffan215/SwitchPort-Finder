@@ -14,4 +14,8 @@ public class DiscoveryOptions
     public int PerVlanParallelism { get; set; } = 4;
     public int DnsTimeoutMs { get; set; } = 2000;
     public int HostnameRefreshHours { get; set; } = 24;
+    /// <summary>FDB heuristic: minimum MACs on a port before it can be inferred as an uplink from overlap evidence.</summary>
+    public int UplinkHeuristicMinMacs { get; set; } = 3;
+    /// <summary>FDB heuristic: fraction of a port's MACs that must also be learned on edge-like ports of other switches.</summary>
+    public double UplinkHeuristicRatio { get; set; } = 0.6;
 }

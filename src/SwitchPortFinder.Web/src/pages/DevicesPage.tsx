@@ -36,7 +36,7 @@ export default function DevicesPage() {
             {data?.items.map((d) => (
               <tr key={d.id}>
                 <td>{d.hostname}</td><td>{d.ip ?? <span className="muted">Unknown</span>}</td><td className="mono">{d.mac}</td>
-                <td>{d.switchId ? <Link to={`/switches/${d.switchId}`}>{d.switchName}</Link> : '—'}</td>
+                <td>{d.switchId ? <Link to={`/switches/${d.switchId}`}>{d.switchName}</Link> : <span title="Only seen behind switch uplinks so far: scan the switch it connects to.">—</span>}</td>
                 <td>{d.switchId && d.ifIndex ? <Link to={`/switches/${d.switchId}?port=${d.ifIndex}`}>{d.portName}</Link> : '—'}</td>
                 <td>{d.vlan ?? '—'}</td><td><StateBadge state={d.state} /></td><td>{ago(d.lastSeen)}</td>
               </tr>

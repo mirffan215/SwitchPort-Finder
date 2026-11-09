@@ -11,11 +11,11 @@ public static class InterfaceParser
     public static List<InterfaceInfo> Parse(IEnumerable<SnmpVarBind> ifTable, IEnumerable<SnmpVarBind> ifXTable)
     {
         var x = OidTable.Cells(ifXTable, Oids.IfXTable).Where(c => c.Index.Length == 1)
-            .GroupBy(c => c.Index[0]).ToDictionary(g => g.Key, g => g.ToDictionary(c => c.Column, c => c.Value));
+            .GroupBy(c => c.Index[0]).ToDictionary(g => g.Key, g => Last(g));
         var result = new List<InterfaceInfo>();
         foreach (var row in OidTable.Cells(ifTable, Oids.IfTable).Where(c => c.Index.Length == 1).GroupBy(c => c.Index[0]).OrderBy(g => g.Key))
         {
-            var col = row.ToDictionary(c => c.Column, c => c.Value);
+            var col = Last(row);
             var type = (int)(col.GetValueOrDefault(3)?.Number ?? 0);
             if (!PortTypes.Contains(type)) continue;
             x.TryGetValue(row.Key, out var xc);
@@ -30,6 +30,14 @@ public static class InterfaceParser
         }
         return result;
     }
+
+    /// <summary>Every non-zero ifPhysAddress on ANY interface (including VLAN/SVI interfaces, which carry the switch's base MAC).</summary>
+    public static HashSet<string> AllPhysAddresses(IEnumerable<SnmpVarBind> ifTable) =>
+        OidTable.Cells(ifTable, Oids.IfTable).Where(c => c.Column == 6 && c.Value.Bytes is { Length: 6 })
+            .Select(c => Domain.MacAddress.FromBytes(c.Value.Bytes!)!).Where(m => !Domain.MacAddress.IsZero(m)).ToHashSet();
+
+    /// <summary>Column → value, tolerating duplicate varbinds (retries, buggy agents): the last one wins.</summary>
+    private static Dictionary<int, SnmpValue> Last(IEnumerable<Cell> cells) { var d = new Dictionary<int, SnmpValue>(); foreach (var c in cells) d[c.Column] = c.Value; return d; }
 
     private static string? Text(SnmpValue? v) => v is { IsMissing: false } && !string.IsNullOrWhiteSpace(v.ToString()) ? v.ToString().Trim() : null;
 }

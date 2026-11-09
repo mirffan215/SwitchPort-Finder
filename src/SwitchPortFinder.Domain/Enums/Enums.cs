@@ -35,3 +35,15 @@ public enum DeviceState { Active = 0, Offline = 1, Stale = 2 }
 public enum JobStatus { Queued = 0, Running = 1, Completed = 2, CompletedWithWarnings = 3, Failed = 4 }
 
 public enum HostnameSource { None = 0, ReverseDns = 1, Dhcp = 2, Snmp = 3 }
+
+public enum NeighborProtocol { Lldp = 0, Cdp = 1, Inferred = 2 }
+
+/// <summary>Neighbor / uplink confidence, strongest last.</summary>
+public enum NeighborConfidence { Unknown = 0, Endpoint = 1, LikelySwitch = 2, ConfirmedSwitch = 3 }
+
+/// <summary>LLDP system-capability bits (bit i = 1 &lt;&lt; i, LLDP bit 2 = bridge, bit 4 = router). CDP capabilities are mapped onto the same flags.</summary>
+[Flags]
+public enum NeighborCaps
+{
+    None = 0, Other = 1, Repeater = 2, Bridge = 4, WlanAp = 8, Router = 16, Telephone = 32, Docsis = 64, Station = 128
+}

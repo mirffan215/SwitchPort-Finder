@@ -13,6 +13,8 @@ public interface ISwitchDiscoveryProvider
     bool UsesPerVlanFdb { get; }
     /// <summary>Vendor-specific VLAN/port VLAN OIDs used when Q-BRIDGE has no data.</summary>
     bool HasCiscoVlanMibs { get; }
+    /// <summary>CDP is Cisco-proprietary; it is only attempted where it applies and is never required.</summary>
+    bool SupportsCdp { get; }
 }
 
 public class GenericProvider : ISwitchDiscoveryProvider
@@ -20,6 +22,7 @@ public class GenericProvider : ISwitchDiscoveryProvider
     public Manufacturer Manufacturer => Manufacturer.OtherGeneric;
     public bool UsesPerVlanFdb => false;
     public bool HasCiscoVlanMibs => false;
+    public bool SupportsCdp => false;
 }
 
 public class CiscoProvider : ISwitchDiscoveryProvider
@@ -27,6 +30,7 @@ public class CiscoProvider : ISwitchDiscoveryProvider
     public Manufacturer Manufacturer => Manufacturer.Cisco;
     public bool UsesPerVlanFdb => true;
     public bool HasCiscoVlanMibs => true;
+    public bool SupportsCdp => true;
 }
 
 public static class ProviderRegistry

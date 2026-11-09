@@ -38,6 +38,8 @@ public sealed class ScriptedSnmp : ISnmpClient
         return Task.FromResult(r);
     }
 
+    public void Clear() { Walks.Clear(); Gets.Clear(); Unreachable.Clear(); ThrowOnWalk.Clear(); WalkLog.Clear(); }
+
     // ---------- fluent setup ----------
     public ScriptedSnmp WithSystem(string ip, string name, string objectId, string descr = "test switch")
     {
@@ -128,5 +130,45 @@ public sealed class ScriptedSnmp : ISnmpClient
             yield return Vb($"{Oids.IpNetToPhysicalTable}.4.{r.ifIndex}.1.4.{r.ip}", Bytes(MacBytes(r.mac)));
             yield return Vb($"{Oids.IpNetToPhysicalTable}.7.{r.ifIndex}.1.4.{r.ip}", Int(r.state));
         }
+    }
+
+    // ---------- LLDP / CDP builders ----------
+    public static IEnumerable<SnmpVarBind> LldpLocPort(int localPort, int subtype, string id, string desc = "")
+    {
+        yield return Vb($"{Oids.LldpLocPortTable}.2.{localPort}", Int(subtype));
+        yield return Vb($"{Oids.LldpLocPortTable}.3.{localPort}", Txt(id));
+        yield return Vb($"{Oids.LldpLocPortTable}.4.{localPort}", Txt(desc));
+    }
+
+    /// <param name="caps">first octet of the capability bitmap, e.g. 0x20 = bridge, 0x28 = bridge+router, 0x04 = telephone.</param>
+    public static IEnumerable<SnmpVarBind> LldpRem(int localPort, int remIdx, int chassisSub, byte[] chassis, int portSub, byte[] port, string sysName, string portDesc = "", string sysDescr = "", byte caps = 0)
+    {
+        var i = $"1.{localPort}.{remIdx}";
+        yield return Vb($"{Oids.LldpRemTable}.4.{i}", Int(chassisSub));
+        yield return Vb($"{Oids.LldpRemTable}.5.{i}", Bytes(chassis));
+        yield return Vb($"{Oids.LldpRemTable}.6.{i}", Int(portSub));
+        yield return Vb($"{Oids.LldpRemTable}.7.{i}", Bytes(port));
+        yield return Vb($"{Oids.LldpRemTable}.8.{i}", Txt(portDesc));
+        yield return Vb($"{Oids.LldpRemTable}.9.{i}", Txt(sysName));
+        yield return Vb($"{Oids.LldpRemTable}.10.{i}", Txt(sysDescr));
+        yield return Vb($"{Oids.LldpRemTable}.11.{i}", Bytes([caps]));
+        yield return Vb($"{Oids.LldpRemTable}.12.{i}", Bytes([caps]));
+    }
+
+    public static IEnumerable<SnmpVarBind> LldpMan(int localPort, int remIdx, string ipv4)
+    {
+        var o = string.Join('.', ipv4.Split('.'));
+        yield return Vb($"{Oids.LldpRemManAddrTable}.3.1.{localPort}.{remIdx}.1.4.{o}", Int(2));
+    }
+
+    public static IEnumerable<SnmpVarBind> CdpRow(int ifIndex, int devIdx, string? ip, string deviceId, string devicePort, string platform, uint caps)
+    {
+        var i = $"{ifIndex}.{devIdx}";
+        if (ip is not null) { yield return Vb($"{Oids.CdpCacheTable}.3.{i}", Int(1)); yield return Vb($"{Oids.CdpCacheTable}.4.{i}", Bytes(System.Net.IPAddress.Parse(ip).GetAddressBytes())); }
+        yield return Vb($"{Oids.CdpCacheTable}.5.{i}", Txt("IOS"));
+        yield return Vb($"{Oids.CdpCacheTable}.6.{i}", Txt(deviceId));
+        yield return Vb($"{Oids.CdpCacheTable}.7.{i}", Txt(devicePort));
+        yield return Vb($"{Oids.CdpCacheTable}.8.{i}", Txt(platform));
+        yield return Vb($"{Oids.CdpCacheTable}.9.{i}", Bytes([(byte)(caps >> 24), (byte)(caps >> 16), (byte)(caps >> 8), (byte)caps]));
     }
 }

@@ -6,7 +6,7 @@ namespace SwitchPortFinder.Api.Controllers;
 
 [ApiController]
 [Route("api/switches")]
-public class SwitchesController(SwitchService svc, DiscoveryService discovery, PortQueryService ports) : ControllerBase
+public class SwitchesController(SwitchService svc, DiscoveryService discovery, PortQueryService ports, ClassificationService classification) : ControllerBase
 {
     [HttpGet] public async Task<IActionResult> List(CancellationToken ct) => Ok(await svc.ListAsync(ct));
 
@@ -22,7 +22,12 @@ public class SwitchesController(SwitchService svc, DiscoveryService discovery, P
     [HttpPut("{id:int}")] public async Task<IActionResult> Update(int id, SwitchRequest req, CancellationToken ct) => Ok(await svc.UpdateAsync(id, req, ct));
 
     [HttpDelete("{id:int}")]
-    public async Task<IActionResult> Delete(int id, CancellationToken ct) { await svc.DeleteAsync(id, ct); return NoContent(); }
+    public async Task<IActionResult> Delete(int id, CancellationToken ct)
+    {
+        await svc.DeleteAsync(id, ct);
+        await classification.RunExclusiveAsync(null, ct);   // ports that pointed at the deleted switch are re-classified
+        return NoContent();
+    }
 
     /// <summary>Test credentials typed into the Add/Edit form. Nothing is saved.</summary>
     [HttpPost("test")] public async Task<IActionResult> Test(TestConnectionRequest req, CancellationToken ct) => Ok(await svc.TestUnsavedAsync(req, ct));
@@ -35,6 +40,8 @@ public class SwitchesController(SwitchService svc, DiscoveryService discovery, P
 
     [HttpPost("scan-all")]
     public async Task<IActionResult> ScanAll(CancellationToken ct) { var ids = await discovery.EnqueueAllAsync(ct); return Accepted(new { jobIds = ids }); }
+
+    [HttpGet("{id:int}/neighbors")] public async Task<IActionResult> Neighbors(int id, CancellationToken ct) => Ok(await ports.NeighborsAsync(id, ct));
 
     [HttpGet("{id:int}/ports")] public async Task<IActionResult> Ports(int id, CancellationToken ct) => Ok(await ports.GetAsync(id, ct));
 }

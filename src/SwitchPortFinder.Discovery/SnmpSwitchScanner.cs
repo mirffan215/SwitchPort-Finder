@@ -73,6 +73,7 @@ public sealed class SnmpSwitchScanner(ISnmpClient snmp, IOptions<SnmpOptions> sn
             try { ifX = await snmp.WalkAsync(target, Oids.IfXTable, ct); }
             catch (SnmpException) { warn = "ifXTable unavailable; using ifDescr names and ifSpeed."; res.Errors.Add(new ScanError(Steps.Interfaces, "OidUnavailable", warn)); }
             res.Interfaces.AddRange(InterfaceParser.Parse(ifT, ifX));
+            res.SwitchMacs.UnionWith(InterfaceParser.AllPhysAddresses(ifT));
             if (res.Interfaces.Count == 0) { warn = "No Ethernet interfaces found."; res.Errors.Add(new ScanError(Steps.Interfaces, "Empty", warn)); }
             return warn;
         });
@@ -111,7 +112,7 @@ public sealed class SnmpSwitchScanner(ISnmpClient snmp, IOptions<SnmpOptions> sn
         });
 
         // 4. MAC table
-        var own = res.Interfaces.Where(i => i.Mac is not null).Select(i => i.Mac!).ToHashSet();
+        var own = res.SwitchMacs.Union(res.Interfaces.Where(i => i.Mac is not null).Select(i => i.Mac!)).ToHashSet();
         await Run(Steps.MacTable, async () =>
         {
             var all = new List<FdbEntry>();
@@ -170,8 +171,57 @@ public sealed class SnmpSwitchScanner(ISnmpClient snmp, IOptions<SnmpOptions> sn
             if (arp.Count == 0) { const string m = "ARP table is empty."; res.Errors.Add(new ScanError(Steps.Arp, "Empty", m)); return m; }
             return null;
         });
+
+        // 6. LLDP (primary neighbor protocol for every manufacturer)
+        await Run(Steps.Lldp, async () =>
+        {
+            IReadOnlyList<SnmpVarBind> rem, man, loc;
+            try { rem = await snmp.WalkAsync(target, Oids.LldpRemTable, ct); }
+            catch (SnmpException) { return LldpUnavailable(res); }
+            try { man = await snmp.WalkAsync(target, Oids.LldpRemManAddrTable, ct); } catch (SnmpException) { man = []; }
+            try { loc = await snmp.WalkAsync(target, Oids.LldpLocPortTable, ct); } catch (SnmpException) { loc = []; }
+            var chassis = await TryGetRaw(target, Oids.LldpLocChassisId, ct);
+            var sub = await TryGet(target, Oids.LldpLocChassisIdSubtype, ct);
+            if (chassis is { Length: 6 } && sub?.Number == 4 && MacAddress.FromBytes(chassis) is { } cm) res.SwitchMacs.Add(cm);
+            res.LldpCollected = true;
+            if (rem.Count == 0 && chassis is null) return LldpUnavailable(res);   // neither neighbors nor a local chassis id: LLDP is off or unsupported
+            res.Neighbors.AddRange(NeighborParser.Lldp(rem, man, NeighborParser.LocalPorts(loc), res.Interfaces));
+            return null;
+        });
+
+        // 7. CDP (Cisco only; optional, never required)
+        if (provider.SupportsCdp)
+        {
+            await Run(Steps.Cdp, async () =>
+            {
+                try
+                {
+                    var cdp = NeighborParser.Cdp(await snmp.WalkAsync(target, Oids.CdpCacheTable, ct), res.Interfaces);
+                    res.CdpCollected = true;
+                    res.Neighbors.AddRange(cdp);
+                    return null;
+                }
+                catch (SnmpException)
+                {
+                    const string m = "CDP unavailable.";
+                    res.Errors.Add(new ScanError(Steps.Cdp, "OidUnavailable", m));
+                    log.LogInformation("OidUnavailable: CDP cache on {Ip}", req.Ip);
+                    return m;
+                }
+            });
+        }
+        else await onStep(new StepResult(Steps.Cdp, StepState.Skipped, "CDP does not apply to this manufacturer."));
         return res;
     }
+
+    private static string LldpUnavailable(ScanResult res)
+    {
+        const string m = "LLDP unavailable. Continuing with MAC and interface discovery...";
+        res.Errors.Add(new ScanError(Steps.Lldp, "OidUnavailable", m));
+        return m;
+    }
+
+    private async Task<byte[]?> TryGetRaw(SnmpTarget t, string oid, CancellationToken ct) => (await TryGet(t, oid, ct))?.Bytes;
 
     /// <summary>Per-VLAN FDB. Short timeouts and bounded parallelism keep this fast; VLANs with no data are skipped.</summary>
     internal async Task<List<FdbEntry>> PerVlanFdb(SnmpTarget baseTarget, IEnumerable<int> vlans, CancellationToken ct)

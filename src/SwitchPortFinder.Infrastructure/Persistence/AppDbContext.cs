@@ -17,6 +17,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<DiscoveryError> DiscoveryErrors => Set<DiscoveryError>();
     public DbSet<SwitchNeighbor> Neighbors => Set<SwitchNeighbor>();
     public DbSet<SwitchMac> SwitchMacs => Set<SwitchMac>();
+    public DbSet<AppSetting> AppSettings => Set<AppSetting>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -55,7 +56,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.Property(x => x.Name).HasMaxLength(100).IsRequired();
             e.Property(x => x.Descr).HasMaxLength(255);
             e.Property(x => x.Alias).HasMaxLength(255);
-            e.Property(x => x.PhysAddress).HasMaxLength(12).IsFixedLength();
+            e.Property(x => x.PhysAddress).HasMaxLength(12).IsFixedLength().IsUnicode(false);
             e.HasIndex(x => new { x.SwitchId, x.IfIndex }).IsUnique();
             e.HasIndex(x => x.Name);
             e.HasOne(x => x.Switch).WithMany().HasForeignKey(x => x.SwitchId).OnDelete(DeleteBehavior.Cascade);
@@ -64,7 +65,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         {
             e.Property(x => x.RemoteKey).HasMaxLength(300).IsRequired();
             e.Property(x => x.ChassisId).HasMaxLength(255);
-            e.Property(x => x.ChassisMac).HasMaxLength(12).IsFixedLength();
+            e.Property(x => x.ChassisMac).HasMaxLength(12).IsFixedLength().IsUnicode(false);
             e.Property(x => x.RemotePortId).HasMaxLength(255);
             e.Property(x => x.RemotePortDescr).HasMaxLength(255);
             e.Property(x => x.SysName).HasMaxLength(255);
@@ -78,16 +79,17 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.HasOne(x => x.Port).WithMany().HasForeignKey(x => x.PortId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne<Switch>().WithMany().HasForeignKey(x => x.SwitchId).OnDelete(DeleteBehavior.NoAction);
         });
+        b.Entity<AppSetting>(e => { e.HasKey(x => x.Key); e.Property(x => x.Key).HasMaxLength(100); e.Property(x => x.Value).IsRequired(); });
         b.Entity<SwitchMac>(e =>
         {
-            e.Property(x => x.Mac).HasMaxLength(12).IsFixedLength().IsRequired();
+            e.Property(x => x.Mac).HasMaxLength(12).IsFixedLength().IsUnicode(false).IsRequired();
             e.HasIndex(x => new { x.SwitchId, x.Mac }).IsUnique();
             e.HasIndex(x => x.Mac);
             e.HasOne<Switch>().WithMany().HasForeignKey(x => x.SwitchId).OnDelete(DeleteBehavior.Cascade);
         });
         b.Entity<DeviceObservation>(e =>
         {
-            e.Property(x => x.Mac).HasMaxLength(12).IsFixedLength().IsRequired();
+            e.Property(x => x.Mac).HasMaxLength(12).IsFixedLength().IsUnicode(false).IsRequired();
             e.HasIndex(x => new { x.SwitchId, x.Mac }).IsUnique();
             e.HasIndex(x => x.Mac);
             e.HasIndex(x => x.PortId);
@@ -97,7 +99,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         });
         b.Entity<Device>(e =>
         {
-            e.Property(x => x.Mac).HasMaxLength(12).IsFixedLength().IsRequired();
+            e.Property(x => x.Mac).HasMaxLength(12).IsFixedLength().IsUnicode(false).IsRequired();
             e.Property(x => x.Hostname).HasMaxLength(255).IsRequired();
             e.Property(x => x.IpAddress).HasMaxLength(45);
             e.HasIndex(x => x.Mac).IsUnique();
@@ -113,7 +115,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         b.Entity<ArpEntry>(e =>
         {
             e.Property(x => x.Ip).HasMaxLength(45).IsRequired();
-            e.Property(x => x.Mac).HasMaxLength(12).IsFixedLength().IsRequired();
+            e.Property(x => x.Mac).HasMaxLength(12).IsFixedLength().IsUnicode(false).IsRequired();
             e.HasIndex(x => new { x.SourceSwitchId, x.Ip }).IsUnique();
             e.HasIndex(x => x.Mac);
             e.HasOne<Switch>().WithMany().HasForeignKey(x => x.SourceSwitchId).OnDelete(DeleteBehavior.Cascade);

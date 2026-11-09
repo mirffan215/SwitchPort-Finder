@@ -30,9 +30,9 @@ public class SwitchesController(SwitchService svc, DiscoveryService discovery, P
     }
 
     /// <summary>Test credentials typed into the Add/Edit form. Nothing is saved.</summary>
-    [HttpPost("test")] public async Task<IActionResult> Test(TestConnectionRequest req, CancellationToken ct) => Ok(await svc.TestUnsavedAsync(req, ct));
+    [HttpPost("test")] [Microsoft.AspNetCore.RateLimiting.EnableRateLimiting("snmp-test")] public async Task<IActionResult> Test(TestConnectionRequest req, CancellationToken ct) => Ok(await svc.TestUnsavedAsync(req, ct));
 
-    [HttpPost("{id:int}/test")] public async Task<IActionResult> TestSaved(int id, CancellationToken ct) => Ok(await svc.TestSavedAsync(id, ct));
+    [HttpPost("{id:int}/test")] [Microsoft.AspNetCore.RateLimiting.EnableRateLimiting("snmp-test")] public async Task<IActionResult> TestSaved(int id, CancellationToken ct) => Ok(await svc.TestSavedAsync(id, ct));
 
     /// <summary>Queues a discovery job and returns immediately (202 + job id).</summary>
     [HttpPost("{id:int}/scan")]

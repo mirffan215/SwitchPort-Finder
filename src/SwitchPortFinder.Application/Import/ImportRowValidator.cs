@@ -7,7 +7,7 @@ namespace SwitchPortFinder.Application.Import;
 /// <summary>Pure validation of raw rows. No I/O, so it is easy to unit test.</summary>
 public static class ImportRowValidator
 {
-    public static List<ParsedImportRow> Validate(IEnumerable<RawImportRow> raw, ISet<string> knownProfileNames)
+    public static List<ParsedImportRow> Validate(IEnumerable<RawImportRow> raw, ISet<string> knownProfileNames, Func<string, string?>? targetCheck = null)
     {
         var result = new List<ParsedImportRow>();
         var seenIps = new Dictionary<string, int>();
@@ -22,6 +22,7 @@ public static class ImportRowValidator
 
             var ip = SwitchService.NormalizeIp(C("ManagementIP"));
             if (ip is null) errors.Add($"ManagementIP '{C("ManagementIP")}' is not a valid IPv4/IPv6 address.");
+            else if (targetCheck?.Invoke(ip) is { } blocked) errors.Add($"ManagementIP {ip}: {blocked}");
             else if (seenIps.TryGetValue(ip, out var firstRow)) errors.Add($"Duplicate ManagementIP {ip} (first seen on row {firstRow}).");
             else seenIps[ip] = r.RowNumber;
 

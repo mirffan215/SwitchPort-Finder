@@ -66,3 +66,4 @@ ul.steps { list-style:none; padding:0; margin:8px 0; } ul.steps li { padding:2px
 .react-flow { --xy-edge-label-background-color-default:var(--panel); --xy-edge-label-color-default:var(--text); --xy-background-color-default:var(--panel); --xy-controls-button-background-color-default:var(--panel); --xy-controls-button-color-default:var(--text); --xy-minimap-background-color-default:var(--panel); }
 .card.link { color:inherit; } .card.link:hover { border-color:var(--accent); text-decoration:none; } .num.sm { font-size:20px; } .num.warn { color:var(--warn); }
 .two { display:grid; grid-template-columns:1fr 1fr; gap:18px; } @media (max-width:1000px) { .two { grid-template-columns:1fr; } }
+.settings-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); gap:14px; } input.invalid { border-color:var(--bad); }

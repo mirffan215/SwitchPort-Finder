@@ -22,6 +22,24 @@ namespace SwitchPortFinder.Infrastructure.Persistence.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
+            modelBuilder.Entity("SwitchPortFinder.Domain.Entities.AppSetting", b =>
+                {
+                    b.Property<string>("Key")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Value")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Key");
+
+                    b.ToTable("AppSettings");
+                });
+
             modelBuilder.Entity("SwitchPortFinder.Domain.Entities.ArpEntry", b =>
                 {
                     b.Property<long>("Id")
@@ -38,7 +56,8 @@ namespace SwitchPortFinder.Infrastructure.Persistence.Migrations
                     b.Property<string>("Mac")
                         .IsRequired()
                         .HasMaxLength(12)
-                        .HasColumnType("nchar(12)")
+                        .IsUnicode(false)
+                        .HasColumnType("char(12)")
                         .IsFixedLength();
 
                     b.Property<DateTime>("ObservedAt")
@@ -146,7 +165,8 @@ namespace SwitchPortFinder.Infrastructure.Persistence.Migrations
                     b.Property<string>("Mac")
                         .IsRequired()
                         .HasMaxLength(12)
-                        .HasColumnType("nchar(12)")
+                        .IsUnicode(false)
+                        .HasColumnType("char(12)")
                         .IsFixedLength();
 
                     b.Property<int?>("PortId")
@@ -198,7 +218,8 @@ namespace SwitchPortFinder.Infrastructure.Persistence.Migrations
                     b.Property<string>("Mac")
                         .IsRequired()
                         .HasMaxLength(12)
-                        .HasColumnType("nchar(12)")
+                        .IsUnicode(false)
+                        .HasColumnType("char(12)")
                         .IsFixedLength();
 
                     b.Property<int>("PortId")
@@ -496,7 +517,8 @@ namespace SwitchPortFinder.Infrastructure.Persistence.Migrations
                     b.Property<string>("Mac")
                         .IsRequired()
                         .HasMaxLength(12)
-                        .HasColumnType("nchar(12)")
+                        .IsUnicode(false)
+                        .HasColumnType("char(12)")
                         .IsFixedLength();
 
                     b.Property<int>("SwitchId")
@@ -529,7 +551,8 @@ namespace SwitchPortFinder.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("ChassisMac")
                         .HasMaxLength(12)
-                        .HasColumnType("nchar(12)")
+                        .IsUnicode(false)
+                        .HasColumnType("char(12)")
                         .IsFixedLength();
 
                     b.Property<string>("Evidence")
@@ -639,7 +662,8 @@ namespace SwitchPortFinder.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("PhysAddress")
                         .HasMaxLength(12)
-                        .HasColumnType("nchar(12)")
+                        .IsUnicode(false)
+                        .HasColumnType("char(12)")
                         .IsFixedLength();
 
                     b.Property<int>("PortType")

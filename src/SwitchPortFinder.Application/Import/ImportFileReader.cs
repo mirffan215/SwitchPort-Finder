@@ -6,6 +6,9 @@ namespace SwitchPortFinder.Application.Import;
 /// <summary>Reads CSV or XLSX into raw rows. Files are processed from a stream in memory; nothing is written to disk.</summary>
 public static class ImportFileReader
 {
+    private const int MaxZipEntries = 2_000;
+    private const long MaxUncompressedBytes = 200L * 1024 * 1024;
+
     public static List<RawImportRow> Read(Stream stream, string fileName, int maxRows)
     {
         var ext = Path.GetExtension(fileName).ToLowerInvariant();
@@ -53,8 +56,18 @@ public static class ImportFileReader
 
     private static List<RawImportRow> ReadXlsx(Stream stream, int maxRows)
     {
+        // An .xlsx is a zip: refuse decompression bombs BEFORE any parser expands it (a 10 MB upload can claim gigabytes).
+        var ms = new MemoryStream(); stream.CopyTo(ms); ms.Position = 0;
+        try
+        {
+            using var zip = new System.IO.Compression.ZipArchive(ms, System.IO.Compression.ZipArchiveMode.Read, leaveOpen: true);
+            if (zip.Entries.Count > MaxZipEntries || zip.Entries.Sum(e => e.Length) > MaxUncompressedBytes)
+                throw new ValidationFailedException("file", "The workbook is too large when unpacked and was rejected.");
+        }
+        catch (InvalidDataException) { throw new ValidationFailedException("file", "The file could not be read as an Excel (.xlsx) workbook."); }
+        ms.Position = 0;
         XLWorkbook wb;
-        try { wb = new XLWorkbook(stream); }
+        try { wb = new XLWorkbook(ms); }
         catch (Exception) { throw new ValidationFailedException("file", "The file could not be read as an Excel (.xlsx) workbook."); }
         using (wb)
         {

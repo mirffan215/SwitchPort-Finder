@@ -26,7 +26,7 @@ public static class InterfaceParser
             string? mac = col.GetValueOrDefault(6)?.Bytes is { Length: 6 } b ? Domain.MacAddress.FromBytes(b) : null;
             result.Add(new InterfaceInfo(row.Key, name, descr, Text(xc?.GetValueOrDefault(18)),
                 col.GetValueOrDefault(7)?.Number == 1, col.GetValueOrDefault(8)?.Number == 1, speed, mac,
-                (int)(col.GetValueOrDefault(4)?.Number ?? 0), type));
+                (int)(col.GetValueOrDefault(4)?.Number ?? 0), type, OperKnown: col.GetValueOrDefault(8) is { IsMissing: false }));
         }
         return result;
     }

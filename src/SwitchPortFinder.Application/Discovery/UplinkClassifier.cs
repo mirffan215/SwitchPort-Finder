@@ -34,13 +34,14 @@ public static class UplinkClassifier
         var macOwner = new Dictionary<string, SwitchRef>();
         foreach (var s in switches) foreach (var m in s.Macs) macOwner.TryAdd(m, s);
 
+        var portById = ports.ToDictionary(p => p.PortId);   // O(1) lookups: this runs over the whole fleet after every scan
+
         // ---- 1/2/5: LLDP & CDP neighbors ----
         var matches = new Dictionary<long, int?>();
         var verdicts = new Dictionary<int, PortVerdict>();
         foreach (var g in neighbors.Where(n => n.Protocol != NeighborProtocol.Inferred).GroupBy(n => n.PortId))
         {
-            var port = ports.FirstOrDefault(p => p.PortId == g.Key);
-            if (port is null) continue;
+            if (!portById.TryGetValue(g.Key, out var port)) continue;
             PortVerdict? best = null;
             foreach (var n in g)
             {

@@ -10,6 +10,8 @@ public class DiscoveryOptions
     public int StaleAfterDays { get; set; } = 7;
     /// <summary>0 disables the scheduled scan of all switches.</summary>
     public int ScanIntervalMinutes { get; set; } = 0;
+    /// <summary>How often the scheduler checks whether a scan-all is due (seconds). Tests lower this.</summary>
+    public int SchedulePollSeconds { get; set; } = 30;
     public int PerVlanTimeoutMs { get; set; } = 1500;
     public int PerVlanParallelism { get; set; } = 4;
     public int DnsTimeoutMs { get; set; } = 2000;

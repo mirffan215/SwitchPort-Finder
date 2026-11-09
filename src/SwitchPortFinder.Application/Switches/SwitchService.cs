@@ -8,7 +8,7 @@ using SwitchPortFinder.Domain.Enums;
 namespace SwitchPortFinder.Application.Switches;
 
 public class SwitchService(
-    ISwitchRepository switches, ICredentialProfileRepository profiles, CredentialCodec codec, SnmpConnectionService snmp)
+    ISwitchRepository switches, ICredentialProfileRepository profiles, CredentialCodec codec, SnmpConnectionService snmp, Microsoft.Extensions.Options.IOptions<SecurityOptions> security)
 {
     public static string? NormalizeIp(string? ip)
     {
@@ -71,6 +71,7 @@ public class SwitchService(
     public async Task<TestConnectionResult> TestUnsavedAsync(TestConnectionRequest req, CancellationToken ct)
     {
         var ip = NormalizeIp(req.ManagementIp) ?? throw new ValidationFailedException("managementIp", "Enter a valid IPv4 or IPv6 address.");
+        if (TargetPolicy.Check(ip, security.Value.AllowLoopbackTargets) is { } blocked) throw new ValidationFailedException("managementIp", blocked);
         SnmpCredentials creds;
         if (req.CredentialProfileId is { } pid)
         {
@@ -120,12 +121,13 @@ public class SwitchService(
 
     private static string? Trunc(string? s, int n) => s is null ? null : s.Length <= n ? s : s[..n];
 
-    private static Dictionary<string, string[]> ValidateBasics(SwitchRequest r)
+    private Dictionary<string, string[]> ValidateBasics(SwitchRequest r)
     {
         var e = new Dictionary<string, string[]>();
         if (string.IsNullOrWhiteSpace(r.Name)) e["name"] = ["Name is required."];
         else if (r.Name.Trim().Length > 100) e["name"] = ["Name must be 100 characters or fewer."];
-        if (NormalizeIp(r.ManagementIp) is null) e["managementIp"] = ["Enter a valid IPv4 or IPv6 address."];
+        if (NormalizeIp(r.ManagementIp) is not { } nip) e["managementIp"] = ["Enter a valid IPv4 or IPv6 address."];
+        else if (TargetPolicy.Check(nip, security.Value.AllowLoopbackTargets) is { } bad) e["managementIp"] = [bad];
         if (!Enum.IsDefined(r.Manufacturer)) e["manufacturer"] = ["Unknown manufacturer."];
         if (r.Manufacturer == Manufacturer.OtherGeneric && r.ManufacturerOther?.Length > 100) e["manufacturerOther"] = ["Too long."];
         return e;

@@ -75,6 +75,11 @@ public sealed class SnmpSwitchScanner(ISnmpClient snmp, IOptions<SnmpOptions> sn
             res.Interfaces.AddRange(InterfaceParser.Parse(ifT, ifX));
             res.SwitchMacs.UnionWith(InterfaceParser.AllPhysAddresses(ifT));
             if (res.Interfaces.Count == 0) { warn = "No Ethernet interfaces found."; res.Errors.Add(new ScanError(Steps.Interfaces, "Empty", warn)); }
+            if (res.Interfaces.Count(i => !i.OperKnown) is > 0 and var unknown)
+            {
+                warn = $"{unknown} interface(s) were returned without an operational status (incomplete table); their previous status was kept. Rescan to refresh.";
+                res.Errors.Add(new ScanError(Steps.Interfaces, "Incomplete", warn));
+            }
             return warn;
         });
 

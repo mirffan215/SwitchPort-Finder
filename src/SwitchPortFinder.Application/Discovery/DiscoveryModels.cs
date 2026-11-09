@@ -32,7 +32,9 @@ public record ScanError(string Step, string Code, string Message);
 public record SystemInfo(string? Name, string? Descr, string? ObjectId, long UpTimeTicks, string? Model, string? Serial);
 
 public record InterfaceInfo(
-    int IfIndex, string Name, string? Descr, string? Alias, bool AdminUp, bool OperUp, long SpeedMbps, string? Mac, int Mtu, int IfType);
+    int IfIndex, string Name, string? Descr, string? Alias, bool AdminUp, bool OperUp, long SpeedMbps, string? Mac, int Mtu, int IfType,
+    /// <summary>False when the agent returned the interface without ifOperStatus (a truncated walk): the status is unknown, NOT down.</summary>
+    bool OperKnown = true);
 
 public enum FdbKind { Learned, Self, Static, Other, Invalid }
 

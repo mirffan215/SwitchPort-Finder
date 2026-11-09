@@ -129,3 +129,11 @@ public class SwitchMac
     public int SwitchId { get; set; }
     public string Mac { get; set; } = "";
 }
+
+/// <summary>Runtime-editable settings, stored as one JSON document under a key.</summary>
+public class AppSetting
+{
+    public string Key { get; set; } = "";
+    public string Value { get; set; } = "";
+    public DateTime UpdatedAt { get; set; }
+}

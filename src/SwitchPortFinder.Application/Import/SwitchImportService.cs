@@ -11,7 +11,7 @@ namespace SwitchPortFinder.Application.Import;
 
 public class SwitchImportService(
     ISwitchRepository switches, ICredentialProfileRepository profiles, IImportBatchRepository batches,
-    IImportPreviewStore store, CredentialCodec codec, IOptions<ImportOptions> options, IUserAuthorizationService auth,
+    IImportPreviewStore store, CredentialCodec codec, IOptions<ImportOptions> options, IOptions<SecurityOptions> security, IUserAuthorizationService auth,
     ILogger<SwitchImportService> log)
 {
     public async Task<ImportPreviewDto> PreviewAsync(Stream file, string fileName, ImportMode mode, CancellationToken ct)
@@ -19,7 +19,8 @@ public class SwitchImportService(
         var opt = options.Value;
         var raw = ImportFileReader.Read(file, fileName, opt.MaxRows);
         var profileList = await profiles.ListAsync(ct);
-        var parsed = ImportRowValidator.Validate(raw, profileList.Select(p => p.Name).ToHashSet(StringComparer.OrdinalIgnoreCase));
+        var parsed = ImportRowValidator.Validate(raw, profileList.Select(p => p.Name).ToHashSet(StringComparer.OrdinalIgnoreCase),
+            ip => TargetPolicy.Check(ip, security.Value.AllowLoopbackTargets));
         var existing = await switches.GetByIpsAsync(parsed.Where(p => p.Errors.Count == 0).Select(p => p.Ip), ct);
         var results = Classify(parsed, existing, mode);
         var id = store.Put(new StoredImport(Path.GetFileName(fileName), parsed), TimeSpan.FromMinutes(opt.PreviewTtlMinutes));

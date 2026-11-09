@@ -1,60 +1,56 @@
 # SwitchPort Finder
 
 Internal web portal that answers **"Which switch and which port is this device connected to?"**
-Read-only against network equipment (SNMP GET / GETNEXT / GETBULK / walk only — there is no SET anywhere in the code).
+**Read-only against network equipment** (SNMP GET / GETNEXT / GETBULK / walk only; there is no SET anywhere in the code).
 
-> **Status: Phase 5 of 6 (Topology, history, export).** Implemented: switch management, SNMPv2c/v3, encrypted credentials, bulk
-> import/export, discovery (ports, VLANs, MAC/FDB incl. Cisco per-VLAN, ARP, hostnames), LLDP/CDP neighbors with uplink
-> classification and the edge-port rule, global search, device details and trace, and now the **topology graph** (React Flow, fully
-> bundled; click a switch to open it, click a link to open its port), the **dashboard** (counts, recent jobs, recently discovered
-> devices), **discovery history** with filters, and **device export to CSV/Excel** that respects the current filters.
-> **Not yet (Phase 6):** performance test at 500 switches / 50k devices, security review, error-handling review, full documentation,
-> production publish, settings UI.
+**Status: V1 feature-complete (Phase 6 of 6).** Add or bulk-import switches · test SNMPv2c/v3 · background discovery of ports, VLANs, MAC tables
+(incl. Cisco per-VLAN), ARP and hostnames · LLDP/CDP neighbors with uplink classification and the edge-port rule · global search · device details ·
+trace · topology graph · dashboard · discovery history · CSV/Excel export · runtime settings. See [docs/V1-CHECKLIST.md](docs/V1-CHECKLIST.md) for the
+evidence behind each item **and what has not been verified on real hardware or SQL Server**.
+
+* One ASP.NET Core process (Kestrel) serves the API **and** the built React UI. No desktop client, no CDN, no internet needed at runtime.
+* No login and plain HTTP in V1 (as specified). *HTTPS is recommended when the portal is moved beyond a trusted internal network.*
+* Credentials are encrypted at rest and never returned, logged or placed in URLs.
+
+## Documentation
+
+| | |
+|---|---|
+| [INSTALLATION.md](docs/INSTALLATION.md) | .NET, SQL Server, migrations, build, publish, Windows service, IIS reverse proxy |
+| [CONFIGURATION.md](docs/CONFIGURATION.md) | Every setting, environment variables, enabling HTTPS |
+| [SNMP-SETUP.md](docs/SNMP-SETUP.md) | Read-only v2c/v3 setup (Cisco, HPE/Aruba, Dell, Juniper, Extreme), ACLs, LLDP/CDP, the Cisco per-VLAN requirement |
+| [IMPORT-GUIDE.md](docs/IMPORT-GUIDE.md) | Template columns, examples, credential profiles, security notes |
+| [TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) | Symptoms → causes → fixes |
+| [SECURITY.md](docs/SECURITY.md) · [PERFORMANCE.md](docs/PERFORMANCE.md) · [V1-CHECKLIST.md](docs/V1-CHECKLIST.md) | Controls and residual risks · measurements · completion evidence |
 
 ## Quick start (development)
 
-Requirements: .NET 8 SDK, Node 20+, SQL Server (LocalDB, Express or full).
+Requirements: .NET 8 SDK, Node 22, SQL Server (LocalDB/Express/full).
 
 ```bash
-# 1. API (applies migrations automatically in Development)
 dotnet restore
 dotnet build
-dotnet run --project src/SwitchPortFinder.Api          # http://localhost:5000
+dotnet run --project src/SwitchPortFinder.Api          # http://localhost:5000 (applies migrations in Development)
 
-# 2. Frontend with hot reload (proxies /api to :5000)
 cd src/SwitchPortFinder.Web
 npm install
-npm run dev                                            # http://localhost:5173
+npm run dev                                            # http://localhost:5173 (proxies /api to :5000)
 ```
 
-Set the connection string in `src/SwitchPortFinder.Api/appsettings.json` (`ConnectionStrings:Default`) or via the
-`ConnectionStrings__Default` environment variable.
-
-## Production (single process)
+## Production
 
 ```bash
-cd src/SwitchPortFinder.Web && npm install && npm run build   # writes into the API's wwwroot
-cd ../.. && dotnet publish src/SwitchPortFinder.Api -c Release -o publish
-# first run: set Database:AutoMigrate=true once (or run `dotnet ef database update`), then start:
-cd publish && dotnet SwitchPortFinder.Api.dll                 # http://0.0.0.0:5000
+scripts/publish.sh ./publish            # or  .\scripts\publish.ps1 -Output .\publish
+cd publish && dotnet SwitchPortFinder.Api.dll          # http://SERVER-IP:5000
 ```
-
-Plain HTTP is used in V1 and there is no login. *HTTPS is recommended when the portal is moved beyond a trusted internal network.*
-Kestrel endpoints are configured under `Kestrel:Endpoints` in `appsettings.json`, so HTTPS can be added without code changes.
+Details (connection string, migrations, service, firewall) are in [docs/INSTALLATION.md](docs/INSTALLATION.md).
 
 ## Tests
 
 ```bash
-dotnet test
+dotnet test                                            # unit + integration (SQLite + scripted SNMP; no SQL Server or network needed)
+dotnet test --filter "Category=Performance" --logger "console;verbosity=detailed"   # 500 switches / 50k devices load test
 ```
+Production uses SQL Server only (`Database:Provider=SqlServer`, the default); `Sqlite` exists solely for tests and sandboxes.
 
-Integration tests run the real API against SQLite with a fake `ISnmpClient` (no SQL Server or network needed).
-Production uses SQL Server only (`Database:Provider` = `SqlServer`, the default); `Sqlite` exists solely for tests/sandboxes.
-
-## Security notes
-
-* SNMP credentials are encrypted at rest (ASP.NET Core Data Protection; keys in `Security:KeysPath`, wrapped with machine-scope DPAPI on Windows).
-* Credentials are never returned by the API, logged, placed in URLs or included in error messages. Tests scan responses, logs and the database file for this.
-* Import files may contain secrets: they are processed in memory only. Prefer credential profiles.
-
-More documentation (installation, configuration, SNMP setup, troubleshooting, import guide) lands in Phase 6.
+See [docs/SECURITY.md](docs/SECURITY.md) for the security model.

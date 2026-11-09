@@ -16,25 +16,26 @@ public sealed class DiscoveryWorker(IServiceScopeFactory scopes, ScanQueue queue
     protected override async Task ExecuteAsync(CancellationToken stop)
     {
         await Recover(stop);
-        if (opt.Value.ScanIntervalMinutes > 0) _ = Schedule(stop);
-        using var gate = new SemaphoreSlim(Math.Max(1, opt.Value.MaxParallelScans));
-        var running = new List<Task>();
+        _ = Schedule(stop);
+        var running = 0; var tasks = new List<Task>();
         try
         {
             await foreach (var jobId in queue.Reader.ReadAllAsync(stop))
             {
-                await gate.WaitAsync(stop);
+                // Concurrency is read on every job so an administrator can change it live.
+                while (Volatile.Read(ref running) >= Math.Max(1, opt.Value.MaxParallelScans)) await Task.Delay(100, stop);
+                Interlocked.Increment(ref running);
                 var t = Task.Run(async () =>
                 {
                     try { using var scope = scopes.CreateScope(); await scope.ServiceProvider.GetRequiredService<DiscoveryJobRunner>().RunAsync(jobId, stop); }
                     catch (Exception ex) when (ex is not OperationCanceledException) { log.LogError(ex, "Job {Job} crashed", jobId); }
-                    finally { gate.Release(); }
+                    finally { Interlocked.Decrement(ref running); }
                 }, CancellationToken.None);
-                lock (running) { running.RemoveAll(x => x.IsCompleted); running.Add(t); }
+                lock (tasks) { tasks.RemoveAll(x => x.IsCompleted); tasks.Add(t); }
             }
         }
         catch (OperationCanceledException) { }
-        Task[] pending; lock (running) pending = running.ToArray();
+        Task[] pending; lock (tasks) pending = tasks.ToArray();
         await Task.WhenAll(pending);
     }
 
@@ -54,13 +55,19 @@ public sealed class DiscoveryWorker(IServiceScopeFactory scopes, ScanQueue queue
         catch (Exception ex) { log.LogWarning(ex, "Could not recover discovery jobs (database not ready?)"); }
     }
 
+    /// <summary>Checks every 30 s whether a scheduled scan-all is due, so the interval can be changed (or switched on/off) at runtime.</summary>
     private async Task Schedule(CancellationToken ct)
     {
-        using var timer = new PeriodicTimer(TimeSpan.FromMinutes(opt.Value.ScanIntervalMinutes));
+        var last = DateTime.UtcNow;
         try
         {
-            while (await timer.WaitForNextTickAsync(ct))
+            while (!ct.IsCancellationRequested)
             {
+                await Task.Delay(TimeSpan.FromSeconds(opt.Value.SchedulePollSeconds), ct);
+                var every = opt.Value.ScanIntervalMinutes;
+                if (every <= 0) { last = DateTime.UtcNow; continue; }
+                if (DateTime.UtcNow - last < TimeSpan.FromMinutes(every)) continue;
+                last = DateTime.UtcNow;
                 using var scope = scopes.CreateScope();
                 var n = (await scope.ServiceProvider.GetRequiredService<DiscoveryService>().EnqueueAllAsync(ct)).Count;
                 log.LogInformation("Scheduled scan queued for {Count} switches", n);

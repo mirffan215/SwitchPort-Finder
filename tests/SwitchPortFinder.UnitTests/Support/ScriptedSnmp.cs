@@ -13,7 +13,9 @@ public sealed class ScriptedSnmp : ISnmpClient
     public Dictionary<string, Dictionary<string, List<SnmpVarBind>>> Walks { get; } = [];   // key: ip|credKey → root → rows
     public Dictionary<string, SnmpValue> Gets { get; } = [];                                  // key: ip|oid
     public HashSet<string> Unreachable { get; } = [];
-    public HashSet<string> ThrowOnWalk { get; } = [];                                         // key: ip|root → SnmpException
+    public HashSet<string> ThrowOnWalk { get; } = [];
+    public HashSet<string> ThrowUnexpected { get; } = [];                                     // key: ip|root → InvalidOperationException (a bug, not an SNMP error)
+    public HashSet<string> AuthFail { get; } = [];                                            // ip → SNMPv3 authentication failure                                         // key: ip|root → SnmpException
     public List<(string Ip, string CredKey, string Root)> WalkLog { get; } = [];
 
     public static string CredKey(SnmpCredentials c) => c.Version == SnmpVersion.V2c ? c.Community ?? "" : c.ContextName ?? "";
@@ -22,6 +24,7 @@ public sealed class ScriptedSnmp : ISnmpClient
     {
         var ip = t.Address.ToString();
         if (Unreachable.Contains(ip)) throw new SnmpException(SnmpFailure.Timeout, "timeout");
+        if (AuthFail.Contains(ip)) throw new SnmpException(SnmpFailure.AuthenticationFailed, "auth");
         IReadOnlyList<SnmpVarBind> r = oids.Select(o => new SnmpVarBind(o, Gets.TryGetValue($"{ip}|{o}", out var v) ? v : new SnmpValue(SnmpValueKind.NoSuchInstance))).ToList();
         return Task.FromResult(r);
     }
@@ -34,11 +37,12 @@ public sealed class ScriptedSnmp : ISnmpClient
         lock (WalkLog) WalkLog.Add((ip, key, root));
         if (Unreachable.Contains(ip)) throw new SnmpException(SnmpFailure.Timeout, "timeout");
         if (ThrowOnWalk.Contains($"{ip}|{root}")) throw new SnmpException(SnmpFailure.Timeout, "timeout");
+        if (ThrowUnexpected.Contains($"{ip}|{root}")) throw new InvalidOperationException("boom-internal-detail-XYZ");
         IReadOnlyList<SnmpVarBind> r = Walks.TryGetValue($"{ip}|{key}", out var byRoot) && byRoot.TryGetValue(root, out var rows) ? rows : [];
         return Task.FromResult(r);
     }
 
-    public void Clear() { Walks.Clear(); Gets.Clear(); Unreachable.Clear(); ThrowOnWalk.Clear(); WalkLog.Clear(); }
+    public void Clear() { ThrowUnexpected.Clear(); AuthFail.Clear(); Walks.Clear(); Gets.Clear(); Unreachable.Clear(); ThrowOnWalk.Clear(); WalkLog.Clear(); }
 
     // ---------- fluent setup ----------
     public ScriptedSnmp WithSystem(string ip, string name, string objectId, string descr = "test switch")

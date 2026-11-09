@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { api, type CredentialInput, type ImportCommit, type ImportPreview, type ProfileDto } from '../api';
+import { api, type CredentialInput, type ImportCommit, type ImportPreview, type ProfileDto, type RuntimeSettings } from '../api';
 import { ErrorBox, Field } from '../components/Bits';
 import CredentialFields, { emptyCredential } from '../components/CredentialFields';
 
@@ -19,14 +19,7 @@ export default function SettingsPage() {
       </div>
       {tab === 'import' && <ImportTab />}
       {tab === 'profiles' && <ProfilesTab />}
-      {tab === 'general' && (
-        <div>
-          <h3>Export</h3>
-          <p>All devices: <a href="/api/export/devices?format=csv">CSV</a> · <a href="/api/export/devices?format=xlsx">Excel</a> &nbsp;(the Devices page exports the current filters). Switches without credentials: <a href="/api/admin/export/switches?format=csv">CSV</a> · <a href="/api/admin/export/switches?format=xlsx">Excel</a>.</p>
-          <h3>Configuration</h3>
-          <p className="muted">Timeouts, retries, concurrency, offline/stale thresholds and the scan schedule are set in <code>appsettings.json</code> (see CONFIGURATION.md). A settings UI arrives in Phase 6.</p>
-        </div>
-      )}
+      {tab === 'general' && <GeneralTab />}
     </section>
   );
 }
@@ -140,5 +133,54 @@ function ProfileForm({ profile, onClose }: { profile: ProfileDto | null; onClose
       <ErrorBox error={save.error} />
       <div className="buttons"><button className="btn primary" disabled={save.isPending}>Save</button><button type="button" className="btn" onClick={onClose}>Cancel</button></div>
     </form>
+  );
+}
+
+const FIELDS: { key: keyof RuntimeSettings; label: string; hint: string; step?: number }[] = [
+  { key: 'snmpTimeoutMs', label: 'SNMP timeout (ms)', hint: 'Per request. 500–60000.' },
+  { key: 'snmpRetries', label: 'SNMP retries', hint: '0–5. Retries happen only after a timeout.' },
+  { key: 'snmpMaxRepetitions', label: 'GETBULK max-repetitions', hint: '1–50. Lower it if a switch struggles with large tables.' },
+  { key: 'maxParallelScans', label: 'Parallel switch scans', hint: '1–50. Limits load on the network and the database.' },
+  { key: 'perVlanTimeoutMs', label: 'Per-VLAN timeout (ms)', hint: 'Cisco per-VLAN MAC queries use short timeouts so scans stay fast.' },
+  { key: 'perVlanParallelism', label: 'Per-VLAN parallelism', hint: '1–16 simultaneous VLAN queries per switch.' },
+  { key: 'offlineAfterMinutes', label: 'Device offline after (minutes)', hint: 'Not seen for longer than this → Offline.' },
+  { key: 'staleAfterDays', label: 'Device stale after (days)', hint: 'Not seen for longer than this → Stale (must be later than Offline).' },
+  { key: 'scanIntervalMinutes', label: 'Scheduled scan interval (minutes)', hint: '0 = off, otherwise 5 or more. Scans all switches.' },
+  { key: 'dnsTimeoutMs', label: 'Reverse-DNS timeout (ms)', hint: 'A slow DNS never fails a scan; the name stays “Unknown Device”.' },
+  { key: 'hostnameRefreshHours', label: 'Retry unresolved hostnames after (hours)', hint: '1–720.' },
+  { key: 'uplinkHeuristicMinMacs', label: 'Uplink heuristic: minimum MACs', hint: 'Used only when LLDP/CDP are unavailable. Higher = more cautious.' },
+  { key: 'uplinkHeuristicRatio', label: 'Uplink heuristic: overlap ratio', hint: '0.3–1.0. Fraction of a port’s MACs that must also be edge MACs elsewhere.', step: 0.05 },
+];
+
+function GeneralTab() {
+  const qc = useQueryClient();
+  const { data, error } = useQuery({ queryKey: ['settings'], queryFn: api.settings });
+  const [form, setForm] = useState<RuntimeSettings | null>(null);
+  const [saved, setSaved] = useState(false);
+  const values = form ?? data;
+  const save = useMutation({ mutationFn: () => api.saveSettings(values!), onSuccess: (s) => { setForm(s); setSaved(true); qc.setQueryData(['settings'], s); } });
+  const fieldErrors = save.error instanceof Error && 'fieldErrors' in save.error ? (save.error as { fieldErrors: Record<string, string[]> }).fieldErrors : {};
+  return (
+    <div>
+      <h3>Discovery settings</h3>
+      <p className="muted">Applied immediately and kept in the database; no restart needed. Connection string, ports, TLS and logging stay in <code>appsettings.json</code> (see CONFIGURATION.md).</p>
+      <ErrorBox error={error ?? (Object.keys(fieldErrors).length ? null : save.error)} />
+      {values && (
+        <form className="form" onSubmit={(e) => { e.preventDefault(); setSaved(false); save.mutate(); }}>
+          <div className="settings-grid">
+            {FIELDS.map((f) => (
+              <Field key={f.key} label={f.label} hint={fieldErrors[f.key]?.join(' ') ?? f.hint}>
+                <input type="number" step={f.step ?? 1} value={values[f.key]} className={fieldErrors[f.key] ? 'invalid' : ''}
+                  onChange={(e) => { setSaved(false); setForm({ ...values, [f.key]: Number(e.target.value) }); }} />
+              </Field>
+            ))}
+          </div>
+          {saved && <div className="alert success">✓ Settings saved and applied.</div>}
+          <div className="buttons"><button className="btn primary" disabled={save.isPending}>{save.isPending ? 'Saving…' : 'Save settings'}</button></div>
+        </form>
+      )}
+      <h3>Export</h3>
+      <p>All devices: <a href="/api/export/devices?format=csv">CSV</a> · <a href="/api/export/devices?format=xlsx">Excel</a> &nbsp;(the Devices page exports the current filters). Switches without credentials: <a href="/api/admin/export/switches?format=csv">CSV</a> · <a href="/api/admin/export/switches?format=xlsx">Excel</a>.</p>
+    </div>
   );
 }

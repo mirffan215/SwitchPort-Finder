@@ -36,7 +36,9 @@ public class ScanResultWriter(AppDbContext db, IHostnameResolver dns, Classifica
         {
             if (!ports.TryGetValue(i.IfIndex, out var p)) { p = new SwitchPort { SwitchId = sw.Id, IfIndex = i.IfIndex }; db.SwitchPorts.Add(p); ports[i.IfIndex] = p; }
             p.Name = Trunc(i.Name, 100)!; p.Descr = Trunc(i.Descr, 255); p.Alias = Trunc(i.Alias, 255);
-            p.AdminUp = i.AdminUp; p.OperUp = i.OperUp; p.SpeedMbps = i.SpeedMbps; p.PhysAddress = i.Mac; p.Mtu = i.Mtu;
+            // an unreported status is unknown, never "down": keep the previous value
+            if (i.OperKnown) { p.AdminUp = i.AdminUp; p.OperUp = i.OperUp; }
+            p.SpeedMbps = i.SpeedMbps; p.PhysAddress = i.Mac; p.Mtu = i.Mtu;
             p.Vlan = r.PvidByIfIndex.TryGetValue(i.IfIndex, out var v) ? v : null;
             p.LastSeen = now;
         }
@@ -113,7 +115,7 @@ public class ScanResultWriter(AppDbContext db, IHostnameResolver dns, Classifica
         var names = await Task.WhenAll(need.Select(async d =>
         {
             await gate.WaitAsync(ct);
-            try { return (d, name: await dns.ResolveAsync(d.IpAddress!, ct)); } finally { gate.Release(); }
+            try { return (d, name: await SafeResolve(d.IpAddress!, ct)); } finally { gate.Release(); }
         }));
         foreach (var (d, name) in names)
         {
@@ -124,6 +126,14 @@ public class ScanResultWriter(AppDbContext db, IHostnameResolver dns, Classifica
         await db.SaveChangesAsync(ct);
         var nbCount = await db.Neighbors.CountAsync(n => n.SwitchId == sw.Id && n.Protocol != NeighborProtocol.Inferred, ct);
         return new Counts(r.Interfaces.Count, scanMacs.Count, nbCount);
+    }
+
+    /// <summary>A DNS failure of any kind must never fail a scan.</summary>
+    private async Task<string?> SafeResolve(string ip, CancellationToken ct)
+    {
+        try { return await dns.ResolveAsync(ip, ct); }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+        catch { return null; }
     }
 
     private static void ApplySwitch(Switch sw, ScanResult r, DateTime now)

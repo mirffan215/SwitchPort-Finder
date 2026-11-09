@@ -79,6 +79,11 @@ export interface TopoEdge { id: string; source: string; target: string; sourceSw
 export interface Topology { nodes: TopoNode[]; edges: TopoEdge[] }
 export interface Dashboard { switches: number; devices: number; connectedPorts: number; switchUplinks: number; offlineDevices: number; lastDiscovery?: JobSummary | null; recentJobs: JobSummary[]; recentDevices: DeviceRow[] }
 
+export interface RuntimeSettings {
+  snmpTimeoutMs: number; snmpRetries: number; snmpMaxRepetitions: number; maxParallelScans: number; perVlanTimeoutMs: number; perVlanParallelism: number;
+  offlineAfterMinutes: number; staleAfterDays: number; scanIntervalMinutes: number; dnsTimeoutMs: number; hostnameRefreshHours: number; uplinkHeuristicMinMacs: number; uplinkHeuristicRatio: number;
+}
+
 export class ApiError extends Error {
   constructor(public status: number, message: string, public fieldErrors: Record<string, string[]> = {}) { super(message); }
 }
@@ -117,6 +122,8 @@ export const api = {
   search: (q: string) => request<SearchResponse>(`/api/search?q=${encodeURIComponent(q)}`),
   device: (id: number) => request<DeviceDetail>(`/api/devices/${id}`),
   trace: (id: number) => request<TraceResult>(`/api/devices/${id}/trace`),
+  settings: () => request<RuntimeSettings>('/api/settings'),
+  saveSettings: (s: RuntimeSettings) => request<RuntimeSettings>('/api/settings', json('PUT', s)),
   topology: () => request<Topology>('/api/topology'),
   dashboard: () => request<Dashboard>('/api/dashboard'),
   listProfiles: () => request<ProfileDto[]>('/api/credential-profiles'),

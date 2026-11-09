@@ -40,7 +40,9 @@ public sealed class FakeSnmpClient : ISnmpClient
 public sealed class FakeResolver : SwitchPortFinder.Application.Abstractions.IHostnameResolver
 {
     public Dictionary<string, string> Names { get; } = [];
-    public Task<string?> ResolveAsync(string ip, CancellationToken ct) => Task.FromResult(Names.TryGetValue(ip, out var n) ? n : null);
+    public HashSet<string> Throw { get; } = [];
+    public Task<string?> ResolveAsync(string ip, CancellationToken ct) =>
+        Throw.Contains(ip) ? throw new InvalidOperationException("dns exploded") : Task.FromResult(Names.TryGetValue(ip, out var n) ? n : null);
 }
 
 public class ApiFixture : WebApplicationFactory<Program>, IDisposable
@@ -80,6 +82,18 @@ public class ApiFixture : WebApplicationFactory<Program>, IDisposable
             s.RemoveAll<SwitchPortFinder.Application.Abstractions.IHostnameResolver>();
             s.AddSingleton<FakeResolver>();
             s.AddSingleton<SwitchPortFinder.Application.Abstractions.IHostnameResolver>(sp => sp.GetRequiredService<FakeResolver>());
+        });
+    }
+
+    /// <summary>A second host on its own database, e.g. in Production mode or with extra settings.</summary>
+    public WebApplicationFactory<Program> Variant(string environment, params (string Key, string Value)[] settings)
+    {
+        var sub = Path.Combine(Dir, "variant-" + Guid.NewGuid().ToString("N")[..6]); Directory.CreateDirectory(sub);
+        return WithWebHostBuilder(b =>
+        {
+            b.UseEnvironment(environment);
+            b.UseSetting("ConnectionStrings:Default", $"Data Source={Path.Combine(sub, "v.db")}"); b.UseSetting("Security:KeysPath", Path.Combine(sub, "keys"));
+            foreach (var (k, v) in settings) b.UseSetting(k, v);
         });
     }
 

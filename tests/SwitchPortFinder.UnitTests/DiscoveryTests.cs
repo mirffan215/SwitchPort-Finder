@@ -107,6 +107,30 @@ public class ParserTests
     }
 }
 
+public class TruncatedWalkTests
+{
+    [Fact]
+    public void An_interface_without_ifOperStatus_is_unknown_not_down()
+    {
+        // ifType/ifDescr present, but the agent's reply was cut off before the ifOperStatus (column 8) rows.
+        var rows = IfTable((1, "Gi1/0/1", 6, true, null), (2, "Gi1/0/2", 6, true, null)).Where(v => !(v.Oid.StartsWith(Oids.IfTable + ".8.") && v.Oid.EndsWith(".2")));
+        var ifs = InterfaceParser.Parse(rows, []);
+        ifs.Single(i => i.IfIndex == 1).OperKnown.Should().BeTrue();
+        ifs.Single(i => i.IfIndex == 2).OperKnown.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task A_truncated_interface_table_produces_a_warning_and_never_marks_ports_down()
+    {
+        var s = new ScriptedSnmp().WithSystem("192.0.2.10", "SW", "1.3.6.1.4.1.8072");
+        s.Walk("192.0.2.10", "pub", Oids.IfTable, IfTable((1, "Gi1/0/1", 6, true, null)).Where(v => !v.Oid.StartsWith(Oids.IfTable + ".8.")));
+        var scanner = new SnmpSwitchScanner(s, Options.Create(new SnmpOptions()), Options.Create(new DiscoveryOptions()), NullLogger<SnmpSwitchScanner>.Instance);
+        var r = await scanner.ScanAsync(new ScanRequest("192.0.2.10", new SnmpCredentials { Version = SnmpVersion.V2c, Community = "pub" }, Manufacturer.AutoDetect, false), _ => Task.CompletedTask, default);
+        r.Steps.Single(x => x.Name == Steps.Interfaces).State.Should().Be(StepState.Warning);
+        r.Errors.Should().Contain(e => e.Code == "Incomplete");
+    }
+}
+
 public class ScannerTests
 {
     private const string Cisco = "1.3.6.1.4.1.9.1.2134";

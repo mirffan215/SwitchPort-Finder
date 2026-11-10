@@ -685,6 +685,33 @@ namespace SwitchPortFinder.Infrastructure.Persistence.Migrations
                     b.Property<int>("Confidence")
                         .HasColumnType("int");
 
+                    b.Property<DateTime?>("CtrAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<long?>("CtrInDiscards")
+                        .HasColumnType("bigint");
+
+                    b.Property<long?>("CtrInErrors")
+                        .HasColumnType("bigint");
+
+                    b.Property<long?>("CtrInOctets")
+                        .HasColumnType("bigint");
+
+                    b.Property<long?>("CtrOutDiscards")
+                        .HasColumnType("bigint");
+
+                    b.Property<long?>("CtrOutErrors")
+                        .HasColumnType("bigint");
+
+                    b.Property<long?>("CtrOutOctets")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("CtrUpTicks")
+                        .HasColumnType("bigint");
+
+                    b.Property<bool>("CtrWide")
+                        .HasColumnType("bit");
+
                     b.Property<string>("Descr")
                         .HasMaxLength(255)
                         .HasColumnType("nvarchar(255)");
@@ -716,6 +743,24 @@ namespace SwitchPortFinder.Infrastructure.Persistence.Migrations
                         .IsFixedLength();
 
                     b.Property<int>("PortType")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("RateAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<double?>("RateDiscardsPerSec")
+                        .HasColumnType("float");
+
+                    b.Property<double?>("RateErrorsPerSec")
+                        .HasColumnType("float");
+
+                    b.Property<double?>("RateInBps")
+                        .HasColumnType("float");
+
+                    b.Property<double?>("RateOutBps")
+                        .HasColumnType("float");
+
+                    b.Property<int?>("RateSeconds")
                         .HasColumnType("int");
 
                     b.Property<long>("SpeedMbps")

@@ -103,3 +103,15 @@ Serilog, configured under `Serilog` (levels) and writing to the console by defau
   "AllowedHosts": "portal.corp.example;localhost"
 }
 ```
+
+## Traffic charts (port utilization and packet drops)
+
+The dashboard's **Top 5 port utilization** gauges and **Top 5 packet-drop ports** chart, and the switch page's **Graphical** view, use the IF-MIB counters
+(`ifHCInOctets`/`ifHCOutOctets`, falling back to 32-bit `ifInOctets`/`ifOutOctets`, plus `ifIn/OutDiscards` and `ifIn/OutErrors`). They are read in the same
+read-only walk as the interface table, so discovery sends no extra SNMP requests.
+
+- A rate is the **average between the last two scans**, so it needs two scans of a switch and its resolution is the scan interval (`scanIntervalMinutes`). Short bursts are averaged out.
+- Utilization is the busier direction as a percentage of the link speed.
+- Rates are discarded (and shown as "no data") after a switch reboot, a 64-bit counter reset, or if the scans are less than 10 seconds or more than 7 days apart.
+- 32-bit counters wrap every ~34 s at 1 Gbit/s, so on switches without 64-bit counters rates are approximate and are rejected when they exceed the link speed. Use switches/firmware that expose `ifXTable` HC counters for accurate values.
+- The first deployment of this feature applies database migration `Phase8PortCounters` (adds columns to `SwitchPorts`); run the installer with `-KeepConfig` to apply it.

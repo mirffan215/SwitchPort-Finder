@@ -26,10 +26,20 @@ public class PortQueryService(AppDbContext db, IOptions<DiscoveryOptions> opt)
             (p.PortType is PortType.Down or PortType.SwitchUplink) ? new List<PortDeviceDto>() : devs[p.Id].OrderBy(d => d.Mac).Take(10).Select(d => new PortDeviceDto(
                 d.Id, d.Hostname, d.IpAddress, MacAddress.Format(d.Mac), d.Vlan, d.LastSeen, DeviceStates.Compute(d.LastSeen, now, opt.Value), d.LowConfidence)).ToList(),
             p.NeighborId is { } nid && neighbors.TryGetValue(nid, out var nb) ? nb with { Confidence = p.Confidence } : null,
-            SupportList(p))).ToList();
+            SupportList(p), TrafficOf(p))).ToList();
         var summary = new PortSummary(rows.Count, rows.Count(r => r.Status == "UP"), rows.Count(r => r.Status == "DOWN"), rows.Count(r => r.Type == PortType.SwitchUplink), sw.LastScanAt);
         var hasArp = await db.Switches.AnyAsync(s => s.UseAsArpSource || s.ArpAutoDetected, ct);
         return new PortsResponse(summary, rows, hasArp);
+    }
+
+    /// <summary>Null until two scans have produced a trustworthy rate.</summary>
+    public static PortTrafficDto? TrafficOf(SwitchPort p)
+    {
+        if (p.RateAt is not { } at || p.RateSeconds is not { } secs) return null;
+        double? util = null;
+        if (p.SpeedMbps > 0 && (p.RateInBps is not null || p.RateOutBps is not null))
+            util = Math.Min(100, Math.Max(p.RateInBps ?? 0, p.RateOutBps ?? 0) / (p.SpeedMbps * 1_000_000d) * 100);
+        return new PortTrafficDto(p.RateInBps, p.RateOutBps, util, p.RateDiscardsPerSec ?? 0, p.RateErrorsPerSec ?? 0, secs, at, p.CtrWide);
     }
 
     private static List<string> SupportList(SwitchPort p)

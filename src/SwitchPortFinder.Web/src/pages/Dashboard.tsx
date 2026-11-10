@@ -1,13 +1,16 @@
 import { useQuery } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
-import { api } from '../api';
+import { Link, useNavigate } from 'react-router-dom';
+import { api, type Dashboard as DashboardDto } from '../api';
 import { ErrorBox, StateBadge, StatusBadge, ago } from '../components/Bits';
 import { useAuth } from '../components/Auth';
+import { Donut } from '../components/Charts';
+import { TopDrops, TopUtilization } from '../components/TopPortsCharts';
 
 const BADGE: Record<string, string> = { Completed: 'ok', CompletedWithWarnings: 'warnb', Failed: 'bad', Running: 'info', Queued: 'muted' };
 
 export default function Dashboard() {
   const { canWrite } = useAuth();
+  const nav = useNavigate();
   const { data: d, error } = useQuery({ queryKey: ['dashboard'], queryFn: api.dashboard, refetchInterval: 15_000 });
   const sws = useQuery({ queryKey: ['switches'], queryFn: api.listSwitches });
   const last = d?.lastDiscovery;
@@ -24,6 +27,24 @@ export default function Dashboard() {
         <div className="card"><div className="num sm">{last ? ago(last.completedAt ?? last.queuedAt) : '—'}</div><div>Last Discovery</div>{last && <small className={`badge ${BADGE[last.status]}`}>{last.switchName}: {last.status === 'CompletedWithWarnings' ? 'warnings' : last.status}</small>}</div>
       </div>
       {d && d.switches === 0 && <div className="alert">No switches yet. <Link to="/switches/new">Add your first switch</Link> or <Link to="/settings">import a list</Link>.</div>}
+      <div className="charts">
+        <TopUtilization />
+        <div className="panelx">
+          <h2>Ports by state</h2>
+          <p className="hint">Click a slice or legend row to open the switch list.</p>
+          {d && d.totalPorts > 0 ? <Donut centre="ports" caption="Ports by state" slices={portSlices(d, nav)} /> : <div className="empty">No ports yet. Scan a switch.</div>}
+        </div>
+      </div>
+      <div className="charts">
+        <TopDrops />
+        <div className="panelx">
+          <h2>Devices</h2>
+          <p className="hint">Online vs offline endpoints.</p>
+          {d && d.devices > 0 ? <Donut centre="devices" caption="Devices by state" slices={[
+            { label: 'Online', value: d.devices - d.offlineDevices, color: 'var(--ok)', onClick: () => nav('/devices') },
+            { label: 'Offline', value: d.offlineDevices, color: 'var(--warn)', onClick: () => nav('/devices?state=Offline') }]} /> : <div className="empty">No devices yet.</div>}
+        </div>
+      </div>
       {sws.data && sws.data.length > 0 && (<>
         <h2>Switch Health Overview <Link className="small" to="/switches">view all</Link></h2>
         <div className="health">
@@ -37,29 +58,24 @@ export default function Dashboard() {
           ))}
         </div>
       </>)}
-      <div className="two">
-        <div>
-          <h2>Recent Discovery Jobs <Link className="small" to="/discovery">all</Link></h2>
-          <div className="tablewrap"><table>
-            <thead><tr><th>Switch</th><th>When</th><th>Status</th><th>Devices</th></tr></thead>
-            <tbody>
-              {d?.recentJobs.map((j) => <tr key={j.id}><td>{j.switchName}</td><td>{ago(j.completedAt ?? j.queuedAt)}</td><td><span className={`badge ${BADGE[j.status]}`}>{j.status === 'CompletedWithWarnings' ? 'warnings' : j.status}</span></td><td>{j.devicesFound}</td></tr>)}
-              {d?.recentJobs.length === 0 && <tr><td colSpan={4} className="muted">No jobs yet.</td></tr>}
-            </tbody></table></div>
-        </div>
-        <div>
-          <h2>Recently Discovered Devices <Link className="small" to="/devices">all</Link></h2>
-          <div className="tablewrap"><table>
-            <thead><tr><th>Device</th><th>IP</th><th>Location</th><th>Status</th></tr></thead>
-            <tbody>
-              {d?.recentDevices.map((x) => <tr key={x.id}><td><Link to={`/devices/${x.id}`}>{x.hostname}</Link><div className="muted small mono">{x.mac}</div></td><td>{x.ip ?? <span className="muted">Unknown</span>}</td>
-                <td>{x.switchId ? <Link to={`/switches/${x.switchId}?port=${x.ifIndex}`}>{x.switchName} · {x.portName}</Link> : '—'}</td><td><StateBadge state={x.state} /></td></tr>)}
-              {d?.recentDevices.length === 0 && <tr><td colSpan={4} className="muted">No devices yet. Scan a switch.</td></tr>}
-            </tbody></table></div>
-        </div>
-      </div>
+      <h2>Recently Discovered Devices <Link className="small" to="/devices">all</Link></h2>
+      <div className="tablewrap"><table>
+        <thead><tr><th>Device</th><th>IP</th><th>Location</th><th>Status</th></tr></thead>
+        <tbody>
+          {d?.recentDevices.slice(0, 5).map((x) => <tr key={x.id}><td><Link to={`/devices/${x.id}`}>{x.hostname}</Link><div className="muted small mono">{x.mac}</div></td><td>{x.ip ?? <span className="muted">Unknown</span>}</td>
+            <td>{x.switchId ? <Link to={`/switches/${x.switchId}?port=${x.ifIndex}`}>{x.switchName} · {x.portName}</Link> : '—'}</td><td><StateBadge state={x.state} /></td></tr>)}
+          {d?.recentDevices.length === 0 && <tr><td colSpan={4} className="muted">No devices yet. Scan a switch.</td></tr>}
+        </tbody></table></div>
     </section>
   );
+}
+
+function portSlices(d: DashboardDto, nav: (to: string) => void) {
+  const up = Math.max(0, d.totalPorts - d.downPorts); const uplinks = Math.min(d.switchUplinks, up); const endpoints = up - uplinks;
+  return [
+    { label: 'Connected', value: endpoints, color: 'var(--ok)', onClick: () => nav('/switches') },
+    { label: 'Switch uplinks', value: uplinks, color: 'var(--accent)', onClick: () => nav('/topology') },
+    { label: 'Down / unused', value: d.downPorts, color: 'var(--muted)', onClick: () => nav('/switches') }];
 }
 
 function Card({ n, label, to, warn }: { n?: number; label: string; to?: string; warn?: boolean }) {

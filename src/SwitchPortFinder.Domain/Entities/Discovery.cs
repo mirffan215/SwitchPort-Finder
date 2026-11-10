@@ -24,6 +24,22 @@ public class SwitchPort
     public int VlanCount { get; set; }
     /// <summary>The winning neighbor row that explains this port's classification (for uplinks).</summary>
     public long? NeighborId { get; set; }
+    // ---- traffic counters (raw baseline from the previous scan) and the rates derived from the last two scans ----
+    public long? CtrInOctets { get; set; }
+    public long? CtrOutOctets { get; set; }
+    public long? CtrInDiscards { get; set; }
+    public long? CtrOutDiscards { get; set; }
+    public long? CtrInErrors { get; set; }
+    public long? CtrOutErrors { get; set; }
+    public bool CtrWide { get; set; }
+    public long CtrUpTicks { get; set; }
+    public DateTime? CtrAt { get; set; }
+    public double? RateInBps { get; set; }
+    public double? RateOutBps { get; set; }
+    public double? RateDiscardsPerSec { get; set; }
+    public double? RateErrorsPerSec { get; set; }
+    public int? RateSeconds { get; set; }
+    public DateTime? RateAt { get; set; }
     public DateTime LastSeen { get; set; }
 }
 

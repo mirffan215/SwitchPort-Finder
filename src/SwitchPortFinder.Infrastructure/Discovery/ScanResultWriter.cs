@@ -25,6 +25,24 @@ public class ScanResultWriter(AppDbContext db, IHostnameResolver dns, Classifica
         finally { ClassificationService.Gate.Release(); }
     }
 
+    /// <summary>Keeps the previous scan's counters as the baseline and derives average rates from the last two scans.</summary>
+    public static void UpdateRates(SwitchPort p, PortCounters c, long upTicks, DateTime now)
+    {
+        var cur = new CounterSample(c.InOctets, c.OutOctets, c.InDiscards, c.OutDiscards, c.InErrors, c.OutErrors, c.Wide, now, upTicks);
+        if (p.CtrAt is { } at && p.CtrInOctets is not null)
+        {
+            if ((now - at).TotalSeconds < PortRateCalculator.MinSeconds) return;   // back-to-back scans: keep the older baseline
+            var prev = new CounterSample(p.CtrInOctets.Value, p.CtrOutOctets ?? 0, p.CtrInDiscards ?? 0, p.CtrOutDiscards ?? 0, p.CtrInErrors ?? 0, p.CtrOutErrors ?? 0, p.CtrWide, at, p.CtrUpTicks);
+            if (PortRateCalculator.Compute(prev, cur, p.SpeedMbps) is { } rt)
+            {
+                p.RateInBps = rt.InBps; p.RateOutBps = rt.OutBps; p.RateDiscardsPerSec = rt.DiscardsPerSec; p.RateErrorsPerSec = rt.ErrorsPerSec; p.RateSeconds = rt.Seconds; p.RateAt = now;
+            }
+            else { p.RateInBps = p.RateOutBps = p.RateDiscardsPerSec = p.RateErrorsPerSec = null; p.RateSeconds = null; p.RateAt = null; }   // reboot / reset: no trustworthy rate yet
+        }
+        p.CtrInOctets = c.InOctets; p.CtrOutOctets = c.OutOctets; p.CtrInDiscards = c.InDiscards; p.CtrOutDiscards = c.OutDiscards;
+        p.CtrInErrors = c.InErrors; p.CtrOutErrors = c.OutErrors; p.CtrWide = c.Wide; p.CtrUpTicks = upTicks; p.CtrAt = now;
+    }
+
     private async Task<Counts> WriteCoreAsync(Switch sw, ScanResult r, CancellationToken ct)
     {
         var o = opt.Value; var now = DateTime.UtcNow;
@@ -41,6 +59,7 @@ public class ScanResultWriter(AppDbContext db, IHostnameResolver dns, Classifica
             p.SpeedMbps = i.SpeedMbps; p.PhysAddress = i.Mac; p.Mtu = i.Mtu;
             p.Vlan = r.PvidByIfIndex.TryGetValue(i.IfIndex, out var v) ? v : null;
             var sup = r.Support.GetValueOrDefault(i.IfIndex); p.Support = sup?.Flags ?? PortSupport.None; p.VlanCount = sup?.VlanCount ?? 0;
+            if (i.Counters is { } c) UpdateRates(p, c, r.System?.UpTimeTicks ?? 0, now);
             p.LastSeen = now;
         }
         await db.SaveChangesAsync(ct);   // port ids needed below

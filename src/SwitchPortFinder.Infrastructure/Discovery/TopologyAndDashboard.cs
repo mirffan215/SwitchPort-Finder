@@ -43,6 +43,21 @@ public class DashboardService(AppDbContext db, DiscoveryService discovery, Devic
             await db.Switches.CountAsync(ct), await db.Devices.CountAsync(ct),
             await db.SwitchPorts.CountAsync(p => p.OperUp, ct), await db.SwitchPorts.CountAsync(p => p.PortType == PortType.SwitchUplink, ct),
             await db.Devices.CountAsync(d => d.LastSeen < activeSince, ct),
-            jobs.FirstOrDefault(j => j.Status is JobStatus.Completed or JobStatus.CompletedWithWarnings or JobStatus.Failed), jobs, await devices.RecentAsync(10, ct));
+            jobs.FirstOrDefault(j => j.Status is JobStatus.Completed or JobStatus.CompletedWithWarnings or JobStatus.Failed), jobs, await devices.RecentAsync(10, ct),
+            await db.SwitchPorts.CountAsync(ct), await db.SwitchPorts.CountAsync(p => !p.OperUp, ct));
+    }
+
+    /// <summary>Top-N ports across all switches by utilization (busier direction vs link speed) or by discarded packets per second.</summary>
+    public async Task<TopPortsResponse> TopPortsAsync(string metric, int n, CancellationToken ct)
+    {
+        var rows = await db.SwitchPorts.AsNoTracking().Where(p => p.RateAt != null)
+            .Select(p => new { Port = p, SwitchName = p.Switch!.Name }).ToListAsync(ct);
+        var total = await db.SwitchPorts.CountAsync(ct);
+        var items = rows.Select(r => (r.Port, r.SwitchName, T: PortQueryService.TrafficOf(r.Port)!)).ToList();
+        var ranked = metric == "drops"
+            ? items.Where(x => x.T.DiscardsPerSec > 0).OrderByDescending(x => x.T.DiscardsPerSec).ThenByDescending(x => x.T.ErrorsPerSec)
+            : items.Where(x => x.T.UtilizationPct is not null).OrderByDescending(x => x.T.UtilizationPct);
+        var top = ranked.Take(n).Select(x => new TopPortDto(x.Port.SwitchId, x.SwitchName, x.Port.Id, x.Port.IfIndex, x.Port.Name, x.Port.Alias, x.Port.SpeedMbps, x.T)).ToList();
+        return new TopPortsResponse(metric, top, items.Count, total);
     }
 }

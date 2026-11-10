@@ -1,3 +1,4 @@
+using Microsoft.Extensions.DependencyInjection;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -197,5 +198,48 @@ public class DiscoveryApiTests(ApiFixture fx)
         (await _http.DeleteAsync($"/api/switches/{access}")).StatusCode.Should().Be(HttpStatusCode.NoContent);
         (await _http.GetAsync($"/api/switches/{access}/ports")).StatusCode.Should().Be(HttpStatusCode.NotFound);
         (await _http.GetFromJsonAsync<List<JobSummaryDto>>($"/api/discovery/jobs?switchId={access}", Json))!.Should().BeEmpty("jobs cascade with the switch");
+    }
+}
+
+[Collection("api")]
+public class TopPortsApiTests(ApiFixture fx)
+{
+    private readonly HttpClient _http = fx.CreateClient();
+    private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web) { Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() } };
+
+    [Fact]
+    public async Task Rejects_an_unknown_metric_and_clamps_n()
+    {
+        (await _http.GetAsync("/api/metrics/top-ports?metric=bogus")).StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        (await _http.GetAsync("/api/metrics/top-ports?metric=utilization&n=100000")).StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task Ranks_ports_by_utilization_and_by_drops_from_stored_rates()
+    {
+        var sw = await Seed();
+        var util = (await _http.GetFromJsonAsync<TopPortsResponse>("/api/metrics/top-ports?metric=utilization&n=2", Json))!;
+        util.Items.Select(i => i.PortName).Should().ContainInOrder("Gi9/0/2", "Gi9/0/1");
+        util.Items[0].Traffic.UtilizationPct.Should().BeApproximately(90, 0.01);
+        util.Items.Should().HaveCount(2);
+        var drops = (await _http.GetFromJsonAsync<TopPortsResponse>("/api/metrics/top-ports?metric=drops&n=5", Json))!;
+        drops.Items.Where(i => i.SwitchId == sw).Select(i => i.PortName).Should().Equal("Gi9/0/3", "Gi9/0/1");   // the zero-drop port is not listed
+        drops.Items[0].Traffic.DiscardsPerSec.Should().BeApproximately(50, 0.01);
+    }
+
+    private async Task<int> Seed()
+    {
+        using var scope = fx.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<SwitchPortFinder.Infrastructure.Persistence.AppDbContext>();
+        foreach (var old in db.SwitchPorts.Where(p => p.RateAt != null)) { old.RateAt = null; old.RateSeconds = null; }
+        var sw = new SwitchPortFinder.Domain.Entities.Switch { Name = "TOP-SW", ManagementIp = "203.0.113.200" };
+        db.Switches.Add(sw); await db.SaveChangesAsync();
+        SwitchPortFinder.Domain.Entities.SwitchPort P(int i, double inBps, double outBps, double disc) => new()
+        {
+            SwitchId = sw.Id, IfIndex = i, Name = $"Gi9/0/{i}", OperUp = true, SpeedMbps = 1000, RateInBps = inBps, RateOutBps = outBps, RateDiscardsPerSec = disc, RateErrorsPerSec = 0, RateSeconds = 300, RateAt = DateTime.UtcNow, CtrWide = true,
+        };
+        db.SwitchPorts.AddRange(P(1, 500e6, 100e6, 5), P(2, 900e6, 10e6, 0), P(3, 10e6, 10e6, 50));
+        await db.SaveChangesAsync();
+        return sw.Id;
     }
 }

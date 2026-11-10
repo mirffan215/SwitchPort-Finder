@@ -34,7 +34,10 @@ public record SystemInfo(string? Name, string? Descr, string? ObjectId, long UpT
 public record InterfaceInfo(
     int IfIndex, string Name, string? Descr, string? Alias, bool AdminUp, bool OperUp, long SpeedMbps, string? Mac, int Mtu, int IfType,
     /// <summary>False when the agent returned the interface without ifOperStatus (a truncated walk): the status is unknown, NOT down.</summary>
-    bool OperKnown = true);
+    bool OperKnown = true, PortCounters? Counters = null);
+
+/// <summary>Raw IF-MIB counters read in the same walk as the interface table (no extra SNMP traffic). Wide = 64-bit ifHC octet counters.</summary>
+public record PortCounters(long InOctets, long OutOctets, long InDiscards, long OutDiscards, long InErrors, long OutErrors, bool Wide);
 
 public enum FdbKind { Learned, Self, Static, Other, Invalid }
 

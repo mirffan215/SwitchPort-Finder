@@ -20,7 +20,16 @@ public record NeighborDto(
 
 public record PortRowDto(
     int PortId, int IfIndex, string Name, string? Alias, string Status, PortType Type, long SpeedMbps, int? Vlan,
-    int MacCount, string? PhysAddress, IReadOnlyList<PortDeviceDto> Devices, NeighborDto? Neighbor, IReadOnlyList<string> Supporting);
+    int MacCount, string? PhysAddress, IReadOnlyList<PortDeviceDto> Devices, NeighborDto? Neighbor, IReadOnlyList<string> Supporting,
+    PortTrafficDto? Traffic = null);
+
+/// <summary>Average traffic between the last two scans. Utilization is the busier direction as a percentage of link speed.</summary>
+public record PortTrafficDto(double? InBps, double? OutBps, double? UtilizationPct, double DiscardsPerSec, double ErrorsPerSec, int IntervalSeconds, DateTime SampledAt, bool Wide);
+
+/// <summary>One row of a "Top N" chart (top utilization / top drops) across all switches.</summary>
+public record TopPortDto(int SwitchId, string SwitchName, int PortId, int IfIndex, string PortName, string? Alias, long SpeedMbps, PortTrafficDto Traffic);
+
+public record TopPortsResponse(string Metric, IReadOnlyList<TopPortDto> Items, int PortsWithData, int PortsTotal);
 
 public record NeighborRowDto(int PortId, int IfIndex, string PortName, NeighborDto Neighbor);
 

@@ -24,11 +24,24 @@ public static class InterfaceParser
             var speed = xc?.GetValueOrDefault(15) is { IsMissing: false } hs && hs.Number > 0 ? hs.Number
                 : (col.GetValueOrDefault(5)?.Number ?? 0) / 1_000_000;                // fall back to ifSpeed (bits/s)
             string? mac = col.GetValueOrDefault(6)?.Bytes is { Length: 6 } b ? Domain.MacAddress.FromBytes(b) : null;
+            var counters = ReadCounters(col, xc);
             result.Add(new InterfaceInfo(row.Key, name, descr, Text(xc?.GetValueOrDefault(18)),
                 col.GetValueOrDefault(7)?.Number == 1, col.GetValueOrDefault(8)?.Number == 1, speed, mac,
-                (int)(col.GetValueOrDefault(4)?.Number ?? 0), type, OperKnown: col.GetValueOrDefault(8) is { IsMissing: false }));
+                (int)(col.GetValueOrDefault(4)?.Number ?? 0), type, OperKnown: col.GetValueOrDefault(8) is { IsMissing: false }, Counters: counters));
         }
         return result;
+    }
+
+    /// <summary>IF-MIB counters: ifHCIn/OutOctets (64-bit) when present, else the 32-bit ifIn/OutOctets. Null when the agent returned none.</summary>
+    private static PortCounters? ReadCounters(Dictionary<int, SnmpValue> col, Dictionary<int, SnmpValue>? xc)
+    {
+        static bool Has(SnmpValue? v) => v is { IsMissing: false };
+        static long N(SnmpValue? v) => Has(v) ? Math.Max(0, v!.Number) : 0;
+        var hcIn = xc?.GetValueOrDefault(6); var hcOut = xc?.GetValueOrDefault(10);
+        var wide = Has(hcIn) && Has(hcOut);
+        var inO = wide ? hcIn : col.GetValueOrDefault(10); var outO = wide ? hcOut : col.GetValueOrDefault(16);
+        if (!Has(inO) || !Has(outO)) return null;
+        return new PortCounters(N(inO), N(outO), N(col.GetValueOrDefault(13)), N(col.GetValueOrDefault(19)), N(col.GetValueOrDefault(14)), N(col.GetValueOrDefault(20)), wide);
     }
 
     /// <summary>Every non-zero ifPhysAddress on ANY interface (including VLAN/SVI interfaces, which carry the switch's base MAC).</summary>

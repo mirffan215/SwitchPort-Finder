@@ -34,6 +34,14 @@ public class DiscoveryController(DiscoveryService discovery, DeviceQueryService 
     [HttpGet("api/dashboard")]
     public async Task<IActionResult> Dashboard(CancellationToken ct) => Ok(await dashboard.GetAsync(ct));
 
+    /// <summary>Top ports by utilization or by packet drops, from the counters of the last two scans. Read-only.</summary>
+    [HttpGet("api/metrics/top-ports")]
+    public async Task<IActionResult> TopPorts([FromQuery] string metric = "utilization", [FromQuery] int n = 5, CancellationToken ct = default)
+    {
+        if (metric is not ("utilization" or "drops")) return BadRequest(new { message = "metric must be 'utilization' or 'drops'." });
+        return Ok(await dashboard.TopPortsAsync(metric, Math.Clamp(n, 1, 20), ct));
+    }
+
     /// <summary>CSV or Excel export of the devices matching the same filters as the list (q, switchId, state, sort, desc). Never paged.</summary>
     [HttpGet("api/export/devices")]
     public async Task<IActionResult> ExportDevices([FromQuery] DeviceQuery query, [FromQuery] string format = "csv", CancellationToken ct = default)

@@ -88,4 +88,4 @@ public static class TopologyBuilder
 
 public record DashboardDto(
     int Switches, int Devices, int ConnectedPorts, int SwitchUplinks, int OfflineDevices, JobSummaryDto? LastDiscovery,
-    IReadOnlyList<JobSummaryDto> RecentJobs, IReadOnlyList<DeviceDto> RecentDevices);
+    IReadOnlyList<JobSummaryDto> RecentJobs, IReadOnlyList<DeviceDto> RecentDevices, int TotalPorts = 0, int DownPorts = 0);

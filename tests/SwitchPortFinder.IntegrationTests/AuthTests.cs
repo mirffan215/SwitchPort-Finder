@@ -30,6 +30,40 @@ public class AuthTests(AuthApiFixture fx) : IClassFixture<AuthApiFixture>
         return (name, pw, (await r.Content.ReadFromJsonAsync<UserDto>(Json))!.Id);
     }
 
+    /// <summary>A raw copy of the session cookie, sent by a client that has no cookie jar: what an attacker who stole the cookie would do.</summary>
+    private async Task<HttpClient> Stolen(string user, string pw, Func<HttpClient, Task>? beforeReplay = null)
+    {
+        var c = fx.CreateClient(); var r = await c.PostAsJsonAsync("/api/auth/login", new LoginRequest(user, pw), Json);
+        var cookie = r.Headers.GetValues("Set-Cookie").Single(h => h.StartsWith("spf.session")).Split(';')[0];
+        var thief = fx.CreateClient(); thief.DefaultRequestHeaders.Add("Cookie", cookie);
+        (await thief.GetAsync("/api/switches")).StatusCode.Should().Be(HttpStatusCode.OK, "the copied cookie works while the session is live");
+        if (beforeReplay is not null) await beforeReplay(c);
+        return thief;
+    }
+
+    [Fact] public async Task A_logged_out_cookie_cannot_be_replayed()
+    {
+        var admin = await Admin(); var u = await NewUser(admin, UserRole.Viewer);
+        var thief = await Stolen(u.Name, u.Pw, c => c.PostAsync("/api/auth/logout", null));
+        (await thief.GetAsync("/api/switches")).StatusCode.Should().Be(HttpStatusCode.Unauthorized, "logout must revoke the cookie server-side, not just delete it in the browser");
+    }
+
+    [Fact] public async Task Changing_the_password_revokes_other_sessions_but_keeps_this_one()
+    {
+        var admin = await Admin(); var u = await NewUser(admin, UserRole.Viewer);
+        var me = await LoginAs(u.Name, u.Pw);
+        var thief = await Stolen(u.Name, u.Pw, async _ => (await me.PostAsJsonAsync("/api/auth/change-password", new ChangePasswordRequest(u.Pw, "A-Brand-New-Passphrase-77"), Json)).StatusCode.Should().Be(HttpStatusCode.NoContent));
+        (await thief.GetAsync("/api/switches")).StatusCode.Should().Be(HttpStatusCode.Unauthorized, "an old/stolen session dies when the password changes");
+        (await me.GetAsync("/api/switches")).StatusCode.Should().Be(HttpStatusCode.OK, "the browser that changed the password stays signed in");
+    }
+
+    [Fact] public async Task An_admin_password_reset_or_role_change_signs_the_user_out()
+    {
+        var admin = await Admin(); var u = await NewUser(admin, UserRole.Viewer);
+        var thief = await Stolen(u.Name, u.Pw, async _ => (await admin.PutAsJsonAsync($"/api/users/{u.Id}", new UpdateUserRequest(null, null, "Reset-By-Admin-Passphrase-55"), Json)).EnsureSuccessStatusCode());
+        (await thief.GetAsync("/api/switches")).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
     [Fact] public async Task Everything_except_health_login_and_the_ui_shell_requires_a_login()
     {
         var c = Anon();

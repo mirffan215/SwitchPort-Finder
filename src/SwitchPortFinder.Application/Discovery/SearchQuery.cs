@@ -15,10 +15,13 @@ public sealed record ParsedQuery(string Text, string? MacKey, bool MacExact, str
     /// <summary>AA:BB:CC… — colon groups of exactly two hex digits are MAC-style, never IPv6.</summary>
     private static readonly Regex MacStyle = new(@"^([0-9a-fA-F]{2}:){1,5}[0-9a-fA-F]{0,2}$", RegexOptions.Compiled);
 
+    public const int MaxLength = 100;
+
     public static ParsedQuery? Parse(string? raw)
     {
         var t = raw?.Trim();
         if (string.IsNullOrEmpty(t) || t.Length < 2) return null;
+        if (t.Length > MaxLength) t = t[..MaxLength];   // longer than any host/IP/MAC/port name; SQL Server rejects LIKE parameters longer than the column ('would be truncated' -> 500)
         var ip = SwitchService.NormalizeIp(t);
         var ipLike = ip is not null || Ipv4Fragment.IsMatch(t) || (Ipv6Fragment.IsMatch(t) && !MacStyle.IsMatch(t));
         // "10.10.50" is hex-digit-only after stripping dots, but it is an IP fragment, not a MAC fragment.

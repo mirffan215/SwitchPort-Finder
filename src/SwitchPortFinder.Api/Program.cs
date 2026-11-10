@@ -32,7 +32,7 @@ builder.Services.Configure<ImportOptions>(builder.Configuration.GetSection(Impor
 builder.Services.Configure<SecurityOptions>(builder.Configuration.GetSection(SecurityOptions.Section));
 builder.Services.Configure<AuthOptions>(builder.Configuration.GetSection(AuthOptions.Section));
 var authOptions = builder.Configuration.GetSection(AuthOptions.Section).Get<AuthOptions>() ?? new AuthOptions();
-builder.WebHost.ConfigureKestrel(k => k.Limits.MaxRequestBodySize = 20 * 1024 * 1024);
+builder.WebHost.ConfigureKestrel(k => { k.Limits.MaxRequestBodySize = 20 * 1024 * 1024; k.AddServerHeader = false; });
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddDiscovery();
 builder.Services.AddHttpContextAccessor();

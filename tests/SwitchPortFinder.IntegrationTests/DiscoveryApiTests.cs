@@ -243,3 +243,18 @@ public class TopPortsApiTests(ApiFixture fx)
         return sw.Id;
     }
 }
+
+[Collection("api")]
+public class HostileInputTests(ApiFixture fx)
+{
+    private readonly HttpClient _http = fx.CreateClient();
+
+    /// <summary>Regression: SQL Server rejects a LIKE parameter longer than the column ("String or binary data would be truncated"), which surfaced as HTTP 500 only on SQL Server.</summary>
+    [Theory]
+    [InlineData("/api/search?q=")] [InlineData("/api/devices?q=")]
+    public async Task Very_long_search_text_is_accepted_not_a_server_error(string url)
+    {
+        foreach (var q in new[] { new string('A', 5000), new string('1', 300) + ".", "%" + new string('_', 400), new string('é', 1000) })
+            ((int)(await _http.GetAsync(url + Uri.EscapeDataString(q))).StatusCode).Should().BeLessThan(500, $"{url} with {q.Length} chars");
+    }
+}

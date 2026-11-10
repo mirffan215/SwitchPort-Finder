@@ -60,3 +60,7 @@ dotnet test --filter "Category=Performance" --logger "console;verbosity=detailed
 Production uses SQL Server only (`Database:Provider=SqlServer`, the default); `Sqlite` exists solely for tests and sandboxes.
 
 See [docs/SECURITY.md](docs/SECURITY.md) for the security model.
+
+## Testing and production readiness
+
+See [docs/TEST-REPORT.md](docs/TEST-REPORT.md) for the security, penetration-test and QA results, the defects found and fixed, what was *not* tested, and a go-live checklist. Repeatable tools: `tools/security/pentest.py` (black-box security suite), `tools/security/loadtest.py`, `tools/qa/ui-qa.js` (browser QA + accessibility), `tools/sqlserver/run-sqlserver-tests.sh` (integration tests on real SQL Server).

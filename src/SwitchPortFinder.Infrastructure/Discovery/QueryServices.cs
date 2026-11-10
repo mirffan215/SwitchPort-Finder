@@ -117,7 +117,7 @@ public class DeviceQueryService(AppDbContext db, IOptions<DiscoveryOptions> opt)
         }
         if (!string.IsNullOrWhiteSpace(q.Q))
         {
-            var t = q.Q.Trim(); var mac = ParsedQuery.Parse(t)?.MacKey;
+            var t = q.Q.Trim(); if (t.Length > ParsedQuery.MaxLength) t = t[..ParsedQuery.MaxLength]; var mac = ParsedQuery.Parse(t)?.MacKey;
             var pat = SqlText.Contains(t);
             query = query.Where(d => EF.Functions.Like(d.Hostname, pat, SqlText.Escape) || (d.IpAddress != null && EF.Functions.Like(d.IpAddress, pat, SqlText.Escape))
                 || (mac != null && EF.Functions.Like(d.Mac, "%" + mac + "%")) || (d.Switch != null && EF.Functions.Like(d.Switch.Name, pat, SqlText.Escape))

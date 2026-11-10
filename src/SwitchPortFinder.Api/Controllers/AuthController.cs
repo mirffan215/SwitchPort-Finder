@@ -35,7 +35,7 @@ public class AuthController(UserService users, IOptions<AuthOptions> options) : 
         var (outcome, user) = await users.AuthenticateAsync(req.Username, req.Password, ct);
         if (outcome == LoginOutcome.Locked) return Problem(statusCode: 429, title: "Too many failed sign-in attempts. Try again later.");
         if (outcome != LoginOutcome.Ok || user is null) return Problem(statusCode: 401, title: "Invalid username or password.");
-        await HttpContext.SignInAsync(AuthSetup.Scheme, AuthSetup.Principal(user.Id, user.Username, user.Role),
+        await HttpContext.SignInAsync(AuthSetup.Scheme, AuthSetup.Principal(user.Id, user.Username, user.Role, user.SessionVersion),
             new AuthenticationProperties { IsPersistent = false, ExpiresUtc = DateTimeOffset.UtcNow.AddMinutes(Auth.SessionMinutes) });
         return Ok(new MeDto(true, true, user.Username, user.Role));
     }
@@ -43,7 +43,12 @@ public class AuthController(UserService users, IOptions<AuthOptions> options) : 
     [HttpPost("logout"), AllowAnonymous]
     public async Task<IActionResult> Logout()
     {
-        if (Auth.IsLocal) await HttpContext.SignOutAsync(AuthSetup.Scheme);   // with authentication off there is no session to end
+        if (Auth.IsLocal)
+        {
+            // Ending the session must also kill the cookie itself: a stolen/copied cookie is useless after logout.
+            if (int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var id)) await users.RevokeSessionsAsync(id, HttpContext.RequestAborted);
+            await HttpContext.SignOutAsync(AuthSetup.Scheme);
+        }
         return NoContent();
     }
 
@@ -53,7 +58,10 @@ public class AuthController(UserService users, IOptions<AuthOptions> options) : 
     public async Task<IActionResult> ChangePassword(ChangePasswordRequest req, CancellationToken ct)
     {
         if (!Auth.IsLocal) return Problem(statusCode: 400, title: "Authentication is not enabled.");
-        await users.ChangeOwnPasswordAsync(int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!), req, ct);
+        var id = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        var version = await users.ChangeOwnPasswordAsync(id, req, ct);   // every other session of this user is now revoked ...
+        await HttpContext.SignInAsync(AuthSetup.Scheme, AuthSetup.Principal(id, User.Identity!.Name!, Enum.Parse<UserRole>(User.FindFirstValue(ClaimTypes.Role)!), version),
+            new AuthenticationProperties { IsPersistent = false, ExpiresUtc = DateTimeOffset.UtcNow.AddMinutes(Auth.SessionMinutes) });   // ... except this browser
         return NoContent();
     }
 }

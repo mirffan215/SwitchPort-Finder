@@ -22,8 +22,10 @@ public static class AuthSetup
 {
     public const string Scheme = "spf.cookie";
 
-    public static ClaimsPrincipal Principal(int id, string name, UserRole role) =>
-        new(new ClaimsIdentity([new Claim(ClaimTypes.NameIdentifier, id.ToString()), new Claim(ClaimTypes.Name, name), new Claim(ClaimTypes.Role, role.ToString())], Scheme));
+    public const string VersionClaim = "spf:sv";
+
+    public static ClaimsPrincipal Principal(int id, string name, UserRole role, int version) =>
+        new(new ClaimsIdentity([new Claim(ClaimTypes.NameIdentifier, id.ToString()), new Claim(ClaimTypes.Name, name), new Claim(ClaimTypes.Role, role.ToString()), new Claim(VersionClaim, version.ToString())], Scheme));
 
     public static void Configure(CookieAuthenticationOptions o, AuthOptions auth)
     {
@@ -37,8 +39,9 @@ public static class AuthSetup
         {
             // Re-check the account on every request (cached 15 s): disabled, deleted or re-roled users lose their session quickly.
             var ok = int.TryParse(ctx.Principal?.FindFirstValue(ClaimTypes.NameIdentifier), out var id);
-            var state = ok ? await ctx.HttpContext.RequestServices.GetRequiredService<UserService>().SessionStateAsync(id, ctx.HttpContext.RequestAborted) : (false, UserRole.Viewer);
-            if (!state.Item1 || ctx.Principal?.FindFirstValue(ClaimTypes.Role) != state.Item2.ToString())
+            var state = ok ? await ctx.HttpContext.RequestServices.GetRequiredService<UserService>().SessionStateAsync(id, ctx.HttpContext.RequestAborted) : (false, UserRole.Viewer, 0);
+            // a cookie minted before the last logout / password change / role change carries an older version and is refused
+            if (!state.Item1 || ctx.Principal?.FindFirstValue(ClaimTypes.Role) != state.Item2.ToString() || ctx.Principal?.FindFirstValue(VersionClaim) != state.Item3.ToString())
             { ctx.RejectPrincipal(); await ctx.HttpContext.SignOutAsync(Scheme); }
         };
     }

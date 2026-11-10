@@ -42,13 +42,22 @@ public class UserService(AppDbContext db, IMemoryCache cache, IOptions<AuthOptio
     }
 
     /// <summary>Checked on every request by the cookie handler (cached 15 s) so disabling/deleting/demoting a user takes effect quickly.</summary>
-    public async Task<(bool Valid, UserRole Role)> SessionStateAsync(int id, CancellationToken ct)
+    public async Task<(bool Valid, UserRole Role, int Version)> SessionStateAsync(int id, CancellationToken ct)
     {
-        if (cache.TryGetValue(CacheKey(id), out (bool, UserRole) hit)) return hit;
-        var u = await db.Users.AsNoTracking().Where(x => x.Id == id).Select(x => new { x.Disabled, x.Role }).FirstOrDefaultAsync(ct);
-        var state = u is null || u.Disabled ? (false, UserRole.Viewer) : (true, u.Role);
+        if (cache.TryGetValue(CacheKey(id), out (bool, UserRole, int) hit)) return hit;
+        var u = await db.Users.AsNoTracking().Where(x => x.Id == id).Select(x => new { x.Disabled, x.Role, x.SessionVersion }).FirstOrDefaultAsync(ct);
+        var state = u is null || u.Disabled ? (false, UserRole.Viewer, 0) : (true, u.Role, u.SessionVersion);
         cache.Set(CacheKey(id), state, TimeSpan.FromSeconds(15));
         return state;
+    }
+
+    /// <summary>Invalidates every existing session cookie of the user (logout, password change). Returns the new version.</summary>
+    public async Task<int> RevokeSessionsAsync(int id, CancellationToken ct)
+    {
+        var u = await db.Users.FirstOrDefaultAsync(x => x.Id == id, ct);
+        if (u is null) return 0;
+        u.SessionVersion++; await db.SaveChangesAsync(ct); cache.Remove(CacheKey(id));
+        return u.SessionVersion;
     }
 
     public async Task<List<UserDto>> ListAsync(CancellationToken ct) =>
@@ -73,12 +82,12 @@ public class UserService(AppDbContext db, IMemoryCache cache, IOptions<AuthOptio
         var losesAdmin = u.Role == UserRole.Admin && !u.Disabled && ((r.Role is { } nr && nr != UserRole.Admin) || r.Disabled == true);
         if (losesAdmin && !await db.Users.AnyAsync(x => x.Id != id && x.Role == UserRole.Admin && !x.Disabled, ct))
             throw new ConflictException("This is the last active administrator; it cannot be demoted or disabled.");
-        if (r.Role is { } role) { if (!Enum.IsDefined(role)) throw new ValidationFailedException("role", "Unknown role."); u.Role = role; }
+        if (r.Role is { } role) { if (!Enum.IsDefined(role)) throw new ValidationFailedException("role", "Unknown role."); if (role != u.Role) u.SessionVersion++; u.Role = role; }
         if (r.Disabled is { } d) u.Disabled = d;
         if (r.NewPassword is not null)
         {
             if (PasswordHasher.Policy(r.NewPassword, u.Username) is { } bad) throw new ValidationFailedException("newPassword", bad);
-            u.PasswordHash = PasswordHasher.Hash(r.NewPassword); u.FailedLogins = 0; u.LockedUntil = null;
+            u.PasswordHash = PasswordHasher.Hash(r.NewPassword); u.FailedLogins = 0; u.LockedUntil = null; u.SessionVersion++;   // an admin reset signs the user out everywhere
         }
         await db.SaveChangesAsync(ct); cache.Remove(CacheKey(id));
         log.LogInformation("UserUpdated: {User} by {Actor}", u.Username, actor);
@@ -94,13 +103,15 @@ public class UserService(AppDbContext db, IMemoryCache cache, IOptions<AuthOptio
         log.LogInformation("UserDeleted: {User} by {Actor}", u.Username, actor);
     }
 
-    public async Task ChangeOwnPasswordAsync(int id, ChangePasswordRequest r, CancellationToken ct)
+    /// <summary>Returns the new session version so the caller can keep the current browser signed in while every other session is revoked.</summary>
+    public async Task<int> ChangeOwnPasswordAsync(int id, ChangePasswordRequest r, CancellationToken ct)
     {
         var u = await db.Users.FirstOrDefaultAsync(x => x.Id == id, ct) ?? throw new NotFoundException("User not found.");
         if (!PasswordHasher.Verify(r.CurrentPassword ?? "", u.PasswordHash)) throw new ValidationFailedException("currentPassword", "Current password is incorrect.");
         if (PasswordHasher.Policy(r.NewPassword, u.Username) is { } bad) throw new ValidationFailedException("newPassword", bad);
-        u.PasswordHash = PasswordHasher.Hash(r.NewPassword); await db.SaveChangesAsync(ct);
+        u.PasswordHash = PasswordHasher.Hash(r.NewPassword); u.SessionVersion++; await db.SaveChangesAsync(ct); cache.Remove(CacheKey(id));
         log.LogInformation("PasswordChanged: {User}", u.Username);
+        return u.SessionVersion;
     }
 
     /// <summary>Creates the first administrator from configuration when Local mode is on and there are no users. Never logs the password.</summary>

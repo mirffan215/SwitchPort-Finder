@@ -171,4 +171,6 @@ public class AppUser
     public DateTime? LockedUntil { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime? LastLoginAt { get; set; }
+    /// <summary>Embedded in every session cookie. Bumped on logout, password change/reset and role change so older cookies stop working.</summary>
+    public int SessionVersion { get; set; }
 }

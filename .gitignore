@@ -8,3 +8,6 @@ src/SwitchPortFinder.Api/keys/
 *.db-shm
 .vs/
 *.user
+
+# TypeScript incremental build cache (changes on every build, caused pull conflicts)
+*.tsbuildinfo

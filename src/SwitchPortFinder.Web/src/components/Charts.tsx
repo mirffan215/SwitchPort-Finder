@@ -7,18 +7,24 @@ export function fmtBps(b?: number | null): string {
   while (v >= 1000 && i < u.length - 1) { v /= 1000; i++; }
   return `${v >= 100 || i === 0 ? v.toFixed(0) : v.toFixed(1)} ${u[i]}`;
 }
+/** Seconds -> "42d 3h", "5h 12m", "8m". */
+export function fmtUptime(sec?: number | null): string {
+  if (sec == null) return '—';
+  const d = Math.floor(sec / 86400), h = Math.floor((sec % 86400) / 3600), m = Math.floor((sec % 3600) / 60);
+  return d > 0 ? `${d}d ${h}h` : h > 0 ? `${h}h ${m}m` : `${m}m`;
+}
 export const fmtRate = (v: number) => (v >= 10 ? v.toFixed(0) : v >= 1 ? v.toFixed(1) : v.toFixed(2));
 const level = (pct: number) => (pct >= 85 ? 'bad' : pct >= 60 ? 'warn' : 'ok');
 
 /** Semi-circular gauge. Interactive: focusable, hover/selected highlight, click handler. */
-export function Gauge({ pct, label, sub, selected, onSelect, title }: { pct: number; label: string; sub?: string; selected?: boolean; onSelect?: () => void; title?: string }) {
+export function Gauge({ pct, label, sub, selected, onSelect, title, text, tone }: { pct: number; label: string; sub?: string; selected?: boolean; onSelect?: () => void; title?: string; text?: string; tone?: 'ok' | 'warn' | 'bad' }) {
   const v = Math.max(0, Math.min(100, pct));
   return (
-    <button type="button" className={`gauge ${selected ? 'sel' : ''}`} onClick={onSelect} title={title} aria-pressed={selected} aria-label={`${label}: ${v.toFixed(0)} percent`}>
+    <button type="button" className={`gauge ${selected ? 'sel' : ''}`} onClick={onSelect} title={title} aria-pressed={selected} aria-label={`${label}: ${text ?? `${v.toFixed(0)} percent`}`}>
       <svg viewBox="0 0 120 72" role="img" aria-hidden="true">
         <path d="M 10 62 A 50 50 0 0 1 110 62" pathLength={100} className="g-track" />
-        <path d="M 10 62 A 50 50 0 0 1 110 62" pathLength={100} className={`g-val ${level(v)}`} strokeDasharray={`${v} 100`} />
-        <text x="60" y="56" textAnchor="middle" className="g-num">{v < 10 && v > 0 ? v.toFixed(1) : v.toFixed(0)}%</text>
+        <path d="M 10 62 A 50 50 0 0 1 110 62" pathLength={100} className={`g-val ${tone ?? level(v)}`} strokeDasharray={`${v} 100`} />
+        <text x="60" y="56" textAnchor="middle" className={`g-num ${text ? 'sm' : ''}`}>{text ?? `${v < 10 && v > 0 ? v.toFixed(1) : v.toFixed(0)}%`}</text>
       </svg>
       <span className="g-label">{label}</span>
       {sub && <span className="g-sub">{sub}</span>}

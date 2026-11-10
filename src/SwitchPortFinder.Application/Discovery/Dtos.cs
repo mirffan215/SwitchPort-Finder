@@ -29,6 +29,11 @@ public record PortTrafficDto(double? InBps, double? OutBps, double? UtilizationP
 /// <summary>One row of a "Top N" chart (top utilization / top drops) across all switches.</summary>
 public record TopPortDto(int SwitchId, string SwitchName, int PortId, int IfIndex, string PortName, string? Alias, long SpeedMbps, PortTrafficDto Traffic);
 
+/// <summary>A switch's uptime for the dashboard gauges. UptimeSeconds is the estimate for right now (null = unknown or unreachable).</summary>
+public record SwitchUptimeDto(int SwitchId, string Name, string ManagementIp, string? Model, bool IsCore, string Status, long? UptimeSeconds, DateTime? SampledAt);
+
+public record SwitchUptimeResponse(IReadOnlyList<SwitchUptimeDto> Items, int SwitchesTotal, int WithData);
+
 public record TopPortsResponse(string Metric, IReadOnlyList<TopPortDto> Items, int PortsWithData, int PortsTotal);
 
 public record NeighborRowDto(int PortId, int IfIndex, string PortName, NeighborDto Neighbor);

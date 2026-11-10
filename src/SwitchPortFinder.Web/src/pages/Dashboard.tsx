@@ -4,7 +4,7 @@ import { api, type Dashboard as DashboardDto } from '../api';
 import { ErrorBox, StateBadge, StatusBadge, ago } from '../components/Bits';
 import { useAuth } from '../components/Auth';
 import { Donut } from '../components/Charts';
-import { TopDrops, TopUtilization } from '../components/TopPortsCharts';
+import { TopUptime, TopUtilization } from '../components/TopPortsCharts';
 
 const BADGE: Record<string, string> = { Completed: 'ok', CompletedWithWarnings: 'warnb', Failed: 'bad', Running: 'info', Queued: 'muted' };
 
@@ -36,7 +36,7 @@ export default function Dashboard() {
         </div>
       </div>
       <div className="charts">
-        <TopDrops />
+        <TopUptime />
         <div className="panelx">
           <h2>Devices</h2>
           <p className="hint">Online vs offline endpoints.</p>

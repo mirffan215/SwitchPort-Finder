@@ -125,6 +125,16 @@ public class DiscoveryApiTests(ApiFixture fx)
     }
 
     [Fact]
+    public async Task A_scan_stores_the_switch_uptime_for_the_dashboard_gauges()
+    {
+        var n = Build();
+        var access = await AddSwitch("UPTIME-SCAN-SW", n.AccessIp);
+        (await Scan(access)).Job.Status.Should().NotBe(JobStatus.Failed);
+        var up = (await _http.GetFromJsonAsync<SwitchUptimeResponse>("/api/metrics/switch-uptime?n=20", Json))!.Items.Single(i => i.SwitchId == access);
+        up.UptimeSeconds.Should().BeInRange(10, 70, "the fake switch reports sysUpTime = 1000 ticks (10 s)");
+    }
+
+    [Fact]
     public async Task Rescanning_is_incremental_no_duplicate_devices_and_first_seen_is_preserved()
     {
         var n = Build();
@@ -296,5 +306,33 @@ public class VendorApiTests(ApiFixture fx)
         (await _http.GetFromJsonAsync<SearchResponse>("/api/search?q=Zulu", Json))!.Switches.Should().NotBeEmpty("location is searchable");
         (await _http.GetFromJsonAsync<SearchResponse>("/api/search?q=C9999-ZZ", Json))!.Switches.Should().NotBeEmpty("model is searchable");
         ((int)(await _http.GetAsync("/api/search?q=vlan%2050")).StatusCode).Should().Be(200);
+    }
+}
+
+[Collection("api")]
+public class SwitchUptimeApiTests(ApiFixture fx)
+{
+    private readonly HttpClient _http = fx.CreateClient();
+    private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web) { Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() } };
+
+    [Fact]
+    public async Task Uptime_lists_core_switches_first_then_the_most_recently_restarted_and_hides_unreachable_estimates()
+    {
+        using (var scope = fx.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<SwitchPortFinder.Infrastructure.Persistence.AppDbContext>();
+            db.Switches.RemoveRange(db.Switches.Where(s => s.Name.StartsWith("UP-")));
+            var t = DateTime.UtcNow;
+            SwitchPortFinder.Domain.Entities.Switch S(string n, int ip, long up, bool core = false, SwitchStatus st = SwitchStatus.Reachable) => new() { Name = n, ManagementIp = $"203.0.113.{ip}", UseAsArpSource = core, Status = st, UptimeSeconds = up, UptimeAt = t };
+            db.Switches.AddRange(S("UP-old", 211, 400 * 86400L), S("UP-new", 212, 3600), S("UP-core", 213, 90 * 86400L, core: true), S("UP-mid", 214, 10 * 86400L), S("UP-down", 215, 99 * 86400L, st: SwitchStatus.Unreachable));
+            await db.SaveChangesAsync();
+        }
+        var r = (await _http.GetFromJsonAsync<SwitchUptimeResponse>("/api/metrics/switch-uptime?n=20", Json))!;
+        var mine = r.Items.Where(i => i.Name.StartsWith("UP-")).ToList();
+        mine.Select(i => i.Name).Should().Equal("UP-core", "UP-new", "UP-mid", "UP-old", "UP-down");   // core first, then lowest uptime, unknown last
+        mine[0].IsCore.Should().BeTrue(); mine[0].UptimeSeconds.Should().BeInRange(90 * 86400L, 90 * 86400L + 60);
+        mine.Single(i => i.Name == "UP-down").UptimeSeconds.Should().BeNull("an unreachable switch has no trustworthy uptime");
+        (await _http.GetFromJsonAsync<SwitchUptimeResponse>("/api/metrics/switch-uptime?n=2", Json))!.Items.Should().HaveCount(2);
+        (await _http.GetFromJsonAsync<SwitchUptimeResponse>("/api/metrics/switch-uptime?n=99999", Json))!.Items.Count.Should().BeLessThanOrEqualTo(20);
     }
 }

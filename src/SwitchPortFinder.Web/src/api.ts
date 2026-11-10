@@ -61,6 +61,8 @@ export interface Neighbor {
 export interface PortRow { portId: number; ifIndex: number; name: string; alias?: string | null; status: 'UP' | 'DOWN'; type: PortType; speedMbps: number; vlan?: number | null; macCount: number; physAddress?: string | null; devices: PortDevice[]; neighbor?: Neighbor | null; supporting: string[]; traffic?: PortTraffic | null }
 export interface PortTraffic { inBps?: number | null; outBps?: number | null; utilizationPct?: number | null; discardsPerSec: number; errorsPerSec: number; intervalSeconds: number; sampledAt: string; wide: boolean }
 export interface TopPort { switchId: number; switchName: string; portId: number; ifIndex: number; portName: string; alias?: string | null; speedMbps: number; traffic: PortTraffic }
+export interface SwitchUptime { switchId: number; name: string; managementIp: string; model?: string | null; isCore: boolean; status: string; uptimeSeconds?: number | null; sampledAt?: string | null }
+export interface SwitchUptimeResponse { items: SwitchUptime[]; switchesTotal: number; withData: number }
 export interface TopPortsResponse { metric: 'utilization' | 'drops'; items: TopPort[]; portsWithData: number; portsTotal: number }
 export interface PortsResponse { summary: { total: number; connected: number; down: number; uplinks: number; lastScan?: string | null }; ports: PortRow[]; hasArpSource: boolean }
 export interface DeviceRow { vendor?: string | null; id: number; hostname: string; hostnameSource: string; ip?: string | null; mac: string; switchId?: number | null; switchName?: string | null; portId?: number | null; ifIndex?: number | null; portName?: string | null; vlan?: number | null; state: 'Active' | 'Offline' | 'Stale'; firstSeen: string; lastSeen: string; lowConfidence: boolean }
@@ -142,6 +144,7 @@ export const api = {
   saveSettings: (s: RuntimeSettings) => request<RuntimeSettings>('/api/settings', json('PUT', s)),
   topology: () => request<Topology>('/api/topology'),
   dashboard: () => request<Dashboard>('/api/dashboard'),
+  switchUptime: () => request<SwitchUptimeResponse>('/api/metrics/switch-uptime?n=5'),
   topPorts: (metric: 'utilization' | 'drops', n = 5) => request<TopPortsResponse>(`/api/metrics/top-ports?metric=${metric}&n=${n}`),
   listProfiles: () => request<ProfileDto[]>('/api/credential-profiles'),
   createProfile: (r: { name: string; description?: string; credential: CredentialInput }) => request<ProfileDto>('/api/credential-profiles', json('POST', r)),

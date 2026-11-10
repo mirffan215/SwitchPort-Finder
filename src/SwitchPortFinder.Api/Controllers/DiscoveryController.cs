@@ -42,6 +42,10 @@ public class DiscoveryController(DiscoveryService discovery, DeviceQueryService 
         return Ok(await dashboard.TopPortsAsync(metric, Math.Clamp(n, 1, 20), ct));
     }
 
+    /// <summary>Uptime of up to N switches (core first). Read-only.</summary>
+    [HttpGet("api/metrics/switch-uptime")]
+    public async Task<IActionResult> SwitchUptime([FromQuery] int n = 5, CancellationToken ct = default) => Ok(await dashboard.SwitchUptimeAsync(Math.Clamp(n, 1, 20), ct));
+
     /// <summary>CSV or Excel export of the devices matching the same filters as the list (q, switchId, state, sort, desc). Never paged.</summary>
     [HttpGet("api/export/devices")]
     public async Task<IActionResult> ExportDevices([FromQuery] DeviceQuery query, [FromQuery] string format = "csv", CancellationToken ct = default)

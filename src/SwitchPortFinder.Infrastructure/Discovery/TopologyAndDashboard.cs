@@ -60,4 +60,21 @@ public class DashboardService(AppDbContext db, DiscoveryService discovery, Devic
         var top = ranked.Take(n).Select(x => new TopPortDto(x.Port.SwitchId, x.SwitchName, x.Port.Id, x.Port.IfIndex, x.Port.Name, x.Port.Alias, x.Port.SpeedMbps, x.T)).ToList();
         return new TopPortsResponse(metric, top, items.Count, total);
     }
+
+    /// <summary>
+    /// Uptime of up to <paramref name="n"/> switches for the dashboard: core (routing / ARP-source) switches first, then the switches that
+    /// restarted most recently. The value is the last scan's sysUpTime plus the time since, but only while the switch is reachable.
+    /// </summary>
+    public async Task<SwitchUptimeResponse> SwitchUptimeAsync(int n, CancellationToken ct)
+    {
+        var all = await db.Switches.AsNoTracking().Select(s => new { s.Id, s.Name, s.ManagementIp, s.Model, s.UseAsArpSource, s.ArpAutoDetected, s.Status, s.UptimeSeconds, s.UptimeAt }).ToListAsync(ct);
+        var now = DateTime.UtcNow;
+        var rows = all.Where(s => s.UptimeSeconds != null && s.UptimeAt != null).Select(s =>
+        {
+            long? up = s.Status == SwitchStatus.Reachable ? s.UptimeSeconds + (long)Math.Max(0, (now - s.UptimeAt!.Value).TotalSeconds) : null;
+            return new SwitchUptimeDto(s.Id, s.Name, s.ManagementIp, s.Model, s.UseAsArpSource || s.ArpAutoDetected, s.Status.ToString(), up, s.UptimeAt);
+        }).ToList();
+        var top = rows.OrderByDescending(r => r.IsCore).ThenBy(r => r.UptimeSeconds ?? long.MaxValue).ThenBy(r => r.Name, StringComparer.OrdinalIgnoreCase).Take(n).ToList();
+        return new SwitchUptimeResponse(top, all.Count, rows.Count);
+    }
 }

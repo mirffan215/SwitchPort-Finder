@@ -132,3 +132,7 @@ The **Product / Manufacturer** column comes from the device's MAC address (first
 
 * **Hostname "Unknown Device"**: the name is looked up by reverse DNS (PTR record) of the device's IP using the server's DNS. If your DNS has no PTR record for that IP (common for phones, printers and DHCP clients), no name can be found. Check with `nslookup 10.10.8.49` on the server; add PTR records or enable DHCP-DNS registration to get names. Product/manufacturer is shown regardless.
 * **Switch/Port "—"**: the device's MAC was learned only on switch **uplink** ports so far. The portal places a device only on an edge port of a switch it has scanned. Add the access switches that these devices connect to (and scan them) and the location appears.
+
+## Switch uptime gauges
+
+The dashboard's **Switch uptime** panel shows up to 5 switches: core (routing / ARP-source) switches first, then the most recently restarted. Uptime is the switch's SNMP `sysUpTime`, read during each scan, plus the time since the scan while the switch is reachable (an unreachable switch shows "n/a"). Red = restarted within a day, amber = within a week; the gauge is full at 365 days. `sysUpTime` is a 32-bit counter that wraps after about 497 days, so switches that have been up longer than that read low.

@@ -509,6 +509,12 @@ namespace SwitchPortFinder.Infrastructure.Persistence.Migrations
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<DateTime?>("UptimeAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<long?>("UptimeSeconds")
+                        .HasColumnType("bigint");
+
                     b.Property<bool>("UseAsArpSource")
                         .HasColumnType("bit");
 

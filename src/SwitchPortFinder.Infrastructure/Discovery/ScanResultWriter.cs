@@ -162,6 +162,7 @@ public class ScanResultWriter(AppDbContext db, IHostnameResolver dns, Classifica
         sw.Status = SwitchStatus.Reachable; sw.LastScanAt = now;
         if (r.System is { } s)
         {
+            if (s.UpTimeTicks > 0) { sw.UptimeSeconds = s.UpTimeTicks / 100; sw.UptimeAt = now; }
             sw.SysName = Trunc(s.Name, 255); sw.SysDescr = Trunc(s.Descr, 1000); sw.SysObjectId = Trunc(s.ObjectId, 200);
             if (!string.IsNullOrWhiteSpace(s.Model) && string.IsNullOrWhiteSpace(sw.Model)) sw.Model = Trunc(s.Model, 100);
             if (!string.IsNullOrWhiteSpace(s.Serial)) sw.SerialNumber = Trunc(s.Serial, 100);

@@ -9,15 +9,19 @@ This is a thorough internal test with repeatable tooling. It is **not a substitu
 
 | Area | Tool | Result |
 |---|---|---|
-| Unit tests | `dotnet test` | **332 passed**, 0 failed |
-| Integration tests (SQLite) | `dotnet test` | **101 passed**, 0 failed |
-| Integration tests on **real SQL Server 2022** | `tools/sqlserver/run-sqlserver-tests.sh` | **97 passed**, 0 failed (performance tests excluded) |
+| Unit tests | `dotnet test` | **345 passed**, 0 failed |
+| Integration tests (SQLite) | `dotnet test` | **105 passed**, 0 failed |
+| Integration tests on **real SQL Server 2022** | `tools/sqlserver/run-sqlserver-tests.sh` | **101 passed**, 0 failed (performance tests excluded; migrations Phase1-Phase11 applied) |
 | Black-box penetration test | `tools/security/pentest.py` (HTTPS + SQL Server) | **94 checks passed**, 0 failed |
 | Browser QA + accessibility (WCAG 2.1 AA, dark and light) | `tools/qa/ui-qa.js` (HTTPS + SQL Server) | **47 checks passed**, 0 failed |
 | Load | `tools/security/loadtest.py`, 30 concurrent clients | 2,700 requests, ~800 req/s, **0 server errors**, p95 < 70 ms |
 | Dependency audit | `dotnet list package --vulnerable --include-transitive`, `npm audit` | **0 vulnerable packages** |
 | Secrets scan of tracked files | pattern search | none found |
 | Application log after all of the above | grep for `[ERR]`/`[FTL]`, passwords, SNMP communities | no errors, **no secrets logged** |
+
+## One combined update
+
+Everything in this report (session revocation, search fix, CSP/fonts, traffic gauges, manufacturer column, switch-uptime gauges) is in the same release. **One `publish.ps1` + `install.ps1 -KeepConfig` applies all of it**; the installer runs all pending database migrations (`Phase8PortCounters`, `Phase9SessionVersion`, `Phase10DeviceVendor`, `Phase11SwitchUptime`) in order. The final penetration test (94 checks) and browser QA (47 checks) were re-run on this exact build.
 
 ## Defects found by this testing — all fixed and covered by regression tests
 

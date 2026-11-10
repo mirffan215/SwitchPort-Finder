@@ -60,11 +60,13 @@ export default function SwitchPage() {
         <div className="alert warn">Mark your core / L3 switch as an ARP source (Edit → “Use as ARP source”) to see IP addresses.</div>
       )}
 
-      {ports.data && ports.data.ports.length === 0 ? (
+      {ports.isLoading ? (
+        <p className="muted">Loading ports…</p>
+      ) : !ports.data ? null : ports.data.ports.length === 0 ? (
         <p>No ports yet. Click <strong>Scan Now</strong> to discover ports, MAC addresses and IPs.</p>
       ) : (
         <>
-        {view === 'graphic' && <Graphical ports={ports.data!.ports} selected={selected} heat={heat} setHeat={setHeat}
+        {view === 'graphic' && <Graphical ports={ports.data.ports} selected={selected} heat={heat} setHeat={setHeat}
           onPick={(p) => { setSelected(p.ifIndex); setSp({}, { replace: true }); }} />}
         <div className="split">
           {view === 'table' && <div className="tablewrap">

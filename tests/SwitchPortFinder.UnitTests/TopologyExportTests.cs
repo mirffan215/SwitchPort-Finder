@@ -90,9 +90,9 @@ public class DeviceExportBuilderTests
     {
         var text = System.Text.Encoding.UTF8.GetString(DeviceExportBuilder.Csv([D("PC-001"), D("Unknown Device", sw: null, port: null, vlan: null, ip: null, st: DeviceState.Stale)])).TrimStart('﻿');
         var rows = SwitchPortFinder.Application.Import.Csv.Parse(text, ',');
-        rows[0].Should().Equal("Switch", "Port", "MAC", "IP", "Hostname", "VLAN", "Status", "Last Seen");
-        rows[1].Should().Equal("SW-1", "Gi1/0/1", "AA:BB:CC:DD:EE:01", "10.0.0.5", "PC-001", "50", "Active", "2026-01-02 10:30:05Z");
-        rows[2].Should().Equal("", "", "AA:BB:CC:DD:EE:01", "", "Unknown Device", "", "Stale", "2026-01-02 10:30:05Z");
+        rows[0].Should().Equal("Switch", "Port", "MAC", "IP", "Hostname", "VLAN", "Status", "Last Seen", "Manufacturer");
+        rows[1].Should().Equal("SW-1", "Gi1/0/1", "AA:BB:CC:DD:EE:01", "10.0.0.5", "PC-001", "50", "Active", "2026-01-02 10:30:05Z", "");
+        rows[2].Should().Equal("", "", "AA:BB:CC:DD:EE:01", "", "Unknown Device", "", "Stale", "2026-01-02 10:30:05Z", "");
     }
 
     [Theory] [InlineData("=1+1")] [InlineData("+cmd")] [InlineData("@SUM(A1)")] [InlineData("-2+3")]
@@ -113,7 +113,7 @@ public class DeviceExportBuilderTests
     {
         using var wb = new XLWorkbook(new MemoryStream(DeviceExportBuilder.Xlsx([D("PC-001"), D("=HYPERLINK(\"http://x\")")])));
         var ws = wb.Worksheet(1);
-        ws.Row(1).Cells(1, 8).Select(c => c.GetString()).Should().Equal(DeviceExportBuilder.Columns);
+        ws.Row(1).Cells(1, 9).Select(c => c.GetString()).Should().Equal(DeviceExportBuilder.Columns);
         ws.Cell(2, 5).GetString().Should().Be("PC-001"); ws.Cell(2, 3).GetString().Should().Be("AA:BB:CC:DD:EE:01");
         ws.Cell(3, 5).HasFormula.Should().BeFalse("exported text is never evaluated as a formula"); ws.Cell(3, 5).GetString().Should().StartWith("=HYPERLINK");
         ws.Cell(3, 5).DataType.Should().Be(XLDataType.Text);

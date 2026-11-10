@@ -62,6 +62,8 @@ public class Device
     public int Id { get; set; }
     public string Mac { get; set; } = "";
     public string Hostname { get; set; } = "Unknown Device";
+    /// <summary>Manufacturer from the MAC's OUI ("" = looked up, not in the registry; null = not looked up yet). Searchable.</summary>
+    public string? Vendor { get; set; }
     public HostnameSource HostnameSource { get; set; }
     public DateTime? HostnameCheckedAt { get; set; }
     public string? IpAddress { get; set; }

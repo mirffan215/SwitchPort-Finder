@@ -20,7 +20,7 @@ export default function SearchBox() {
     <div className="search" ref={box} role="search">
       <form onSubmit={submit}>
         <input value={q} onChange={(e) => { setQ(e.target.value); setOpen(true); }} onFocus={() => setOpen(true)} onKeyDown={(e) => e.key === 'Escape' && setOpen(false)}
-          placeholder="Search MAC, IP, hostname or switch..." aria-label="Global search" />
+          placeholder="Search anything: MAC, IP, name, manufacturer, switch, port, VLAN..." aria-label="Global search" />
       </form>
       {open && dq.length >= 2 && (
         <div className="dropdown">

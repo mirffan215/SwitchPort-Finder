@@ -4,7 +4,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { api } from '../api';
 import { ErrorBox, StateBadge, ago } from '../components/Bits';
 
-const COLS: [string, string][] = [['hostname', 'Hostname'], ['ip', 'IP'], ['mac', 'MAC'], ['switch', 'Switch'], ['', 'Port'], ['vlan', 'VLAN'], ['', 'Status'], ['lastseen', 'Last Seen']];
+const COLS: [string, string][] = [['hostname', 'Hostname'], ['ip', 'IP'], ['mac', 'MAC'], ['vendor', 'Product / Manufacturer'], ['switch', 'Switch'], ['', 'Port'], ['vlan', 'VLAN'], ['', 'Status'], ['lastseen', 'Last Seen']];
 
 export default function DevicesPage() {
   const [q, setQ] = useState(''); const [dq, setDq] = useState('');
@@ -28,7 +28,7 @@ export default function DevicesPage() {
     <section>
       <div className="toolbar">
         <h1>Devices</h1><div className="spacer" />
-        <input placeholder="Filter hostname / IP / MAC / switch / port" value={q} onChange={(e) => setQ(e.target.value)} style={{ minWidth: 280 }} />
+        <input placeholder="Search hostname, IP, MAC, manufacturer, switch, port, VLAN" value={q} onChange={(e) => setQ(e.target.value)} style={{ minWidth: 340 }} aria-label="Search devices" />
         <a className="btn" href={exportHref('csv')} download>Export CSV</a><a className="btn" href={exportHref('xlsx')} download>Export Excel</a>
         <select value={state} onChange={(e) => { setState(e.target.value); setPage(1); }} aria-label="State"><option value="">All states</option><option>Active</option><option>Offline</option><option>Stale</option></select>
       </div>
@@ -39,13 +39,13 @@ export default function DevicesPage() {
           <tbody>
             {data?.items.map((d) => (
               <tr key={d.id}>
-                <td><Link to={`/devices/${d.id}`}>{d.hostname}</Link></td><td>{d.ip ?? <span className="muted">Unknown</span>}</td><td className="mono">{d.mac}</td>
+                <td><Link to={`/devices/${d.id}`}>{d.hostname}</Link></td><td>{d.ip ?? <span className="muted">Unknown</span>}</td><td className="mono">{d.mac}</td><td>{d.vendor ? <span title={d.vendor === 'Private (randomized MAC)' ? 'Phones and laptops use a random MAC address for Wi-Fi privacy, so the manufacturer cannot be known from it.' : 'Manufacturer of the network adapter, from the MAC address (IEEE registry).'}>{d.vendor}</span> : <span className="muted" title="This MAC address prefix is not in the IEEE registry.">Unknown</span>}</td>
                 <td>{d.switchId ? <Link to={`/switches/${d.switchId}`}>{d.switchName}</Link> : <span title="Only seen behind switch uplinks so far: scan the switch it connects to.">—</span>}</td>
                 <td>{d.switchId && d.ifIndex ? <Link to={`/switches/${d.switchId}?port=${d.ifIndex}`}>{d.portName}</Link> : '—'}</td>
                 <td>{d.vlan ?? '—'}</td><td><StateBadge state={d.state} /></td><td>{ago(d.lastSeen)}</td>
               </tr>
             ))}
-            {data?.items.length === 0 && <tr><td colSpan={8} className="muted">No devices. Scan a switch to discover devices.</td></tr>}
+            {data?.items.length === 0 && <tr><td colSpan={9} className="muted">No devices. Scan a switch to discover devices.</td></tr>}
           </tbody>
         </table>
       </div>

@@ -258,3 +258,43 @@ public class HostileInputTests(ApiFixture fx)
             ((int)(await _http.GetAsync(url + Uri.EscapeDataString(q))).StatusCode).Should().BeLessThan(500, $"{url} with {q.Length} chars");
     }
 }
+
+[Collection("api")]
+public class VendorApiTests(ApiFixture fx)
+{
+    private readonly HttpClient _http = fx.CreateClient();
+    private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web) { Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() } };
+
+    [Fact]
+    public async Task Manufacturer_is_shown_and_searchable_in_the_device_list_and_in_global_search()
+    {
+        using (var scope = fx.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<SwitchPortFinder.Infrastructure.Persistence.AppDbContext>();
+            var now = DateTime.UtcNow;
+            db.Devices.AddRange(
+                new SwitchPortFinder.Domain.Entities.Device { Mac = "1866DA163EB5", FirstSeen = now, LastSeen = now, Vendor = "Dell Inc." },
+                new SwitchPortFinder.Domain.Entities.Device { Mac = "0000C0031E29", FirstSeen = now, LastSeen = now, Vendor = null },   // created before the column existed: computed on the fly
+                new SwitchPortFinder.Domain.Entities.Device { Mac = "06299573847A", FirstSeen = now, LastSeen = now, Vendor = SwitchPortFinder.Domain.OuiLookup.PrivateMac });
+            await db.SaveChangesAsync();
+        }
+        var list = (await _http.GetFromJsonAsync<Paged<DeviceDto>>("/api/devices?q=Dell&pageSize=50", Json))!;
+        list.Items.Should().ContainSingle(d => d.Mac == "18:66:DA:16:3E:B5" && d.Vendor == "Dell Inc.");
+        var search = (await _http.GetFromJsonAsync<SearchResponse>("/api/search?q=dell", Json))!;
+        search.Devices.Should().Contain(d => d.Mac == "18:66:DA:16:3E:B5");
+        var all = (await _http.GetFromJsonAsync<Paged<DeviceDto>>("/api/devices?pageSize=200&sort=vendor", Json))!.Items;
+        all.Single(d => d.Mac == "00:00:C0:03:1E:29").Vendor.Should().Be("WESTERN DIGITAL CORPORATION", "a device without a stored vendor is resolved from its MAC on the fly");
+        all.Single(d => d.Mac.StartsWith("06:29:95")).Vendor.Should().Be(SwitchPortFinder.Domain.OuiLookup.PrivateMac);
+        (await _http.GetFromJsonAsync<Paged<DeviceDto>>("/api/devices?q=randomized", Json))!.Items.Should().Contain(d => d.Mac.StartsWith("06:29:95"));
+    }
+
+    [Fact]
+    public async Task Global_search_also_finds_switches_by_location_and_model_and_things_by_vlan()
+    {
+        var r = await _http.PostAsJsonAsync("/api/switches", new SwitchRequest { Name = "VND-SW-" + Guid.NewGuid().ToString("N")[..6], ManagementIp = "203.0.113.150", Location = "Building Zulu, Rack 9", Model = "WS-C9999-ZZ", Credential = new CredentialInput { Version = SnmpVersion.V2c, Community = "pub" } }, Json);
+        r.StatusCode.Should().Be(HttpStatusCode.Created);
+        (await _http.GetFromJsonAsync<SearchResponse>("/api/search?q=Zulu", Json))!.Switches.Should().NotBeEmpty("location is searchable");
+        (await _http.GetFromJsonAsync<SearchResponse>("/api/search?q=C9999-ZZ", Json))!.Switches.Should().NotBeEmpty("model is searchable");
+        ((int)(await _http.GetAsync("/api/search?q=vlan%2050")).StatusCode).Should().Be(200);
+    }
+}

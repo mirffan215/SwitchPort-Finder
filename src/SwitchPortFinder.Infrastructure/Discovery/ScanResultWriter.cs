@@ -3,6 +3,7 @@ using Microsoft.Extensions.Options;
 using SwitchPortFinder.Application.Abstractions;
 using SwitchPortFinder.Application.Common;
 using SwitchPortFinder.Application.Discovery;
+using SwitchPortFinder.Domain;
 using SwitchPortFinder.Domain.Entities;
 using SwitchPortFinder.Domain.Enums;
 using SwitchPortFinder.Infrastructure.Persistence;
@@ -118,7 +119,7 @@ public class ScanResultWriter(AppDbContext db, IHostnameResolver dns, Classifica
         foreach (var chunk in touched.Chunk(500))
             foreach (var d in await db.Devices.Where(d => chunk.Contains(d.Mac)).ToListAsync(ct)) devices[d.Mac] = d;
         foreach (var mac in scanMacs)
-            if (!devices.ContainsKey(mac)) { var d = new Device { Mac = mac, FirstSeen = now, LastSeen = now }; db.Devices.Add(d); devices[mac] = d; }
+            if (!devices.ContainsKey(mac)) { var d = new Device { Mac = mac, FirstSeen = now, LastSeen = now, Vendor = OuiLookup.Lookup(mac) ?? "" }; db.Devices.Add(d); devices[mac] = d; }
         foreach (var mac in scanMacs) devices[mac].LastSeen = now;
 
         await db.SaveChangesAsync(ct);

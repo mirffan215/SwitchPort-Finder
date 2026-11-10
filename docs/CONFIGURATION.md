@@ -115,3 +115,20 @@ read-only walk as the interface table, so discovery sends no extra SNMP requests
 - Rates are discarded (and shown as "no data") after a switch reboot, a 64-bit counter reset, or if the scans are less than 10 seconds or more than 7 days apart.
 - 32-bit counters wrap every ~34 s at 1 Gbit/s, so on switches without 64-bit counters rates are approximate and are rejected when they exceed the link speed. Use switches/firmware that expose `ifXTable` HC counters for accurate values.
 - The first deployment of this feature applies database migration `Phase8PortCounters` (adds columns to `SwitchPorts`); run the installer with `-KeepConfig` to apply it.
+
+## Manufacturer / "Product" column and search
+
+The **Product / Manufacturer** column comes from the device's MAC address (first 3 bytes = OUI) looked up in the IEEE registry (~35,000 manufacturers) that is **embedded in the application**, so it works offline.
+
+* It names the maker of the network adapter (Dell, Cisco, Apple, HP, Hikvision, ...), **not the exact product model** — a MAC address cannot tell that.
+* **"Private (randomized MAC)"**: modern phones and laptops use a random MAC per Wi-Fi network for privacy (the second hex digit is 2, 6, A or E). Their manufacturer cannot be known from the MAC.
+* **"Unknown"**: the prefix is not in the registry (for example very new or small-vendor ranges).
+* Existing devices are filled automatically a few seconds after the upgraded service starts; new devices get it at their first scan. The Excel/CSV export has a **Manufacturer** column at the end.
+* The registry is a snapshot. To refresh it, regenerate `src/SwitchPortFinder.Domain/Data/oui.tsv` from the IEEE `oui.txt` (format: `AABBCC<TAB>Vendor name`) and rebuild.
+
+**Global search** (top bar) finds devices by hostname, IP, MAC (any format, partial), manufacturer, VLAN number (`50` or `vlan 50`), switch name/IP and port name; switches by name, IP, sysName, location, model, serial number and notes; ports by name, description and VLAN.
+
+## Why a device shows "Unknown Device" and no switch/port
+
+* **Hostname "Unknown Device"**: the name is looked up by reverse DNS (PTR record) of the device's IP using the server's DNS. If your DNS has no PTR record for that IP (common for phones, printers and DHCP clients), no name can be found. Check with `nslookup 10.10.8.49` on the server; add PTR records or enable DHCP-DNS registration to get names. Product/manufacturer is shown regardless.
+* **Switch/Port "—"**: the device's MAC was learned only on switch **uplink** ports so far. The portal places a device only on an edge port of a switch it has scanned. Add the access switches that these devices connect to (and scan them) and the location appears.

@@ -227,6 +227,10 @@ namespace SwitchPortFinder.Infrastructure.Persistence.Migrations
                     b.Property<int?>("SwitchId")
                         .HasColumnType("int");
 
+                    b.Property<string>("Vendor")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
                     b.Property<int?>("Vlan")
                         .HasColumnType("int");
 

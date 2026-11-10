@@ -63,7 +63,7 @@ export interface PortTraffic { inBps?: number | null; outBps?: number | null; ut
 export interface TopPort { switchId: number; switchName: string; portId: number; ifIndex: number; portName: string; alias?: string | null; speedMbps: number; traffic: PortTraffic }
 export interface TopPortsResponse { metric: 'utilization' | 'drops'; items: TopPort[]; portsWithData: number; portsTotal: number }
 export interface PortsResponse { summary: { total: number; connected: number; down: number; uplinks: number; lastScan?: string | null }; ports: PortRow[]; hasArpSource: boolean }
-export interface DeviceRow { id: number; hostname: string; hostnameSource: string; ip?: string | null; mac: string; switchId?: number | null; switchName?: string | null; portId?: number | null; ifIndex?: number | null; portName?: string | null; vlan?: number | null; state: 'Active' | 'Offline' | 'Stale'; firstSeen: string; lastSeen: string; lowConfidence: boolean }
+export interface DeviceRow { vendor?: string | null; id: number; hostname: string; hostnameSource: string; ip?: string | null; mac: string; switchId?: number | null; switchName?: string | null; portId?: number | null; ifIndex?: number | null; portName?: string | null; vlan?: number | null; state: 'Active' | 'Offline' | 'Stale'; firstSeen: string; lastSeen: string; lowConfidence: boolean }
 export interface Paged<T> { items: T[]; total: number; page: number; pageSize: number }
 
 export interface SwitchHit { id: number; name: string; managementIp: string; manufacturerName: string; status: string; model?: string | null }

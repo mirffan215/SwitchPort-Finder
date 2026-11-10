@@ -3,15 +3,15 @@ using SwitchPortFinder.Application.Import;
 
 namespace SwitchPortFinder.Application.Discovery;
 
-/// <summary>CSV / Excel export of the device list (Switch, Port, MAC, IP, Hostname, VLAN, Status, Last Seen).</summary>
+/// <summary>CSV / Excel export of the device list (Switch, Port, MAC, IP, Hostname, VLAN, Status, Last Seen, Manufacturer).</summary>
 public static class DeviceExportBuilder
 {
-    public static readonly string[] Columns = ["Switch", "Port", "MAC", "IP", "Hostname", "VLAN", "Status", "Last Seen"];
+    public static readonly string[] Columns = ["Switch", "Port", "MAC", "IP", "Hostname", "VLAN", "Status", "Last Seen", "Manufacturer"];
 
     private static string[] Row(DeviceDto d) =>
     [
         d.SwitchName ?? "", d.PortName ?? "", d.Mac, d.Ip ?? "", d.Hostname, d.Vlan?.ToString() ?? "", d.State.ToString(),
-        d.LastSeen.ToString("yyyy-MM-dd HH:mm:ss'Z'", System.Globalization.CultureInfo.InvariantCulture)
+        d.LastSeen.ToString("yyyy-MM-dd HH:mm:ss'Z'", System.Globalization.CultureInfo.InvariantCulture), d.Vendor ?? ""
     ];
 
     public static byte[] Csv(IEnumerable<DeviceDto> rows)

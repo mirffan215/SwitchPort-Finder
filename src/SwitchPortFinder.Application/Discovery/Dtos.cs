@@ -39,7 +39,7 @@ public record PortsResponse(PortSummary Summary, IReadOnlyList<PortRowDto> Ports
 
 public record DeviceDto(
     int Id, string Hostname, HostnameSource HostnameSource, string? Ip, string Mac, int? SwitchId, string? SwitchName,
-    int? PortId, int? IfIndex, string? PortName, int? Vlan, DeviceState State, DateTime FirstSeen, DateTime LastSeen, bool LowConfidence);
+    int? PortId, int? IfIndex, string? PortName, int? Vlan, DeviceState State, DateTime FirstSeen, DateTime LastSeen, bool LowConfidence, string? Vendor = null);
 
 public record Paged<T>(IReadOnlyList<T> Items, int Total, int Page, int PageSize);
 

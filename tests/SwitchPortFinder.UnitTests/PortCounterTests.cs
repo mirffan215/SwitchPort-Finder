@@ -105,3 +105,22 @@ public class UpdateRatesTests
         p.RateAt.Should().BeNull(); p.RateInBps.Should().BeNull(); p.CtrInOctets.Should().Be(10, "the new counters become the baseline");
     }
 }
+
+public class OuiLookupTests
+{
+    [Theory]
+    [InlineData("1866DA163EB5", "Dell Inc.")]
+    [InlineData("0000C0031E29", "WESTERN DIGITAL CORPORATION")]
+    [InlineData("08A189007CBB", "Hangzhou Hikvision Digital Technology Co.,Ltd.")]
+    [InlineData("00d0b81636ed", "Iomega Corporation")]   // lower case input is fine
+    public void Known_manufacturers_resolve(string mac, string vendor) => SwitchPortFinder.Domain.OuiLookup.Lookup(mac).Should().Be(vendor);
+
+    [Theory] [InlineData("062995 73847A")] [InlineData("4E9718B4F9C7")] [InlineData("DA00112233AA")]
+    public void Randomised_locally_administered_macs_are_labelled_private_not_guessed(string mac) =>
+        SwitchPortFinder.Domain.OuiLookup.Lookup(mac.Replace(" ", "")).Should().Be(SwitchPortFinder.Domain.OuiLookup.PrivateMac);
+
+    [Theory] [InlineData(null)] [InlineData("")] [InlineData("1866DA")] [InlineData("ZZZZZZZZZZZZ")] [InlineData("01005E000001")]   // multicast is never a device
+    public void Garbage_and_multicast_give_no_vendor(string? mac) => SwitchPortFinder.Domain.OuiLookup.Lookup(mac).Should().BeNull();
+
+    [Fact] public void The_embedded_registry_is_loaded() => SwitchPortFinder.Domain.OuiLookup.Count.Should().BeGreaterThan(30_000);
+}

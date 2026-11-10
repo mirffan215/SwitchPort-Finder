@@ -300,7 +300,7 @@ public class Phase5ApiTests(IsolatedApiFixture fx) : AcceptanceBase(fx), IClassF
         all.StatusCode.Should().Be(HttpStatusCode.OK); all.Content.Headers.ContentType!.MediaType.Should().Be("text/csv");
         all.Content.Headers.ContentDisposition!.FileName.Should().EndWith(".csv");
         var rows = SwitchPortFinder.Application.Import.Csv.Parse((await all.Content.ReadAsStringAsync()).TrimStart('﻿'), ',');
-        rows[0].Should().Equal("Switch", "Port", "MAC", "IP", "Hostname", "VLAN", "Status", "Last Seen");
+        rows[0].Should().Equal("Switch", "Port", "MAC", "IP", "Hostname", "VLAN", "Status", "Last Seen", "Manufacturer");
         rows.Should().HaveCount(2);
         rows[1].Take(7).Should().Equal("ACCESS-SW-01", "Gi1/0/15", "AA:BB:CC:DD:EE:01", PcIp, "PC-001", "50", "Active");
 

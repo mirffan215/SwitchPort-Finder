@@ -6,4 +6,9 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <ItemGroup>
+    <!-- IEEE MA-L registry (24-bit OUIs), embedded so the portal needs no internet. Source: IEEE Registration Authority public listing. -->
+    <EmbeddedResource Include="Data\oui.tsv" LogicalName="SwitchPortFinder.Domain.oui.tsv" />
+  </ItemGroup>
+
 </Project>

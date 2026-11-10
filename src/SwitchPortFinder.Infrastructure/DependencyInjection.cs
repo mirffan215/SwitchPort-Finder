@@ -56,6 +56,7 @@ public static class DependencyInjection
         services.AddScoped<TopologyService>();
         services.AddScoped<DashboardService>();
         services.AddHostedService<DiscoveryWorker>();
+        services.AddHostedService<VendorBackfillService>();
         return services;
     }
 }

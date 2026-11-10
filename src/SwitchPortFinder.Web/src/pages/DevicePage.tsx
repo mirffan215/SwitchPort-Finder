@@ -20,6 +20,7 @@ export default function DevicePage() {
         <dt>Hostname</dt><dd>{d.hostname} <span className="muted">({d.hostnameSource === 'None' ? 'not resolved' : d.hostnameSource})</span></dd>
         <dt>IP address</dt><dd>{d.ip ?? 'Unknown'}{data.ipSourceSwitch && <span className="muted"> — from ARP on {data.ipSourceSwitch}, {ago(data.ipObservedAt)}</span>}</dd>
         <dt>MAC address</dt><dd className="mono">{d.mac}</dd>
+        <dt>Product / manufacturer</dt><dd>{d.vendor ?? <span className="muted">Unknown (not in the IEEE registry)</span>} <span className="muted small">— from the MAC address; it names the maker of the network adapter, not the model</span></dd>
         <dt>Switch</dt><dd>{d.switchId ? <Link to={`/switches/${d.switchId}`}>{d.switchName}</Link> : '—'}</dd>
         <dt>Port</dt><dd>{d.portName ?? '—'}</dd>
         <dt>VLAN</dt><dd>{d.vlan ?? '—'}</dd>

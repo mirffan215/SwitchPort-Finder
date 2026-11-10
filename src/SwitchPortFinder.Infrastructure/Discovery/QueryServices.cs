@@ -97,6 +97,12 @@ public class PortQueryService(AppDbContext db, IOptions<DiscoveryOptions> opt)
     internal static string NaturalKey(string s) => System.Text.RegularExpressions.Regex.Replace(s, @"\d+", m => m.Value.PadLeft(6, '0'));
 }
 
+public static class VendorText
+{
+    /// <summary>Stored vendor, or computed from the MAC when the row predates the Vendor column; null when unknown.</summary>
+    public static string? Of(string? stored, string mac) => stored is null ? OuiLookup.Lookup(mac) : stored.Length == 0 ? null : stored;
+}
+
 public class DeviceQueryService(AppDbContext db, IOptions<DiscoveryOptions> opt)
 {
     /// <summary>Shared by the paged list and the export so "respect the current filters" is true by construction.</summary>
@@ -120,7 +126,7 @@ public class DeviceQueryService(AppDbContext db, IOptions<DiscoveryOptions> opt)
             var t = q.Q.Trim(); if (t.Length > ParsedQuery.MaxLength) t = t[..ParsedQuery.MaxLength]; var mac = ParsedQuery.Parse(t)?.MacKey;
             var pat = SqlText.Contains(t);
             query = query.Where(d => EF.Functions.Like(d.Hostname, pat, SqlText.Escape) || (d.IpAddress != null && EF.Functions.Like(d.IpAddress, pat, SqlText.Escape))
-                || (mac != null && EF.Functions.Like(d.Mac, "%" + mac + "%")) || (d.Switch != null && EF.Functions.Like(d.Switch.Name, pat, SqlText.Escape))
+                || (d.Vendor != null && EF.Functions.Like(d.Vendor, pat, SqlText.Escape)) || (mac != null && EF.Functions.Like(d.Mac, "%" + mac + "%")) || (d.Switch != null && EF.Functions.Like(d.Switch.Name, pat, SqlText.Escape))
                 || (d.Port != null && EF.Functions.Like(d.Port.Name, pat, SqlText.Escape)));
         }
         return query;
@@ -132,6 +138,7 @@ public class DeviceQueryService(AppDbContext db, IOptions<DiscoveryOptions> opt)
         ("ip", false) => query.OrderBy(d => d.IpAddress), ("ip", true) => query.OrderByDescending(d => d.IpAddress),
         ("mac", false) => query.OrderBy(d => d.Mac), ("mac", true) => query.OrderByDescending(d => d.Mac),
         ("switch", false) => query.OrderBy(d => d.Switch!.Name), ("switch", true) => query.OrderByDescending(d => d.Switch!.Name),
+        ("vendor", false) => query.OrderBy(d => d.Vendor), ("vendor", true) => query.OrderByDescending(d => d.Vendor),
         ("vlan", false) => query.OrderBy(d => d.Vlan), ("vlan", true) => query.OrderByDescending(d => d.Vlan),
         ("lastseen", false) => query.OrderBy(d => d.LastSeen), _ => query.OrderByDescending(d => d.LastSeen),
     };
@@ -141,9 +148,9 @@ public class DeviceQueryService(AppDbContext db, IOptions<DiscoveryOptions> opt)
         var o = opt.Value;
         var items = await query.Select(d => new
         { d.Id, d.Hostname, d.HostnameSource, d.IpAddress, d.Mac, d.SwitchId, SwitchName = d.Switch != null ? d.Switch.Name : null,
-          d.PortId, IfIndex = d.Port != null ? (int?)d.Port.IfIndex : null, PortName = d.Port != null ? d.Port.Name : null, d.Vlan, d.FirstSeen, d.LastSeen, d.LowConfidence }).ToListAsync(ct);
+          d.PortId, IfIndex = d.Port != null ? (int?)d.Port.IfIndex : null, PortName = d.Port != null ? d.Port.Name : null, d.Vlan, d.FirstSeen, d.LastSeen, d.LowConfidence, d.Vendor }).ToListAsync(ct);
         return items.Select(d => new DeviceDto(d.Id, d.Hostname, d.HostnameSource, d.IpAddress, MacAddress.Format(d.Mac), d.SwitchId, d.SwitchName,
-            d.PortId, d.IfIndex, d.PortName, d.Vlan, DeviceStates.Compute(d.LastSeen, now, o), d.FirstSeen, d.LastSeen, d.LowConfidence)).ToList();
+            d.PortId, d.IfIndex, d.PortName, d.Vlan, DeviceStates.Compute(d.LastSeen, now, o), d.FirstSeen, d.LastSeen, d.LowConfidence, VendorText.Of(d.Vendor, d.Mac))).ToList();
     }
 
     public async Task<Paged<DeviceDto>> ListAsync(DeviceQuery q, CancellationToken ct)
@@ -179,7 +186,7 @@ public class DeviceQueryService(AppDbContext db, IOptions<DiscoveryOptions> opt)
         var sightings = obs.OrderByDescending(x => x.LastSeen).Select(x => new SightingDto(x.SwitchId, names.GetValueOrDefault(x.SwitchId, "?"), x.p.Id, x.p.IfIndex, x.p.Name,
             x.p.PortType == PortType.SwitchUplink, counts.GetValueOrDefault(x.p.Id), x.Vlan, x.LastSeen)).ToList();
         var dto = new DeviceDto(d.Id, d.Hostname, d.HostnameSource, d.IpAddress, MacAddress.Format(d.Mac), d.SwitchId, d.Switch?.Name, d.PortId, d.Port?.IfIndex, d.Port?.Name, d.Vlan,
-            DeviceStates.Compute(d.LastSeen, now, o), d.FirstSeen, d.LastSeen, d.LowConfidence);
+            DeviceStates.Compute(d.LastSeen, now, o), d.FirstSeen, d.LastSeen, d.LowConfidence, VendorText.Of(d.Vendor, d.Mac));
         var note = d.SwitchId is null ? "Not seen on an edge port yet: it has only been learned behind switch uplinks. Scan the switch it connects to."
             : d.LowConfidence ? "Seen on more than one edge port; the port with the fewest MAC addresses was chosen." : "Learned on an edge port (not a switch uplink).";
         return new DeviceDetailDto(dto, ipSource, d.IpObservedAt, note, sightings);

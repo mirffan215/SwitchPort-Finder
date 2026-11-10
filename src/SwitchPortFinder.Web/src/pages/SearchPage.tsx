@@ -10,6 +10,7 @@ export function DeviceCard({ d }: { d: DeviceRow }) {
       <dl className="kv cols">
         <dt>IP</dt><dd>{d.ip ?? <span className="muted">Unknown</span>}</dd>
         <dt>MAC</dt><dd className="mono">{d.mac}</dd>
+        <dt>Product</dt><dd>{d.vendor ?? <span className="muted">Unknown</span>}</dd>
         <dt>Switch</dt><dd>{d.switchId ? <Link to={`/switches/${d.switchId}`}>{d.switchName}</Link> : <span className="muted">not determined yet</span>}</dd>
         <dt>Port</dt><dd>{d.portName ?? '—'}</dd>
         <dt>VLAN</dt><dd>{d.vlan ?? '—'}</dd>

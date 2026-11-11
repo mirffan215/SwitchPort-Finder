@@ -47,6 +47,8 @@ public static class DependencyInjection
         services.AddScoped<SwitchPortFinder.Infrastructure.Security.UserService>();
         services.AddScoped<SwitchPortFinder.Infrastructure.Security.MfaService>();
         services.AddScoped<ClassificationService>();
+        services.AddSingleton<SwitchPortFinder.Infrastructure.Notifications.MailSender>();
+        services.AddScoped<SwitchPortFinder.Infrastructure.Notifications.AlertService>();
         services.AddScoped<SwitchPortFinder.Infrastructure.Reports.ReportEngine>();
         services.AddScoped<SwitchPortFinder.Infrastructure.Reports.ReportService>();
         services.AddScoped<ManualDeviceService>();
@@ -62,6 +64,7 @@ public static class DependencyInjection
         services.AddHostedService<DiscoveryWorker>();
         services.AddHostedService<VendorBackfillService>();
         services.AddHostedService<HealthPollService>();
+        services.AddHostedService<SwitchPortFinder.Infrastructure.Notifications.AlertWorker>();
         return services;
     }
 }

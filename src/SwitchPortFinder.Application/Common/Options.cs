@@ -35,7 +35,7 @@ public class SecurityOptions
     public bool Hsts { get; set; }
 }
 
-/// <summary>Refuses SNMP targets that can never be a switch (and would make the portal a probe for the server itself).</summary>
+/// <summary>Refuses SNMP and mail-server targets that can never be a switch (and would make the portal a probe for the server itself or for cloud metadata).</summary>
 public static class TargetPolicy
 {
     public static string? Check(string ip, bool allowLoopback)
@@ -47,6 +47,8 @@ public static class TargetPolicy
         if (a.Equals(System.Net.IPAddress.Broadcast)) return "The broadcast address is not a valid switch address.";
         if (b.Length == 4 && b[0] >= 224 && b[0] <= 239 || b.Length == 16 && b[0] == 0xff) return "Multicast addresses are not valid switch addresses.";
         if (System.Net.IPAddress.IsLoopback(a) && !allowLoopback) return "Loopback addresses cannot be switches. Use the switch's management IP.";
+        // Link-local (169.254.0.0/16, fe80::/10) is where cloud metadata services live (169.254.169.254) and is never a managed device or mail server.
+        if (!allowLoopback && (b.Length == 4 && b[0] == 169 && b[1] == 254 || b.Length == 16 && b[0] == 0xfe && (b[1] & 0xc0) == 0x80)) return "Link-local addresses (169.254.x.x, fe80::) are not allowed.";
         return null;
     }
 }

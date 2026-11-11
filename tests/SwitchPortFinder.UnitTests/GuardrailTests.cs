@@ -78,7 +78,7 @@ public class GuardrailTests
 public class TargetPolicyTests
 {
     [Theory]
-    [InlineData("192.0.2.1")] [InlineData("2001:db8::1")] [InlineData("169.254.1.1")] [InlineData("100.64.0.1")] [InlineData("10.0.0.1")]
+    [InlineData("192.0.2.1")] [InlineData("2001:db8::1")] [InlineData("100.64.0.1")] [InlineData("10.0.0.1")]
     public void Ordinary_unicast_addresses_are_allowed(string ip) => TargetPolicy.Check(ip, allowLoopback: false).Should().BeNull();
 
     [Theory]
@@ -92,4 +92,15 @@ public class TargetPolicyTests
     }
 
     [Fact] public void Garbage_is_rejected() => TargetPolicy.Check("not-an-ip", true).Should().NotBeNull();
+}
+
+public class TargetPolicyLinkLocalTests
+{
+    [Theory] [InlineData("169.254.169.254")] [InlineData("169.254.0.1")] [InlineData("fe80::1")] [InlineData("febf::abcd")]
+    public void Link_local_and_cloud_metadata_addresses_are_refused(string ip) => TargetPolicy.Check(ip, allowLoopback: false).Should().NotBeNull();
+
+    [Theory] [InlineData("169.253.0.1")] [InlineData("169.255.0.1")] [InlineData("fec0::1")] [InlineData("10.0.0.1")] [InlineData("192.168.1.1")]
+    public void Neighbouring_ranges_and_normal_private_addresses_are_still_allowed(string ip) => TargetPolicy.Check(ip, allowLoopback: false).Should().BeNull();
+
+    [Fact] public void Development_may_still_use_local_addresses() => TargetPolicy.Check("169.254.1.1", allowLoopback: true).Should().BeNull();
 }

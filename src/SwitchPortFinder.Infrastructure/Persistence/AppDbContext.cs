@@ -9,6 +9,10 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<SwitchMetricSample> SwitchMetrics => Set<SwitchMetricSample>();
     public DbSet<PortMetricSample> PortMetrics => Set<PortMetricSample>();
     public DbSet<ReportDefinition> Reports => Set<ReportDefinition>();
+    public DbSet<NotificationConfig> NotificationConfigs => Set<NotificationConfig>();
+    public DbSet<AlertRule> AlertRules => Set<AlertRule>();
+    public DbSet<AlertEvent> AlertEvents => Set<AlertEvent>();
+    public DbSet<NotificationLogEntry> NotificationLog => Set<NotificationLogEntry>();
     public DbSet<SwitchCredential> SwitchCredentials => Set<SwitchCredential>();
     public DbSet<CredentialProfile> CredentialProfiles => Set<CredentialProfile>();
     public DbSet<ImportBatch> ImportBatches => Set<ImportBatch>();
@@ -28,6 +32,10 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         b.Entity<SwitchMetricSample>(e => { e.HasOne(x => x.Switch).WithMany().HasForeignKey(x => x.SwitchId).OnDelete(DeleteBehavior.Cascade); e.HasIndex(x => new { x.SwitchId, x.At }); e.HasIndex(x => x.At); });
         // No foreign key to the port: SQL Server forbids a second cascade path (switch -> port and switch -> sample). Samples are removed with the switch by the retention job.
         b.Entity<PortMetricSample>(e => { e.HasIndex(x => new { x.PortId, x.At }); e.HasIndex(x => x.At); e.HasIndex(x => new { x.SwitchId, x.At }); e.Ignore(x => x.Port); });
+        b.Entity<NotificationConfig>(e => { e.HasKey(x => x.Id); e.Property(x => x.Id).ValueGeneratedNever(); e.Property(x => x.Host).HasMaxLength(255); e.Property(x => x.Username).HasMaxLength(255); e.Property(x => x.FromAddress).HasMaxLength(255); e.Property(x => x.FromName).HasMaxLength(100); e.Property(x => x.Recipients).HasMaxLength(2000); e.Property(x => x.PublicBaseUrl).HasMaxLength(255); });
+        b.Entity<AlertRule>(e => { e.Property(x => x.Name).HasMaxLength(150).IsRequired(); e.HasIndex(x => x.Type); });
+        b.Entity<AlertEvent>(e => { e.HasOne(x => x.Rule).WithMany().HasForeignKey(x => x.RuleId).OnDelete(DeleteBehavior.Cascade); e.Property(x => x.Subject).HasMaxLength(60).IsRequired(); e.Property(x => x.Title).HasMaxLength(300); e.Property(x => x.Detail).HasMaxLength(1000); e.HasIndex(x => new { x.RuleId, x.Subject, x.State }); e.HasIndex(x => x.State); });
+        b.Entity<NotificationLogEntry>(e => { e.Property(x => x.Recipients).HasMaxLength(2000); e.Property(x => x.Subject).HasMaxLength(300); e.Property(x => x.Error).HasMaxLength(500); e.HasIndex(x => x.At); });
         b.Entity<ReportDefinition>(e => { e.Property(x => x.Name).HasMaxLength(150).IsRequired(); e.Property(x => x.Json).IsRequired(); e.Property(x => x.CreatedBy).HasMaxLength(100); e.HasIndex(x => x.Name); });
         b.Entity<Switch>(e =>
         {

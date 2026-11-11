@@ -121,7 +121,7 @@ public class ApiFixture : WebApplicationFactory<Program>, IDisposable
         {
             ["Database:Provider"] = provider, ["Database:AutoMigrate"] = "true",
             ["ConnectionStrings:Default"] = conn, ["Security:KeysPath"] = KeysPath,
-            ["Serilog:MinimumLevel:Default"] = "Debug", ["Snmp:TimeoutMs"] = "500", ["Snmp:Retries"] = "0", ["Discovery:HealthPollMinutes"] = "0",   // the background poll is driven explicitly by the tests that need it
+            ["Serilog:MinimumLevel:Default"] = "Debug", ["Snmp:TimeoutMs"] = "500", ["Snmp:Retries"] = "0", ["Discovery:HealthPollMinutes"] = "0", ["Notifications:Worker"] = "false",   // the background poll is driven explicitly by the tests that need it
         }) builder.UseSetting(k, v);
         builder.ConfigureServices(s =>
         {

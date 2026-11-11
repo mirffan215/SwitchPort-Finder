@@ -9,11 +9,11 @@ This is a thorough internal test with repeatable tooling. It is **not a substitu
 
 | Area | Tool | Result |
 |---|---|---|
-| Unit tests | `dotnet test` | **345 passed**, 0 failed |
-| Integration tests (SQLite) | `dotnet test` | **105 passed**, 0 failed |
-| Integration tests on **real SQL Server 2022** | `tools/sqlserver/run-sqlserver-tests.sh` | **101 passed**, 0 failed (performance tests excluded; migrations Phase1-Phase11 applied) |
-| Black-box penetration test | `tools/security/pentest.py` (HTTPS + SQL Server) | **94 checks passed**, 0 failed |
-| Browser QA + accessibility (WCAG 2.1 AA, dark and light) | `tools/qa/ui-qa.js` (HTTPS + SQL Server) | **47 checks passed**, 0 failed |
+| Unit tests | `dotnet test` | **388 passed**, 0 failed |
+| Integration tests (SQLite) | `dotnet test` | **142 passed**, 0 failed |
+| Integration tests on **real SQL Server 2022** | `tools/sqlserver/run-sqlserver-tests.sh` | **138 passed**, 0 failed (performance tests excluded; migrations Phase1-Phase15 applied) |
+| Black-box penetration test | `tools/security/pentest.py` (HTTPS + SQL Server) | **117 checks passed**, 0 failed (includes MFA, report, mail-server and credential-export attacks) |
+| Browser QA + accessibility (WCAG 2.1 AA, dark and light) | `tools/qa/ui-qa.js` (HTTPS + SQL Server) | **68 checks passed**, 0 failed (includes MFA sign-in, reports, PDF/Excel export, notifications tab) |
 | Load | `tools/security/loadtest.py`, 30 concurrent clients | 2,700 requests, ~800 req/s, **0 server errors**, p95 < 70 ms |
 | Dependency audit | `dotnet list package --vulnerable --include-transitive`, `npm audit` | **0 vulnerable packages** |
 | Secrets scan of tracked files | pattern search | none found |

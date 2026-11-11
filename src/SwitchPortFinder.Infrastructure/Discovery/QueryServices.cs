@@ -152,6 +152,8 @@ public class DeviceQueryService(AppDbContext db, IOptions<DiscoveryOptions> opt)
         var query = db.Devices.AsNoTracking().AsQueryable();
         if (q.SwitchId is { } sid) query = query.Where(d => d.SwitchId == sid);
         if (q.Category is { } cat) query = query.Where(d => d.Category == cat);
+        if (q.PortId is { } pid) query = query.Where(d => d.PortId == pid);
+        if (q.ExcludeId is { } ex) query = query.Where(d => d.Id != ex);
         if (q.State is { } st)
         {
             // reference = the last scan of the device's switch (else the newest scan anywhere): see DeviceStates
@@ -214,7 +216,7 @@ public class DeviceQueryService(AppDbContext db, IOptions<DiscoveryOptions> opt)
         var macs = new Dictionary<int, int>(); var neigh = new Dictionary<int, string>();
         foreach (var chunk in portIds.Chunk(800))
         {
-            foreach (var g in await db.Observations.AsNoTracking().Where(o => chunk.Contains(o.PortId)).GroupBy(o => o.PortId).Select(g => new { g.Key, N = g.Count() }).ToListAsync(ct)) macs[g.Key] = g.N;
+            foreach (var g in await db.Devices.AsNoTracking().Where(d => d.PortId != null && chunk.Contains(d.PortId!.Value)).GroupBy(d => d.PortId!.Value).Select(g => new { g.Key, N = g.Count() }).ToListAsync(ct)) macs[g.Key] = g.N;
             foreach (var n in await db.Neighbors.AsNoTracking().Where(n => chunk.Contains(n.PortId) && n.Protocol != NeighborProtocol.Inferred).Select(n => new { n.PortId, n.SysName, n.Platform }).ToListAsync(ct))
                 neigh[n.PortId] = string.Join(" · ", new[] { n.SysName, n.Platform }.Where(x => !string.IsNullOrWhiteSpace(x)));
         }

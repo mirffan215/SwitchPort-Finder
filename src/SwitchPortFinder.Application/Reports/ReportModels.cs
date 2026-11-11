@@ -22,6 +22,8 @@ public class ReportQuery
     public List<string>? GroupBy { get; set; }
     public List<ReportMeasure>? Measures { get; set; }
     public List<ReportFilter>? Filters { get; set; }
+    /// <summary>Only these switches (empty/null = all). For history datasets the filter is applied in the database.</summary>
+    public List<int>? SwitchIds { get; set; }
     public DateTime? From { get; set; }
     public DateTime? To { get; set; }
     /// <summary>hour | day | week | month: how the "at" field is grouped in a summary.</summary>

@@ -12,16 +12,17 @@ export default function DevicesPage() {
   const [q, setQ] = useState(''); const [dq, setDq] = useState('');
   const [page, setPage] = useState(1); const [size, setSize] = useState(50);
   const [sort, setSort] = useState('lastseen'); const [desc, setDesc] = useState(true);
-  const [sp] = useSearchParams();
+  const [sp, setSp] = useSearchParams();
+  const portId = sp.get('portId') ?? ''; const excludeId = sp.get('excludeId') ?? ''; const behind = sp.get('behind') ?? '';
   const [state, setState] = useState(sp.get('state') ?? ''); const [category, setCategory] = useState(sp.get('category') ?? '');
   useEffect(() => { const t = setTimeout(() => { setDq(q); setPage(1); }, 300); return () => clearTimeout(t); }, [q]);   // debounce
   const { data, error, isFetching } = useQuery({
-    queryKey: ['devices', dq, page, size, sort, desc, state, category],
-    queryFn: () => api.devices({ q: dq, page, pageSize: size, sort, desc, state, category }),
+    queryKey: ['devices', dq, page, size, sort, desc, state, category, portId, excludeId],
+    queryFn: () => api.devices({ q: dq, page, pageSize: size, sort, desc, state, category, portId: portId || undefined, excludeId: excludeId || undefined }),
     placeholderData: keepPreviousData,
   });
   // Export uses exactly the filters and sorting currently applied (never the page).
-  const exportHref = (fmt: string) => `/api/export/devices?${new URLSearchParams({ format: fmt, ...(dq ? { q: dq } : {}), ...(state ? { state } : {}), ...(category ? { category } : {}), sort, desc: String(desc) })}`;
+  const exportHref = (fmt: string) => `/api/export/devices?${new URLSearchParams({ format: fmt, ...(dq ? { q: dq } : {}), ...(state ? { state } : {}), ...(category ? { category } : {}), ...(portId ? { portId } : {}), ...(excludeId ? { excludeId } : {}), sort, desc: String(desc) })}`;
   const pages = data ? Math.max(1, Math.ceil(data.total / data.pageSize)) : 1;
   const th = (k: string, label: string) => k
     ? <th key={label} className="sortable" onClick={() => { if (sort === k) setDesc(!desc); else { setSort(k); setDesc(false); } }}>{label}{sort === k ? (desc ? ' ▼' : ' ▲') : ''}</th>
@@ -35,6 +36,7 @@ export default function DevicesPage() {
         <select value={category} onChange={(e) => { setCategory(e.target.value); setPage(1); }} aria-label="Type"><option value="">All types</option>{CATEGORIES.map((c) => <option key={c} value={c}>{categoryLabel(c)}</option>)}</select>
         <select value={state} onChange={(e) => { setState(e.target.value); setPage(1); }} aria-label="State"><option value="">All states</option><option value="Active">Online</option><option value="Offline">Offline</option><option value="Stale">Stale</option></select>
       </div>
+      {portId && <div className="fchips"><button className="chipbtn" onClick={() => { const n = new URLSearchParams(sp); ['portId', 'excludeId', 'behind'].forEach((k) => n.delete(k)); setSp(n); }} title="Show all devices again">Devices behind {behind || 'this port'}</button></div>}
       <ErrorBox error={error} />
       <div className="tablewrap" style={{ opacity: isFetching ? 0.7 : 1 }}>
         <table>

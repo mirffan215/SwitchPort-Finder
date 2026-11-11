@@ -9,7 +9,7 @@ namespace SwitchPortFinder.Api.Controllers;
 /// <summary>Report builder: datasets, running a query, Excel/CSV export and saved definitions. Running and exporting only read data, so viewers may use them; saving needs an administrator.</summary>
 [ApiController]
 [Route("api/reports")]
-public class ReportsController(ReportEngine engine, ReportService saved, SwitchPortFinder.Application.Abstractions.IUserAuthorizationService who) : ControllerBase
+public class ReportsController(ReportEngine engine, ReportService saved, SwitchNameLookup swRepo, SwitchPortFinder.Application.Abstractions.IUserAuthorizationService who) : ControllerBase
 {
     [HttpGet("datasets")] public IActionResult Datasets() => Ok(ReportEngine.Datasets);
 
@@ -27,7 +27,8 @@ public class ReportsController(ReportEngine engine, ReportService saved, SwitchP
         var stamp = DateTime.UtcNow.ToString("yyyyMMdd-HHmm");
         if (format.Equals("csv", StringComparison.OrdinalIgnoreCase)) return File(ReportExportBuilder.Csv(r), "text/csv", $"{safe}-{stamp}.csv");
         var d = ReportEngine.Datasets.First(x => x.Key == req.Query.Dataset);
-        var desc = $"Dataset: {d.Label}\nFilters: {(req.Query.Filters is { Count: > 0 } f ? string.Join("; ", f.Select(x => $"{x.Field} {x.Op} {x.Value}")) : "none")}\nGrouped by: {(req.Query.GroupBy is { Count: > 0 } g ? string.Join(", ", g) : "—")}\nPeriod: {(d.History ? $"{(req.Query.From ?? DateTime.UtcNow.AddDays(-7)):yyyy-MM-dd} to {(req.Query.To ?? DateTime.UtcNow):yyyy-MM-dd}" : "current state")}";
+        var swNames = req.Query.SwitchIds is { Count: > 0 } ids ? string.Join(", ", await swRepo.NamesAsync(ids, ct)) : "all";
+        var desc = $"Dataset: {d.Label}\nSwitches: {swNames}\nFilters: {(req.Query.Filters is { Count: > 0 } f ? string.Join("; ", f.Select(x => $"{x.Field} {x.Op} {x.Value}")) : "none")}\nGrouped by: {(req.Query.GroupBy is { Count: > 0 } g ? string.Join(", ", g) : "—")}\nPeriod: {(d.History ? $"{(req.Query.From ?? DateTime.UtcNow.AddDays(-7)):yyyy-MM-dd} to {(req.Query.To ?? DateTime.UtcNow):yyyy-MM-dd}" : "current state")}";
         return File(ReportExportBuilder.Xlsx(r, title, desc), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", $"{safe}-{stamp}.xlsx");
     }
 

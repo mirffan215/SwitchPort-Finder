@@ -6,9 +6,9 @@ import { useAuth } from '../components/Auth';
 import { Donut, Gauge, XYChart, PALETTE } from '../components/Charts';
 
 type Chart = 'table' | 'column' | 'bar' | 'line' | 'area' | 'donut' | 'gauge' | 'kpi';
-interface Def { title: string; dataset: string; mode: 'summary' | 'table'; chart: Chart; columns: string[]; groupBy: string[]; measures: ReportMeasure[]; filters: ReportFilter[]; range: string; from?: string; to?: string; bucket: string; sortBy?: string; desc: boolean; limit: number }
+interface Def { switchIds: number[]; title: string; dataset: string; mode: 'summary' | 'table'; chart: Chart; columns: string[]; groupBy: string[]; measures: ReportMeasure[]; filters: ReportFilter[]; range: string; from?: string; to?: string; bucket: string; sortBy?: string; desc: boolean; limit: number }
 
-const BASE: Def = { title: 'New report', dataset: 'switches', mode: 'table', chart: 'table', columns: [], groupBy: [], measures: [], filters: [], range: '7d', bucket: 'day', desc: true, limit: 50 };
+const BASE: Def = { switchIds: [], title: 'New report', dataset: 'switches', mode: 'table', chart: 'table', columns: [], groupBy: [], measures: [], filters: [], range: '7d', bucket: 'day', desc: true, limit: 50 };
 const CHARTS: [Chart, string][] = [['table', 'Table'], ['column', 'Columns'], ['bar', 'Bars'], ['line', 'Line'], ['area', 'Area'], ['donut', 'Donut'], ['gauge', 'Gauges'], ['kpi', 'Numbers']];
 const RANGES: [string, string, number][] = [['24h', 'Last 24 hours', 1], ['7d', 'Last 7 days', 7], ['30d', 'Last 30 days', 30], ['90d', 'Last 90 days', 90], ['custom', 'Custom', 0]];
 const AGGS = [['avg', 'Average'], ['max', 'Maximum'], ['min', 'Minimum'], ['sum', 'Total'], ['count', 'Count'], ['distinct', 'Distinct count']];
@@ -32,7 +32,7 @@ const PRESETS: { name: string; def: Partial<Def> }[] = [
 
 function toQuery(d: Def): ReportQuery {
   const days = RANGES.find((r) => r[0] === d.range)?.[2] ?? 7; const now = new Date();
-  const q: ReportQuery = { dataset: d.dataset, filters: d.filters.filter((f) => f.field && (f.value ?? '') !== ''), sortBy: d.sortBy || undefined, desc: d.desc, limit: d.limit };
+  const q: ReportQuery = { dataset: d.dataset, switchIds: d.switchIds?.length ? d.switchIds : undefined, filters: d.filters.filter((f) => f.field && (f.value ?? '') !== ''), sortBy: d.sortBy || undefined, desc: d.desc, limit: d.limit };
   if (d.range === 'custom') { if (d.from) q.from = new Date(d.from).toISOString(); if (d.to) q.to = new Date(new Date(d.to).getTime() + 86_399_000).toISOString(); }
   else { q.from = new Date(now.getTime() - days * 86_400_000).toISOString(); q.to = now.toISOString(); }
   if (d.mode === 'table') q.columns = d.columns; else { q.groupBy = d.groupBy; q.measures = d.measures.length ? d.measures : [{ field: '*', agg: 'count' }]; q.timeBucket = d.bucket; }
@@ -49,12 +49,13 @@ export default function ReportsPage() {
   const set = (p: Partial<Def>) => setDef((d) => ({ ...d, ...p }));
   const datasets = useQuery({ queryKey: ['report-datasets'], queryFn: api.reportDatasets, staleTime: Infinity });
   const saved = useQuery({ queryKey: ['reports'], queryFn: api.savedReports });
+  const switches = useQuery({ queryKey: ['switches'], queryFn: api.listSwitches });
   const ds = datasets.data?.find((x) => x.key === def.dataset); const fields = ds?.fields ?? [];
   const nums = fields.filter((f) => f.type === 'Number'); const dims = fields.filter((f) => f.type !== 'Number' || !f.measure);
   const qDef = useDebounced(def);
   const res = useQuery({ queryKey: ['report-run', JSON.stringify({ ...qDef, title: '' })], queryFn: () => api.runReport(toQuery(qDef)), placeholderData: keepPreviousData, enabled: !!ds && (qDef.mode === 'summary' || qDef.columns.length > 0) });
 
-  const choose = (name: string, d: Partial<Def>) => { setDef({ ...BASE, ...d, title: name }); setSavedId(null); setMsg(null); };
+  const choose = (name: string, d: Partial<Def>) => { setDef({ ...BASE, ...d, title: name, switchIds: def.switchIds ?? [] }); setSavedId(null); setMsg(null); };
   const changeDataset = (key: string) => { const f = datasets.data?.find((x) => x.key === key); set({ dataset: key, columns: f?.fields.slice(0, 6).map((x) => x.key) ?? [], groupBy: [], measures: [], filters: [], sortBy: undefined, range: f?.history ? '7d' : def.range }); };
   const addMeasure = () => set({ measures: [...def.measures, { field: nums[0]?.key ?? '*', agg: nums.length ? 'avg' : 'count' }] });
   const pick = (cat: string) => { if (def.mode === 'summary' && def.groupBy.length === 1 && def.groupBy[0] !== 'at') set({ filters: [...def.filters.filter((f) => !(f.field === def.groupBy[0] && f.op === 'eq')), { field: def.groupBy[0], op: 'eq', value: cat }] }); };
@@ -85,6 +86,9 @@ export default function ReportsPage() {
           <div><h3>Start from</h3>
             <div className="presets">{PRESETS.map((p) => <button key={p.name} className="btn small" style={{ marginLeft: 0 }} onClick={() => choose(p.name, p.def)}>{p.name}</button>)}</div>
             {(saved.data?.length ?? 0) > 0 && <label className="field" style={{ marginTop: 8 }}><span>Saved reports</span><select value={savedId ?? ''} onChange={(e) => { const r = saved.data?.find((x) => x.id === Number(e.target.value)); if (r) load(r); }}><option value="">— choose —</option>{saved.data?.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}</select></label>}
+          </div>
+          <div><h3>Switches</h3>
+            <SwitchPicker all={switches.data ?? []} value={def.switchIds ?? []} onChange={(v) => set({ switchIds: v })} />
           </div>
           <div><h3>Data</h3>
             <select value={def.dataset} onChange={(e) => changeDataset(e.target.value)} aria-label="Dataset">{datasets.data?.map((d) => <option key={d.key} value={d.key}>{d.label}</option>)}</select>
@@ -154,7 +158,8 @@ export default function ReportsPage() {
 
 function subtitle(d: Def, label?: string) {
   const days = RANGES.find((r) => r[0] === d.range); const hist = ['switch_health', 'port_traffic', 'availability'].includes(d.dataset);
-  return `${label ?? d.dataset}${hist ? ` · ${d.range === 'custom' ? `${d.from ?? '…'} to ${d.to ?? 'now'}` : days?.[1]}` : ' · current state'}`;
+  const sw = d.switchIds?.length ? ` · ${d.switchIds.length} switch${d.switchIds.length === 1 ? '' : 'es'}` : ' · all switches';
+  return `${label ?? d.dataset}${sw}${hist ? ` · ${d.range === 'custom' ? `${d.from ?? '…'} to ${d.to ?? 'now'}` : days?.[1]}` : ' · current state'}`;
 }
 
 function Viz({ res, def, onPick, onSort }: { res: ReportResult; def: Def; onPick: (c: string) => void; onSort: (k: string) => void }) {
@@ -193,4 +198,28 @@ function Viz({ res, def, onPick, onSort }: { res: ReportResult; def: Def; onPick
     return <ul className="hbars">{res.rows.map((r, k) => <li key={k}><button type="button" onClick={() => onPick(cats[k])}><span className="hb-name" title={cats[k]}>{cats[k]}</span><span className="hb-track"><i style={{ width: `${Math.max(2, (Math.abs(Number(r[i0] ?? 0)) / max) * 100)}%`, background: 'var(--accent)' }} /></span><span className="hb-val">{fmt(typeof r[i0] === 'number' ? r[i0] : null, c0.unit)}</span></button></li>)}</ul>;
   }
   return <XYChart kind={def.chart as 'column' | 'line' | 'area'} cats={cats} series={series} unit={series.length === 1 ? c0.unit ?? undefined : undefined} onPick={onPick} />;
+}
+
+/** Pick one, several or all switches (empty = all). */
+function SwitchPicker({ all, value, onChange }: { all: { id: number; name: string }[]; value: number[]; onChange: (v: number[]) => void }) {
+  const [open, setOpen] = useState(false); const [f, setF] = useState('');
+  const shown = all.filter((s) => s.name.toLowerCase().includes(f.toLowerCase()));
+  const toggle = (id: number) => onChange(value.includes(id) ? value.filter((x) => x !== id) : [...value, id]);
+  const label = value.length === 0 ? 'All switches' : value.length === 1 ? (all.find((s) => s.id === value[0])?.name ?? '1 switch') : `${value.length} switches`;
+  return (
+    <div>
+      <button type="button" className="btn" style={{ width: '100%', textAlign: 'left' }} aria-expanded={open} onClick={() => setOpen(!open)}>{label} <span className="muted" style={{ float: 'right' }}>{open ? '▲' : '▼'}</span></button>
+      {open && (
+        <div style={{ border: '1px solid var(--line)', borderRadius: 10, padding: 8, marginTop: 6, background: 'var(--panel2)' }}>
+          <input placeholder="Find a switch" aria-label="Find a switch" value={f} onChange={(e) => setF(e.target.value)} style={{ width: '100%', marginBottom: 6 }} />
+          <div className="buttons" style={{ marginBottom: 6 }}><button type="button" className="btn small" style={{ marginLeft: 0 }} onClick={() => onChange(all.map((s) => s.id))}>Select all</button><button type="button" className="btn small" onClick={() => onChange([])}>Clear (all switches)</button></div>
+          <div style={{ maxHeight: 200, overflow: 'auto', display: 'grid', gap: 2 }}>
+            {shown.map((s) => <label key={s.id} className="check"><input type="checkbox" checked={value.includes(s.id)} onChange={() => toggle(s.id)} /> {s.name}</label>)}
+            {shown.length === 0 && <span className="muted small">No switch matches.</span>}
+          </div>
+        </div>
+      )}
+      {value.length > 0 && <div className="chips" style={{ marginTop: 6 }}>{value.slice(0, 6).map((id) => <button key={id} type="button" className="chipbtn" onClick={() => toggle(id)} title="Remove">{all.find((s) => s.id === id)?.name ?? id} ✕</button>)}{value.length > 6 && <span className="muted small">+{value.length - 6} more</span>}</div>}
+    </div>
+  );
 }

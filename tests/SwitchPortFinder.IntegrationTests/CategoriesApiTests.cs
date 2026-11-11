@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using FluentAssertions;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using SwitchPortFinder.Application.Common;
 using SwitchPortFinder.Application.Discovery;
@@ -49,7 +50,7 @@ public class CategoriesApiTests(ApiFixture fx)
     {
         var (_, ids) = await Seed();
         (await _http.PostAsync("/api/categories/reapply", null)).StatusCode.Should().Be(HttpStatusCode.OK);
-        (await Names("AccessPoint")).Should().Equal("CAT-cdp", "CAT-grand", "CAT-lldp", "CAT-vlan50");
+        (await Names("AccessPoint")).Should().Equal("CAT-cdp", "CAT-grand", "CAT-lldp");   // CAT-vlan50 is a plain Cisco device in VLAN 50: VLAN alone no longer makes an access point
         (await Names("IpPhone")).Should().Equal("SEP-CAT-001122334455");
         var plain = (await _http.GetFromJsonAsync<DeviceDetailDto>($"/api/devices/{ids["plain"]}", Json))!.Device; plain.Category.Should().BeNull(); 
         var lldp = (await _http.GetFromJsonAsync<DeviceDetailDto>($"/api/devices/{ids["lldp"]}", Json))!.Device; (lldp.Category, lldp.CategoryManual).Should().Be(("AccessPoint", false)); lldp.CategoryReason.Should().Contain("LLDP");
@@ -71,22 +72,23 @@ public class CategoriesApiTests(ApiFixture fx)
     }
 
     [Fact]
-    public async Task The_access_point_page_counts_online_and_offline_and_the_MACs_behind_each_port()
+    public async Task The_access_point_page_counts_online_and_offline_and_the_devices_behind_each_port()
     {
         var (sw, ids) = await Seed(); await _http.PostAsync("/api/categories/reapply", null);
         using (var scope = fx.Services.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
             var d = db.Devices.Single(x => x.Id == ids["cdp"]); d.LastSeen = DateTime.UtcNow.AddHours(-2);           // the latest scan of its switch did not find it
-            var portId = d.PortId!.Value; foreach (var m in new[] { "AA00000000C1", "AA00000000C2", "AA00000000C3" }) db.Observations.Add(new DeviceObservation { SwitchId = sw, PortId = portId, Mac = m, FirstSeen = DateTime.UtcNow, LastSeen = DateTime.UtcNow });
+            var portId = d.PortId!.Value; db.Devices.RemoveRange(db.Devices.Where(x => x.Hostname.StartsWith("CAT-client")));
+            foreach (var (m, i) in new[] { "AA00000000C1", "AA00000000C2", "AA00000000C3" }.Select((m, i) => (m, i))) db.Devices.Add(new Device { Mac = m, Hostname = "CAT-client" + i, FirstSeen = DateTime.UtcNow, LastSeen = DateTime.UtcNow, SwitchId = sw, PortId = portId });
             await db.SaveChangesAsync();
         }
         var r = (await _http.GetFromJsonAsync<AccessPointsResponse>("/api/access-points", Json))!;
         var mine = r.Items.Where(i => i.Device.Hostname.StartsWith("CAT-")).ToList();
-        mine.Should().HaveCount(4, "the lldp, cdp, grandstream and VLAN 50 devices; the phone stays a phone"); mine.Count(i => i.Device.State == DeviceState.Offline).Should().Be(1);
+        mine.Should().HaveCount(3, "the lldp, cdp and grandstream devices; a device in VLAN 50 is not an access point by VLAN alone"); mine.Count(i => i.Device.State == DeviceState.Offline).Should().Be(1);
         mine.Single(i => i.Device.Hostname == "CAT-cdp").ClientsBehind.Should().Be(3, "the AP's own MAC is not a client");
         mine.Single(i => i.Device.Hostname == "CAT-cdp").NeighborInfo.Should().Contain("AIR-AP3802I");
-        r.Summary.Total.Should().BeGreaterThanOrEqualTo(4); r.Summary.BySwitch.Should().Contain(k => k.Key == "CAT-SW");
+        r.Summary.Total.Should().BeGreaterThanOrEqualTo(3); r.Summary.BySwitch.Should().Contain(k => k.Key == "CAT-SW");
     }
 
     [Fact]
@@ -118,6 +120,57 @@ public class CategoriesApiTests(ApiFixture fx)
         db.Devices.Single(d => d.Id == ids["grand"]).LastSeen = DateTime.UtcNow; await db.SaveChangesAsync();
         await scope.ServiceProvider.GetRequiredService<AlertService>().EvaluateAsync(CancellationToken.None);
         (await _http.GetFromJsonAsync<AlertsResponse>("/api/alerts", Json))!.Active.Should().BeEmpty();
+    }
+}
+
+[Collection("api")]
+public class AccessPointClientsApiTests(ApiFixture fx)
+{
+    private readonly HttpClient _http = fx.CreateClient();
+    private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web) { Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() } };
+
+    [Fact]
+    public async Task Only_the_access_point_itself_is_an_access_point_not_the_Wi_Fi_clients_on_its_port_and_the_clients_can_be_listed()
+    {
+        int apId, portId; var clients = new List<int>();
+        using (var scope = fx.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            await scope.ServiceProvider.GetRequiredService<DeviceCategoryService>().EnsureDefaultRulesAsync(CancellationToken.None);
+            db.Devices.RemoveRange(db.Devices.Where(d => d.Hostname.Contains("WIFI-"))); db.Switches.RemoveRange(db.Switches.Where(s => s.Name == "WIFI-SW")); await db.SaveChangesAsync();
+            var sw = new Switch { Name = "WIFI-SW", ManagementIp = "198.18.90.1", LastScanAt = DateTime.UtcNow }; db.Switches.Add(sw); await db.SaveChangesAsync();
+            var port = new SwitchPort { SwitchId = sw.Id, IfIndex = 7, Name = "Gi1/0/7", OperUp = true, PortType = PortType.Endpoint }; db.SwitchPorts.Add(port); await db.SaveChangesAsync(); portId = port.Id;
+            // the AP announces itself by LLDP/CDP; its Ethernet MAC differs from the chassis MAC only in the last byte
+            db.Neighbors.Add(new SwitchNeighbor { SwitchId = sw.Id, PortId = port.Id, Protocol = NeighborProtocol.Cdp, RemoteKey = "ap", Platform = "cisco AIR-AP2802I-E-K9", SysName = "WIFI-ap-lobby", Caps = NeighborCaps.WlanAp, ChassisMac = "00AABB0000A0", MgmtIp = "10.50.0.9", FirstSeen = DateTime.UtcNow, LastSeen = DateTime.UtcNow });
+            var now = DateTime.UtcNow;
+            Device D(string n, string mac, string vendor) => new() { Mac = mac, Hostname = n, HostnameSource = HostnameSource.ReverseDns, Vendor = vendor, FirstSeen = now, LastSeen = now, SwitchId = sw.Id, PortId = port.Id, Vlan = 50 };
+            var ap = D("WIFI-ap-lobby", "00AABB0000A3", "Cisco Systems, Inc"); db.Devices.Add(ap);
+            var phone = D("WIFI-iphone", "AABBCC111111", "Apple, Inc."); var laptop = D("WIFI-laptop", "AABBCC222222", "Intel Corporate"); var cisco = D("WIFI-cisco-client", "00AABB999999", "Cisco Systems, Inc");   // a Cisco-made client in VLAN 50
+            db.Devices.AddRange(phone, laptop, cisco); await db.SaveChangesAsync(); apId = ap.Id; clients = [phone.Id, laptop.Id, cisco.Id];
+        }
+        await _http.PostAsync("/api/categories/reapply", null);
+        var all = (await _http.GetFromJsonAsync<Paged<DeviceDto>>("/api/devices?q=WIFI-&pageSize=50", Json))!.Items.ToDictionary(d => d.Hostname, d => d.Category);
+        all["WIFI-ap-lobby"].Should().Be("AccessPoint"); all["WIFI-iphone"].Should().BeNull(); all["WIFI-laptop"].Should().BeNull(); all["WIFI-cisco-client"].Should().BeNull();
+
+        var aps = (await _http.GetFromJsonAsync<AccessPointsResponse>("/api/access-points", Json))!.Items.Where(i => i.Device.Hostname.Contains("WIFI-")).ToList();
+        aps.Should().ContainSingle(); aps[0].ClientsBehind.Should().Be(3);
+        var behind = (await _http.GetFromJsonAsync<Paged<DeviceDto>>($"/api/devices?portId={portId}&excludeId={apId}&pageSize=50", Json))!;
+        behind.Total.Should().Be(3); behind.Items.Select(d => d.Id).Should().BeEquivalentTo(clients);
+    }
+
+    [Fact]
+    public async Task The_old_VLAN_50_rule_that_mislabelled_Wi_Fi_clients_is_switched_off_once_on_upgrade_and_devices_are_reclassified()
+    {
+        using var scope = fx.Services.CreateScope(); var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        await scope.ServiceProvider.GetRequiredService<DeviceCategoryService>().EnsureDefaultRulesAsync(CancellationToken.None);
+        db.AppSettings.RemoveRange(db.AppSettings.Where(s => s.Key == "fix:vlan50-rule"));
+        db.CategoryRules.Add(new CategoryRule { Name = "Anything in VLAN 50 (the access-point VLAN, mostly)", Category = DeviceCategory.AccessPoint, Priority = 90, Vlan = 50 }); await db.SaveChangesAsync();
+        db.Devices.RemoveRange(db.Devices.Where(d => d.Hostname == "WIFI-old-client")); await db.SaveChangesAsync();
+        var d = new Device { Mac = "AABBCC333333", Hostname = "WIFI-old-client", FirstSeen = DateTime.UtcNow, LastSeen = DateTime.UtcNow, Vlan = 50, Category = DeviceCategory.AccessPoint, CategoryReason = "old rule" }; db.Devices.Add(d); await db.SaveChangesAsync();
+        await scope.ServiceProvider.GetRequiredService<DeviceCategoryService>().EnsureDefaultRulesAsync(CancellationToken.None);
+        db.ChangeTracker.Clear();
+        (await db.CategoryRules.SingleAsync(r => r.Vlan == 50 && r.Category == DeviceCategory.AccessPoint && r.Priority == 90)).Enabled.Should().BeFalse();
+        (await db.Devices.SingleAsync(x => x.Id == d.Id)).Category.Should().Be(DeviceCategory.Unclassified, "the wrongly labelled client is reclassified");
     }
 }
 

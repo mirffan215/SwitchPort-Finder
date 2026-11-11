@@ -133,6 +133,23 @@ public class ReportsApiTests(ApiFixture fx)
         (await _http.GetAsync($"/api/reports/{id}")).StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
 
+    [Fact]
+    public async Task A_report_can_be_limited_to_one_or_several_switches_for_current_and_history_datasets()
+    {
+        var (a, b, nameA) = await Seed();
+        var one = Hist("switch_health"); one.SwitchIds = [a]; one.GroupBy = ["switch"]; one.Measures = [new("*", "count")];
+        var r1 = await Run(one); r1.Rows.Should().ContainSingle(); Str(r1.Rows[0][0]).Should().Be(nameA);
+        var both = Hist("switch_health"); both.SwitchIds = [a, b]; both.GroupBy = ["switch"]; both.Measures = [new("*", "count")]; (await Run(both)).Rows.Should().HaveCount(2);
+        var avail = Hist("availability"); avail.SwitchIds = [b]; avail.Columns = ["switch"]; (await Run(avail)).Rows.Should().ContainSingle();
+        var traffic = Hist("port_traffic"); traffic.SwitchIds = [b]; traffic.Columns = ["switch"]; (await Run(traffic)).Rows.Should().BeEmpty("only switch A has traffic samples");
+        var current = new ReportQuery { Dataset = "switches", Columns = ["name"], SwitchIds = [b] }; var rc = await Run(current); rc.Rows.Should().ContainSingle(); Str(rc.Rows[0][0]).Should().StartWith("RPT-B-");
+        var ports = new ReportQuery { Dataset = "ports", Columns = ["switch", "port"], SwitchIds = [a] }; (await Run(ports)).Rows.Should().OnlyContain(x => Str(x[0]) == nameA);
+        var none = new ReportQuery { Dataset = "switches", Columns = ["name"], SwitchIds = [999999] }; (await Run(none)).Rows.Should().BeEmpty();
+        var x = await _http.PostAsJsonAsync("/api/reports/export?format=xlsx", new { query = one, title = "one switch" }, Json);
+        using var wb = new ClosedXML.Excel.XLWorkbook(new MemoryStream(await x.Content.ReadAsByteArrayAsync()));
+        string.Join("|", wb.Worksheet("Definition").CellsUsed().Select(c => c.GetString())).Should().Contain("Switches: " + nameA);
+    }
+
     [Fact] public async Task The_dataset_catalogue_is_served() => (await _http.GetFromJsonAsync<List<DatasetDef>>("/api/reports/datasets", Json))!.Select(d => d.Key).Should().Contain(["switches", "ports", "devices", "switch_health", "port_traffic", "availability"]);
 }
 

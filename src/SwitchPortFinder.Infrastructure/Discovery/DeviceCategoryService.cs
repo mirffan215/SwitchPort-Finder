@@ -16,6 +16,24 @@ public class DeviceCategoryService(AppDbContext db, ILogger<DeviceCategoryServic
 {
     private static bool Has(string? hay, string? needle) => !string.IsNullOrEmpty(needle) && hay is not null && hay.Contains(needle, StringComparison.OrdinalIgnoreCase);
 
+    /// <summary>One LLDP/CDP neighbor seen on a switch port.</summary>
+    public sealed record NeighborInfo(string Text, NeighborCaps Caps, string? ChassisMac, string? MgmtIp, string? SysName);
+
+    /// <summary>
+    /// Several devices can sit on one switch port (an access point plus the Wi-Fi clients bridged through it), and the neighbor announcement belongs to ONE of them.
+    /// A neighbor is attributed to a device only when it is clearly that device: same chassis MAC (or the same first 5 bytes, as an access point's Ethernet and radio MACs
+    /// differ in the last byte), same management IP, same host name, or the device is the only one on the port.
+    /// </summary>
+    public static bool NeighborIsDevice(NeighborInfo n, string deviceMac, string? deviceIp, string deviceHostname, int devicesOnPort)
+    {
+        if (devicesOnPort <= 1) return true;
+        if (!string.IsNullOrEmpty(n.ChassisMac) && n.ChassisMac.Length == 12 && deviceMac.Length == 12 && (n.ChassisMac.Equals(deviceMac, StringComparison.OrdinalIgnoreCase) || n.ChassisMac[..10].Equals(deviceMac[..10], StringComparison.OrdinalIgnoreCase))) return true;
+        if (!string.IsNullOrEmpty(n.MgmtIp) && n.MgmtIp == deviceIp) return true;
+        static string Short(string s) => s.Split('.')[0].Trim();
+        if (!string.IsNullOrWhiteSpace(n.SysName) && deviceHostname != "" && Short(n.SysName).Equals(Short(deviceHostname), StringComparison.OrdinalIgnoreCase)) return true;
+        return false;
+    }
+
     /// <summary>Pure: the first matching rule by priority, or (Unclassified, "").</summary>
     public static (DeviceCategory Category, string Reason) Evaluate(IEnumerable<CategoryRule> rules, CategoryContext c)
     {
@@ -95,15 +113,22 @@ public class DeviceCategoryService(AppDbContext db, ILogger<DeviceCategoryServic
             R("Host name starts with WAP", DeviceCategory.AccessPoint, 32, hostStarts: "WAP"),
             R("Grandstream (GWN access points)", DeviceCategory.AccessPoint, 40, vendor: "Grandstream"),
             R("Ruijie in the access-point VLAN", DeviceCategory.AccessPoint, 41, vendor: "Ruijie", vlan: 50),
-            R("Anything in VLAN 50 (the access-point VLAN, mostly)", DeviceCategory.AccessPoint, 90, vlan: 50),
         ];
     }
 
+    private const string OldVlanRule = "Anything in VLAN 50 (the access-point VLAN, mostly)";
+
     public async Task EnsureDefaultRulesAsync(CancellationToken ct)
     {
-        if (await db.CategoryRules.AnyAsync(ct)) return;
-        db.CategoryRules.AddRange(DefaultRules());
-        await db.SaveChangesAsync(ct);
+        if (!await db.CategoryRules.AnyAsync(ct)) { db.CategoryRules.AddRange(DefaultRules()); await db.SaveChangesAsync(ct); return; }
+        // Upgrade fix (once): the first version shipped a rule "anything in VLAN 50 is an access point". Wi-Fi clients are in that VLAN too, so it labelled phones and laptops as access points.
+        if (!await db.AppSettings.AnyAsync(s => s.Key == "fix:vlan50-rule", ct))
+        {
+            var old = await db.CategoryRules.FirstOrDefaultAsync(r => r.Name == OldVlanRule && r.Enabled, ct);
+            if (old is not null) { old.Enabled = false; old.Name = "Anything in VLAN 50 (disabled: Wi-Fi clients are in this VLAN too)"; }
+            db.AppSettings.Add(new AppSetting { Key = "fix:vlan50-rule", Value = "1", UpdatedAt = DateTime.UtcNow }); await db.SaveChangesAsync(ct);
+            if (old is not null) await ReapplyAsync(ct);
+        }
     }
 
     // ------------------------------------------------------------------ applying
@@ -114,17 +139,19 @@ public class DeviceCategoryService(AppDbContext db, ILogger<DeviceCategoryServic
         var list = (devices ?? await db.Devices.Where(d => !d.CategoryManual).ToListAsync(ct)).Where(d => !d.CategoryManual).ToList();
         if (list.Count == 0) return 0;
         var portIds = list.Where(d => d.PortId != null).Select(d => d.PortId!.Value).Distinct().ToList();
-        var ports = new Dictionary<int, string?>(); var neighbors = new Dictionary<int, (string Text, NeighborCaps Caps)>();
+        var ports = new Dictionary<int, string?>(); var neighbors = new Dictionary<int, List<NeighborInfo>>(); var onPort = new Dictionary<int, int>();
         foreach (var chunk in portIds.Chunk(800))
         {
             foreach (var p in await db.SwitchPorts.AsNoTracking().Where(p => chunk.Contains(p.Id)).Select(p => new { p.Id, Text = (p.Alias ?? "") + " " + (p.Descr ?? "") }).ToListAsync(ct)) ports[p.Id] = p.Text;
-            foreach (var g in (await db.Neighbors.AsNoTracking().Where(n => chunk.Contains(n.PortId) && n.Protocol != NeighborProtocol.Inferred).Select(n => new { n.PortId, n.SysName, n.SysDescr, n.Platform, n.Caps }).ToListAsync(ct)).GroupBy(n => n.PortId))
-                neighbors[g.Key] = (string.Join(" | ", g.Select(n => $"{n.SysName} {n.Platform} {n.SysDescr}")), g.Aggregate(NeighborCaps.None, (a, n) => a | n.Caps));
+            foreach (var g in (await db.Neighbors.AsNoTracking().Where(n => chunk.Contains(n.PortId) && n.Protocol != NeighborProtocol.Inferred).Select(n => new { n.PortId, n.SysName, n.SysDescr, n.Platform, n.Caps, n.ChassisMac, n.MgmtIp }).ToListAsync(ct)).GroupBy(n => n.PortId))
+                neighbors[g.Key] = g.Select(n => new NeighborInfo($"{n.SysName} {n.Platform} {n.SysDescr}", n.Caps, n.ChassisMac, n.MgmtIp, n.SysName)).ToList();
+            foreach (var g in await db.Devices.AsNoTracking().Where(d => d.PortId != null && chunk.Contains(d.PortId!.Value)).GroupBy(d => d.PortId!.Value).Select(g => new { g.Key, N = g.Count() }).ToListAsync(ct)) onPort[g.Key] = g.N;
         }
         var changed = 0;
         foreach (var d in list)
         {
-            var (nText, nCaps) = d.PortId is { } pid && neighbors.TryGetValue(pid, out var nb) ? nb : ("", NeighborCaps.None);
+            var mine = d.PortId is { } pid && neighbors.TryGetValue(pid, out var nb) ? nb.Where(n => NeighborIsDevice(n, d.Mac, d.IpAddress, d.HostnameSource == HostnameSource.None ? "" : d.Hostname, onPort.GetValueOrDefault(pid))).ToList() : [];
+            var nText = string.Join(" | ", mine.Select(n => n.Text)); var nCaps = mine.Aggregate(NeighborCaps.None, (a, n) => a | n.Caps);
             var ctx = new CategoryContext(VendorText.Of(d.Vendor, d.Mac), d.HostnameSource == HostnameSource.None ? "" : d.Hostname, d.Vlan, d.PortId is { } p2 ? ports.GetValueOrDefault(p2) : null, nText, nCaps);
             var (cat, reason) = Evaluate(rules, ctx);
             if (d.Category != cat || d.CategoryReason != reason) changed++;

@@ -69,7 +69,7 @@ export interface ReportField { key: string; label: string; type: 'Text' | 'Numbe
 export interface ReportDataset { key: string; label: string; description: string; history: boolean; fields: ReportField[] }
 export interface ReportMeasure { field: string; agg: string }
 export interface ReportFilter { field: string; op: string; value?: string | null }
-export interface ReportQuery { dataset: string; columns?: string[]; groupBy?: string[]; measures?: ReportMeasure[]; filters?: ReportFilter[]; from?: string; to?: string; timeBucket?: string; sortBy?: string; desc?: boolean; limit?: number }
+export interface ReportQuery { switchIds?: number[]; dataset: string; columns?: string[]; groupBy?: string[]; measures?: ReportMeasure[]; filters?: ReportFilter[]; from?: string; to?: string; timeBucket?: string; sortBy?: string; desc?: boolean; limit?: number }
 export interface ReportColumn { key: string; label: string; type: ReportField['type']; unit?: string | null }
 export interface ReportResult { dataset: string; columns: ReportColumn[]; rows: (string | number | null)[][]; totalRows: number; truncated: boolean; generatedAt: string }
 export interface SavedReport { id: number; name: string; json: string; createdBy?: string | null; updatedAt: string }

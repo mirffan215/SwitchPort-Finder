@@ -84,6 +84,10 @@ public class DeviceQuery
     public int? SwitchId { get; set; }
     public DeviceState? State { get; set; }
     public DeviceCategory? Category { get; set; }
+    /// <summary>Only devices located on this switch port (the devices behind an access point).</summary>
+    public int? PortId { get; set; }
+    /// <summary>Leave this device out of the list (the access point itself).</summary>
+    public int? ExcludeId { get; set; }
 }
 
 /// <summary>

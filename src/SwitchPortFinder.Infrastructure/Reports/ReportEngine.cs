@@ -68,7 +68,14 @@ public class ReportEngine(AppDbContext db)
 
         var from = q.From ?? DateTime.UtcNow.AddDays(-7); var to = q.To ?? DateTime.UtcNow;
         if (ds.History && (to - from).TotalDays > 1100) throw new ValidationFailedException("from", "The time range is too long.");
-        var rows = await LoadAsync(ds.Key, from.ToUniversalTime(), to.ToUniversalTime(), ct);
+        var sids = (q.SwitchIds ?? []).Distinct().Take(500).ToList();
+        var rows = await LoadAsync(ds.Key, from.ToUniversalTime(), to.ToUniversalTime(), sids, ct);
+        if (sids.Count > 0 && !ds.History)   // current-state datasets: filter by the switch name column
+        {
+            var names = (await db.Switches.AsNoTracking().Where(s => sids.Contains(s.Id)).Select(s => s.Name).ToListAsync(ct)).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var key = ds.Key == "switches" ? "name" : "switch";
+            rows = rows.Where(r => r.GetValueOrDefault(key) is string n && names.Contains(n)).ToList();
+        }
         if (rows.Count > MaxHistoryRows) throw new ValidationFailedException("from", "Too much data for this period. Choose a shorter range or filter by switch.");
 
         // filters
@@ -165,7 +172,7 @@ public class ReportEngine(AppDbContext db)
     }
 
     // ------------------------------------------------------------------ data loading
-    private async Task<List<Row>> LoadAsync(string dataset, DateTime from, DateTime to, CancellationToken ct)
+    private async Task<List<Row>> LoadAsync(string dataset, DateTime from, DateTime to, List<int> sids, CancellationToken ct)
     {
         switch (dataset)
         {
@@ -205,17 +212,17 @@ public class ReportEngine(AppDbContext db)
             }
             case "switch_health":
             {
-                var s = await db.SwitchMetrics.AsNoTracking().Where(m => m.At >= from && m.At <= to).Select(m => new { m.At, Sw = m.Switch!.Name, m.Reachable, m.UptimeSeconds, m.CpuPct, m.MemPct, m.LatencyMs }).Take(MaxHistoryRows + 1).ToListAsync(ct);
+                var s = await db.SwitchMetrics.AsNoTracking().Where(m => m.At >= from && m.At <= to && (sids.Count == 0 || sids.Contains(m.SwitchId))).Select(m => new { m.At, Sw = m.Switch!.Name, m.Reachable, m.UptimeSeconds, m.CpuPct, m.MemPct, m.LatencyMs }).Take(MaxHistoryRows + 1).ToListAsync(ct);
                 return s.Select(m => new Row { ["at"] = m.At, ["switch"] = m.Sw, ["up"] = m.Reachable ? 1d : 0d, ["uptimeDays"] = m.UptimeSeconds is { } u ? u / 86400.0 : null, ["cpuPct"] = m.CpuPct, ["memPct"] = m.MemPct, ["latencyMs"] = m.LatencyMs is { } l ? (double)l : null }).ToList();
             }
             case "port_traffic":
             {
-                var s = await db.PortMetrics.AsNoTracking().Where(m => m.At >= from && m.At <= to).Join(db.SwitchPorts, m => m.PortId, p => p.Id, (m, p) => new { m, p.Name, p.PortType, Sw = p.Switch!.Name }).Take(MaxHistoryRows + 1).ToListAsync(ct);
+                var s = await db.PortMetrics.AsNoTracking().Where(m => m.At >= from && m.At <= to && (sids.Count == 0 || sids.Contains(m.SwitchId))).Join(db.SwitchPorts, m => m.PortId, p => p.Id, (m, p) => new { m, p.Name, p.PortType, Sw = p.Switch!.Name }).Take(MaxHistoryRows + 1).ToListAsync(ct);
                 return s.Select(x => new Row { ["at"] = x.m.At, ["switch"] = x.Sw, ["port"] = x.Name, ["type"] = x.PortType.ToString(), ["inMbps"] = x.m.InBps / 1e6, ["outMbps"] = x.m.OutBps / 1e6, ["utilPct"] = x.m.UtilPct, ["discardsPerSec"] = x.m.DiscardsPerSec, ["errorsPerSec"] = x.m.ErrorsPerSec }).ToList();
             }
             case "availability":
             {
-                var s = await db.SwitchMetrics.AsNoTracking().Where(m => m.At >= from && m.At <= to).Select(m => new { m.SwitchId, Sw = m.Switch!.Name, m.At, m.Reachable, m.UptimeSeconds, m.CpuPct, m.MemPct, m.LatencyMs }).Take(MaxHistoryRows + 1).ToListAsync(ct);
+                var s = await db.SwitchMetrics.AsNoTracking().Where(m => m.At >= from && m.At <= to && (sids.Count == 0 || sids.Contains(m.SwitchId))).Select(m => new { m.SwitchId, Sw = m.Switch!.Name, m.At, m.Reachable, m.UptimeSeconds, m.CpuPct, m.MemPct, m.LatencyMs }).Take(MaxHistoryRows + 1).ToListAsync(ct);
                 return s.GroupBy(x => x.SwitchId).Select(g => Availability(g.First().Sw, g.OrderBy(x => x.At).Select(x => (x.At, x.Reachable, x.UptimeSeconds, x.CpuPct, x.MemPct, x.LatencyMs)).ToList())).ToList();
             }
         }

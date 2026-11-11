@@ -19,15 +19,15 @@ public class CategoryTests
     [Fact] public void A_Cisco_phone_is_a_phone_by_host_name_even_inside_the_access_point_VLAN()
     {
         Cat(C("Cisco Systems, Inc", host: "SEP001122AABBCC")).Should().Be(DeviceCategory.IpPhone);
-        Cat(C("Cisco Systems, Inc", host: "SEP001122AABBCC", vlan: 50)).Should().Be(DeviceCategory.IpPhone, "the specific rule beats the weak VLAN rule");
+        Cat(C("Cisco Systems, Inc", host: "SEP001122AABBCC", vlan: 50)).Should().Be(DeviceCategory.IpPhone);
         Cat(C("Cisco Systems, Inc", neighbor: "Cisco IP Phone 7841", vlan: 50)).Should().Be(DeviceCategory.IpPhone);
     }
 
-    [Fact] public void Anything_in_VLAN_50_is_probably_an_access_point_but_only_as_the_last_resort()
+    [Fact] public void A_device_in_VLAN_50_is_NOT_an_access_point_by_VLAN_alone_because_Wi_Fi_clients_live_there_too()
     {
-        Cat(C("Cisco Systems, Inc", vlan: 50)).Should().Be(DeviceCategory.AccessPoint);
-        Cat(C("Cisco Systems, Inc", vlan: 10)).Should().Be(DeviceCategory.Unclassified);
-        DeviceCategoryService.Evaluate(Rules, C(vlan: 50)).Reason.Should().Contain("VLAN 50");
+        Cat(C("Cisco Systems, Inc", vlan: 50)).Should().Be(DeviceCategory.Unclassified);
+        Cat(C("Apple, Inc.", vlan: 50)).Should().Be(DeviceCategory.Unclassified);
+        Rules.Should().NotContain(r => r.Vlan == 50 && r.VendorContains == null && r.HostnameStartsWith == null && r.NeighborContains == null && r.NeighborCapability == null);
     }
 
     [Fact] public void Grandstream_is_an_access_point_anywhere_and_Ruijie_only_in_the_access_point_VLAN()
@@ -63,5 +63,16 @@ public class CategoryTests
         DeviceCategoryService.RuleProblem(R(prio: 0)).Should().Contain("Priority"); DeviceCategoryService.RuleProblem(R(vlan: 5000)).Should().Contain("VLAN");
         DeviceCategoryService.RuleProblem(R(vendor: null, cap: "Station")).Should().Contain("capability");
         DeviceCategoryService.RuleProblem(R(vendor: new string('a', 101))).Should().Contain("100");
+    }
+
+    [Fact]
+    public void A_neighbor_announcement_is_attributed_to_the_device_it_describes_not_to_everything_on_the_port()
+    {
+        var n = new DeviceCategoryService.NeighborInfo("AIR-AP2802I", NeighborCaps.WlanAp, "00AABB0000A0", "10.50.0.9", "ap-lobby.corp.local");
+        bool M(string mac, string? ip = null, string host = "", int onPort = 4) => DeviceCategoryService.NeighborIsDevice(n, mac, ip, host, onPort);
+        M("00AABB0000A0").Should().BeTrue("same chassis MAC"); M("00AABB0000A3").Should().BeTrue("same first 5 bytes: the AP's Ethernet MAC next to its chassis MAC");
+        M("AABBCC111111").Should().BeFalse("a Wi-Fi client on the same port"); M("00AABB999999").Should().BeFalse("same OUI is not enough");
+        M("AABBCC111111", ip: "10.50.0.9").Should().BeTrue("same management IP"); M("AABBCC111111", host: "AP-LOBBY").Should().BeTrue("same host name (domain ignored)");
+        M("AABBCC111111", onPort: 1).Should().BeTrue("the only device on the port");
     }
 }

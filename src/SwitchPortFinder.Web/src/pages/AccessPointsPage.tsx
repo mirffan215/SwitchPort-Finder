@@ -33,7 +33,7 @@ export default function AccessPointsPage() {
       )}
       <div className="tablewrap">
         <table>
-          <thead><tr><th>Access point</th><th>IP</th><th>MAC</th><th>Manufacturer</th><th>Switch</th><th>Port</th><th>VLAN</th><th>Status</th><th title="MAC addresses learned on the AP's port, excluding the AP itself">Devices behind</th><th>Last seen</th></tr></thead>
+          <thead><tr><th>Access point</th><th>IP</th><th>MAC</th><th>Manufacturer</th><th>Switch</th><th>Port</th><th>VLAN</th><th>Status</th><th title="Devices found on the AP's switch port, not counting the AP itself. Click a number to see them.">Devices behind</th><th>Last seen</th></tr></thead>
           <tbody>
             {rows.map(({ device: d, clientsBehind, neighborInfo }) => (
               <tr key={d.id}>
@@ -41,14 +41,14 @@ export default function AccessPointsPage() {
                 <td>{d.ip ?? <span className="muted">Unknown</span>}</td><td className="mono">{d.mac}</td><td>{d.vendor ?? '—'}</td>
                 <td>{d.switchId ? <Link to={`/switches/${d.switchId}`}>{d.switchName}</Link> : '—'}</td>
                 <td>{d.switchId && d.ifIndex ? <Link to={`/switches/${d.switchId}?port=${d.ifIndex}`}>{d.portName}</Link> : '—'}</td>
-                <td>{d.vlan ?? '—'}</td><td><StateBadge state={d.state} /></td><td>{clientsBehind}</td><td>{ago(d.lastSeen)}</td>
+                <td>{d.vlan ?? '—'}</td><td><StateBadge state={d.state} /></td><td>{clientsBehind > 0 && d.portId ? <Link to={`/devices?portId=${d.portId}&excludeId=${d.id}&behind=${encodeURIComponent(d.hostname === 'Unknown Device' ? (neighborInfo?.split(' · ')[0] ?? d.mac) : d.hostname)}`} title="Show the devices behind this access point">{clientsBehind} device{clientsBehind === 1 ? '' : 's'}</Link> : <span className="muted">0</span>}</td><td>{ago(d.lastSeen)}</td>
               </tr>
             ))}
             {!isLoading && rows.length === 0 && <tr><td colSpan={10} className="muted">{s && s.total > 0 ? 'No access point matches the filters.' : 'No access points yet. They are detected after a scan, from LLDP/CDP information, host names, VLAN 50 and manufacturer (rules under Settings → Device types). You can also set the type of any device by hand.'}</td></tr>}
           </tbody>
         </table>
       </div>
-      <p className="muted small" style={{ marginTop: 10 }}>“Devices behind” counts MAC addresses seen on the AP's switch port. Wireless clients whose traffic the Cisco controller tunnels do not appear here.</p>
+      <p className="muted small" style={{ marginTop: 10 }}>“Devices behind” counts the devices found on the AP's switch port (click the number to list them). Wireless clients whose traffic the Cisco controller tunnels do not appear here.</p>
     </section>
   );
 }

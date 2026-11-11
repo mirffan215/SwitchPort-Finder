@@ -12,6 +12,7 @@ export default function Dashboard() {
   const { canWrite } = useAuth();
   const nav = useNavigate();
   const { data: d, error } = useQuery({ queryKey: ['dashboard'], queryFn: api.dashboard, refetchInterval: 15_000 });
+  const alerts = useQuery({ queryKey: ['alerts'], queryFn: api.alerts, refetchInterval: 30_000 });
   const sws = useQuery({ queryKey: ['switches'], queryFn: api.listSwitches });
   const last = d?.lastDiscovery;
   return (
@@ -27,6 +28,13 @@ export default function Dashboard() {
         <div className="card"><div className="num sm">{last ? ago(last.completedAt ?? last.queuedAt) : '—'}</div><div>Last Discovery</div>{last && <small className={`badge ${BADGE[last.status]}`}>{last.switchName}: {last.status === 'CompletedWithWarnings' ? 'warnings' : last.status}</small>}</div>
       </div>
       {d && d.switches === 0 && <div className="alert">No switches yet. <Link to="/switches/new">Add your first switch</Link> or <Link to="/settings">import a list</Link>.</div>}
+      {alerts.data && alerts.data.activeCount > 0 && (
+        <div className="alert error" role="alert" style={{ margin: '0 0 14px' }}>
+          <strong>{alerts.data.activeCount} active alert{alerts.data.activeCount === 1 ? '' : 's'}</strong>
+          <ul style={{ margin: '6px 0 0 18px', padding: 0 }}>{alerts.data.active.slice(0, 5).map((a) => <li key={a.id}>{a.title} <span className="muted">· {ago(a.firstAt)}</span></li>)}</ul>
+          {alerts.data.activeCount > 5 && <div className="muted small">…and {alerts.data.activeCount - 5} more (Settings → Notifications).</div>}
+        </div>
+      )}
       <div className="charts">
         <TopUtilization />
         <div className="panelx">

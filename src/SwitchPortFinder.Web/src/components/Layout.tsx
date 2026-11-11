@@ -29,6 +29,7 @@ export default function Layout() {
   const goBack = () => { if (window.history.state && window.history.state.idx > 0) nav(-1); else nav(pathname.split('/').length > 2 ? pathname.split('/').slice(0, 2).join('/') : '/'); };
   const { data: d } = useQuery({ queryKey: ['dashboard'], queryFn: api.dashboard, refetchInterval: 15_000 });
   const last = d?.lastDiscovery;
+  const al = useQuery({ queryKey: ['alerts'], queryFn: api.alerts, refetchInterval: 30_000 });
   const name = me.username ?? 'Local user';
   return (
     <div className="app">
@@ -45,6 +46,7 @@ export default function Layout() {
         <div className="sysbox">
           <div><span>Switches</span><span className="v">{d?.switches ?? '—'}</span></div>
           <div><span>Devices</span><span className="v">{d?.devices ?? '—'}</span></div>
+          <div><span>Active alerts</span><span className="v" style={{ color: al.data?.activeCount ? 'var(--bad)' : undefined }}>{al.data?.activeCount ?? '—'}</span></div>
           <div><span>Last discovery</span><span className="v">{last ? ago(last.completedAt ?? last.queuedAt) : '—'}</span></div>
         </div>
         <div className="userbox">

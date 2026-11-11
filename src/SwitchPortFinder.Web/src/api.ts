@@ -73,6 +73,15 @@ export interface ReportQuery { dataset: string; columns?: string[]; groupBy?: st
 export interface ReportColumn { key: string; label: string; type: ReportField['type']; unit?: string | null }
 export interface ReportResult { dataset: string; columns: ReportColumn[]; rows: (string | number | null)[][]; totalRows: number; truncated: boolean; generatedAt: string }
 export interface SavedReport { id: number; name: string; json: string; createdBy?: string | null; updatedAt: string }
+export type SmtpSecurity = 'None' | 'StartTls' | 'SslOnConnect';
+export interface NotificationConfig { enabled: boolean; host: string; port: number; security: SmtpSecurity; username?: string | null; hasPassword: boolean; fromAddress: string; fromName: string; recipients: string[]; trustServerCertificate: boolean; publicBaseUrl?: string | null }
+export interface NotificationConfigRequest { enabled: boolean; host: string; port: number; security: SmtpSecurity; username?: string | null; password?: string | null; fromAddress: string; fromName?: string; recipients: string[]; trustServerCertificate: boolean; publicBaseUrl?: string | null }
+export type AlertRuleType = 'UplinkUtilization' | 'PortUtilization' | 'SwitchUnreachable' | 'HighCpu' | 'HighMemory' | 'HighLatency' | 'PacketDrops' | 'PortErrors' | 'SwitchRestarted';
+export interface AlertRule { id: number; name: string; type: AlertRuleType; enabled: boolean; threshold: number; durationMinutes: number; switchId?: number | null; switchName?: string | null; cooldownMinutes: number; notifyOnResolve: boolean }
+export type AlertRuleRequest = Omit<AlertRule, 'id' | 'switchName'>;
+export interface AlertEvent { id: number; ruleId: number; ruleName: string; type: AlertRuleType; subject: string; title: string; detail: string; value?: number | null; state: 'Firing' | 'Resolved'; firstAt: string; lastAt: string; resolvedAt?: string | null; notifyCount: number }
+export interface AlertsResponse { activeCount: number; active: AlertEvent[]; recent: AlertEvent[] }
+export interface MailLogEntry { at: string; recipients: string; subject: string; success: boolean; error?: string | null }
 export interface TopPortsResponse { metric: 'utilization' | 'drops'; items: TopPort[]; portsWithData: number; portsTotal: number }
 export interface PortsResponse { summary: { total: number; connected: number; down: number; uplinks: number; lastScan?: string | null }; ports: PortRow[]; hasArpSource: boolean }
 export interface DeviceRow { manual?: boolean; pinned?: boolean; owner?: string | null; notes?: string | null; vendor?: string | null; id: number; hostname: string; hostnameSource: string; ip?: string | null; mac: string; switchId?: number | null; switchName?: string | null; portId?: number | null; ifIndex?: number | null; portName?: string | null; vlan?: number | null; state: 'Active' | 'Offline' | 'Stale'; firstSeen: string; lastSeen: string; lowConfidence: boolean }
@@ -178,6 +187,15 @@ export const api = {
   saveReport: (name: string, jsonText: string) => request<SavedReport>('/api/reports', json('POST', { name, json: jsonText })),
   updateReport: (id: number, name: string, jsonText: string) => request<SavedReport>(`/api/reports/${id}`, json('PUT', { name, json: jsonText })),
   deleteReport: (id: number) => request<void>(`/api/reports/${id}`, { method: 'DELETE' }),
+  notifConfig: () => request<NotificationConfig>('/api/notifications/config'),
+  saveNotifConfig: (r: NotificationConfigRequest) => request<NotificationConfig>('/api/notifications/config', json('PUT', r)),
+  testMail: (to?: string) => request<{ success: boolean; message: string }>('/api/notifications/test', json('POST', { to: to || null })),
+  mailLog: () => request<MailLogEntry[]>('/api/notifications/log'),
+  alertRules: () => request<AlertRule[]>('/api/notifications/rules'),
+  createRule: (r: AlertRuleRequest) => request<AlertRule>('/api/notifications/rules', json('POST', r)),
+  updateRule: (id: number, r: AlertRuleRequest) => request<AlertRule>(`/api/notifications/rules/${id}`, json('PUT', r)),
+  deleteRule: (id: number) => request<void>(`/api/notifications/rules/${id}`, { method: 'DELETE' }),
+  alerts: () => request<AlertsResponse>('/api/alerts'),
   switchUptime: () => request<SwitchUptimeResponse>('/api/metrics/switch-uptime?n=5'),
   topPorts: (metric: 'utilization' | 'drops', n = 5) => request<TopPortsResponse>(`/api/metrics/top-ports?metric=${metric}&n=${n}`),
   listProfiles: () => request<ProfileDto[]>('/api/credential-profiles'),

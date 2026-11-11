@@ -136,3 +136,35 @@ The **Product / Manufacturer** column comes from the device's MAC address (first
 ## Switch uptime gauges
 
 The dashboard's **Switch uptime** panel shows up to 5 switches: core (routing / ARP-source) switches first, then the most recently restarted. Uptime is the switch's SNMP `sysUpTime`, read during each scan, plus the time since the scan while the switch is reachable (an unreachable switch shows "n/a"). Red = restarted within a day, amber = within a week; the gauge is full at 365 days. `sysUpTime` is a 32-bit counter that wraps after about 497 days, so switches that have been up longer than that read low.
+
+## Two-factor authentication (authenticator app)
+
+With `Authentication:Mode = Local`, **administrators must enrol an authenticator app** (`Authentication:RequireMfaForAdmins`, default `true`; viewers may enrol voluntarily).
+
+* The first time an administrator signs in after the upgrade, the portal shows *Set up two-factor authentication*: confirm your password, scan the QR code with Microsoft Authenticator, Google Authenticator, Authy, 1Password or similar, enter the 6-digit code, and **save the 10 one-time recovery codes** (shown once).
+* Sign-in is then two steps: password, then the 6-digit code (or a recovery code). The password alone never creates a session.
+* Codes are standard TOTP (RFC 6238: SHA-1, 6 digits, 30 s, ±1 step for clock drift) and each code works **once**. Wrong codes count toward the account lockout (`MaxFailedLogins`, `LockoutSeconds`), and the secret is stored encrypted (Data Protection), never returned by any API.
+* **Lost phone?** Use a recovery code, or another administrator opens *Settings → Admin · Users → Reset 2FA* for that user; the user enrols again at next sign-in. If the *only* administrator loses both phone and recovery codes, stop the service and set `MfaEnabled = 0` for that user in the `Users` table (SQL), then sign in and enrol again.
+* Turning MFA off is not possible for administrators while `RequireMfaForAdmins` is on. To switch the policy off set `Authentication:RequireMfaForAdmins` to `false` in `appsettings.Production.json`.
+* Keep the server's clock correct (Windows Time service / NTP): TOTP depends on it.
+
+## Switch export with credentials (encrypted)
+
+*Settings → Admin · Import Switches → Export switches with credentials (encrypted)…* downloads a `.spfenc` file that contains every switch **with its SNMP communities / SNMPv3 credentials**. It is encrypted with AES-256-GCM using a passphrase you choose (PBKDF2-SHA256, 600,000 iterations); without the passphrase it is unreadable, and tampering is detected. You must re-enter your own password, the action is written to the application log, and only administrators can do it. Switches that use a credential profile are exported with that profile's credentials inline. To restore, choose the `.spfenc` file under *File* in the same tab and enter the passphrase. The plain CSV/Excel exports still never contain credentials.
+
+## Health monitoring, reports and alerts
+
+* **Health poll** (*Settings → General → Health poll interval*, default 5 min, 0 = off): a read-only SNMP poll of every switch for uptime, SNMP round-trip latency, CPU, memory and the interface counters. CPU/memory use the vendor MIB where known (Cisco CISCO-PROCESS-MIB/CISCO-MEMORY-POOL-MIB, Juniper JUNIPER-MIB) and the standard HOST-RESOURCES-MIB otherwise; a switch that does not expose a value simply shows nothing for it (never a made-up 0). A poll that fails is an "unreachable" data point: **downtime** and **availability** are computed from those points (each failed point counts until the next point, at most 1 hour per gap). History is kept for *Keep health and traffic history* days (default 90) and pruned automatically.
+* **Reports** (sidebar *Reports*): pick a dataset (switches, ports, devices, switch health history, port traffic history, availability), choose columns or group-and-summarise (average / maximum / minimum / total / count), filters, period, and a chart (table, columns, bars, line, area, donut, gauges, numbers). Clicking a bar, slice or gauge filters the report to it. Start from the built-in templates (uplink utilization trend, CPU and memory trend, availability, downtime, latency, drops and errors, devices by manufacturer, monthly traffic trend…), save your own, and export to **Excel** (data + a *Definition* sheet), **CSV** or **PDF** (chart + table). Viewers can run and export reports; administrators can save them. Queries are checked against a whitelist and never become SQL.
+* **Notifications** (*Settings → Admin · Notifications*): e-mail server settings, recipients, a test button, alert rules and the alert/e-mail history.
+  * Mail: **STARTTLS (587) or SSL/TLS (465)**, TLS 1.2/1.3 only, certificate verified (tick *Trust the server certificate* only for an internal relay you control), SASL sign-in; the password is stored encrypted and never shown. "None" (plain SMTP) is allowed only without credentials, for an IP-restricted internal relay. The server address may not be loopback, link-local (cloud metadata) or multicast. **OAuth2 sign-in for Microsoft 365 / Google is not built in**: use an SMTP relay or Exchange connector that accepts this server's IP (or an account that is allowed SMTP AUTH).
+  * Rules (editable; defaults are created on first start): uplink utilization ≥ 80 % for 10 min, switch unreachable 10 min, CPU ≥ 90 %, memory ≥ 90 %, packet drops ≥ 5/s, switch restarted. More types: any-port utilization, port errors, SNMP latency. Each rule has a limit, a duration, a scope (all switches or one), a reminder interval and "tell me when resolved". An alert opens when the reading stays at/above the limit for the whole duration and closes when it falls below **90 % of the limit** (no flapping). One e-mail is sent per check (every minute) for everything new, still open after the reminder interval, or resolved; a failed send is retried at the next check.
+  * Active alerts also appear on the dashboard and in the sidebar for every signed-in user.
+
+## Unknown devices: manual details and traceability
+
+Open a device and choose **Edit details** (or *Devices → + Add device* for one the scans never saw). Enter a name, owner, notes and, to make it traceable, the **switch and port it is plugged into** (uplink ports are not offered). The name is never replaced by reverse DNS and the pinned port survives rescans; the device then appears on that port and *Trace Device* shows the path up to the core. Clearing the fields hands the device back to discovery. Devices added by hand can be deleted; discovered ones cannot (they would reappear).
+
+## Ports page and navigation
+
+*Ports* lists every port of every switch (filter by status, type, switch, VLAN, text). The dashboard's **Connected Ports** and **Switch Uplinks** cards and the port donut open it pre-filtered. Every page except the dashboard has a **Back** button.

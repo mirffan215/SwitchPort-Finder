@@ -23,6 +23,16 @@ This is a thorough internal test with repeatable tooling. It is **not a substitu
 
 Everything in this report (session revocation, search fix, CSP/fonts, traffic gauges, manufacturer column, switch-uptime gauges) is in the same release. **One `publish.ps1` + `install.ps1 -KeepConfig` applies all of it**; the installer runs all pending database migrations (`Phase8PortCounters`, `Phase9SessionVersion`, `Phase10DeviceVendor`, `Phase11SwitchUptime`) in order. The final penetration test (94 checks) and browser QA (47 checks) were re-run on this exact build.
 
+## Update: authenticator MFA, reports, health history, notifications, manual devices, encrypted export
+
+These features were added and tested in the same way (unit tests, integration tests including a **real in-process SMTP server**, the browser QA, and the penetration suite):
+
+* **MFA:** TOTP verified against the RFC 6238 test vectors; tests cover forced enrolment for administrators, no session before the second factor, tampered/expired challenge, code replay, recovery codes (single use, stored hashed), lockout on wrong codes, admin reset, and that the secret is never returned.
+* **Encrypted credential export:** round trip, wrong passphrase / flipped bit / truncated file all refused identically, secret never in clear in the file, password re-entry, admin only.
+* **Reports:** availability/downtime maths on a scripted outage, grouping/time buckets/filters/limits, hostile queries rejected, Excel formula neutralisation, viewers may run but not save.
+* **Alerts:** sustained-threshold and hysteresis logic, alert opened once, mailed once, resolved and mailed, failed mail retried, mail credentials never over an unencrypted connection, mail server address policy.
+* **Found and fixed while testing:** the target policy did not refuse link-local addresses (`169.254.169.254`, cloud metadata). It was not exploitable for SNMP (UDP) but would have mattered for the new mail connection; it is now refused for both.
+
 ## Defects found by this testing — all fixed and covered by regression tests
 
 | # | Severity | Finding | Fix | Regression test |

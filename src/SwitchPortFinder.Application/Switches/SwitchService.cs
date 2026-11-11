@@ -107,6 +107,14 @@ public class SwitchService(
         return result;
     }
 
+    /// <summary>All switches with their effective credentials as an AES-256-GCM encrypted file (see <see cref="Import.SecureExport"/>).</summary>
+    public async Task<byte[]> ExportEncryptedWithCredentialsAsync(string passphrase, CancellationToken ct)
+    {
+        if (Import.SecureExport.PassphraseProblem(passphrase) is { } bad) throw new ValidationFailedException("passphrase", bad);
+        var list = await switches.ListAsync(ct);
+        return Import.SecureExport.Encrypt(Import.ImportTemplateBuilder.ExportSwitchesWithCredentials(list.Select(s => (s, ResolveCredentials(s)))), passphrase);
+    }
+
     public SnmpCredentials? ResolveCredentials(Switch sw)
     {
         if (sw.CredentialProfile is { } p) return codec.Decrypt(p.Version, p.AuthProtocol, p.PrivProtocol, p.ContextName, p.EncryptedSecrets);

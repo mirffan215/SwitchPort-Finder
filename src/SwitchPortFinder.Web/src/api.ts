@@ -165,8 +165,15 @@ export const api = {
   createProfile: (r: { name: string; description?: string; credential: CredentialInput }) => request<ProfileDto>('/api/credential-profiles', json('POST', r)),
   updateProfile: (id: number, r: { name: string; description?: string; credential: CredentialInput }) => request<ProfileDto>(`/api/credential-profiles/${id}`, json('PUT', r)),
   deleteProfile: (id: number) => request<void>(`/api/credential-profiles/${id}`, { method: 'DELETE' }),
-  previewImport: (file: File, mode: string) => {
-    const f = new FormData(); f.append('file', file);
+  /** Encrypted switch list WITH credentials. The file is generated on the server and is useless without the passphrase. */
+  exportSecure: async (password: string, passphrase: string) => {
+    const res = await fetch('/api/admin/export/switches/secure', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password, passphrase }) });
+    if (!res.ok) { let msg = 'Export failed.'; try { const j = await res.json(); msg = Object.values<string[]>(j.errors ?? {}).flat().join(' ') || j.title || msg; } catch { /* keep default */ } throw new Error(msg); }
+    const name = /filename="?([^";]+)/.exec(res.headers.get('Content-Disposition') ?? '')?.[1] ?? 'switches-with-credentials.spfenc';
+    return { blob: await res.blob(), name };
+  },
+  previewImport: (file: File, mode: string, passphrase?: string) => {
+    const f = new FormData(); f.append('file', file); if (passphrase) f.append('passphrase', passphrase);
     return request<ImportPreview>(`/api/admin/import/switches/preview?mode=${mode}`, { method: 'POST', body: f });
   },
   commitImport: (previewId: string, mode: string) => request<ImportCommit>('/api/admin/import/switches/commit', json('POST', { previewId, mode })),

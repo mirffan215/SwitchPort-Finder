@@ -31,6 +31,26 @@ public static class ImportTemplateBuilder
         return Build(format, rows, "Switches");
     }
 
+    /// <summary>
+    /// The same columns as the import template, WITH the SNMP credentials (a switch that uses a credential profile gets that profile's credentials inline).
+    /// The result is plain CSV text: it must only ever be handed out inside <see cref="SecureExport"/>.
+    /// </summary>
+    public static byte[] ExportSwitchesWithCredentials(IEnumerable<(Switch Sw, SnmpCredentials? Cred)> switches)
+    {
+        var rows = switches.OrderBy(x => x.Sw.Name).Select(x =>
+        {
+            var s = x.Sw; var c = x.Cred; var v3 = c is { Version: SnmpVersion.V3 };
+            return new[]
+            {
+                s.Name, s.ManagementIp, VendorDetector.DisplayName(s.Manufacturer), s.Model ?? "", c is null ? "" : v3 ? "v3" : "v2c",
+                v3 ? "" : c?.Community ?? "", v3 ? c!.Username ?? "" : "", v3 ? c!.AuthProtocol.ToString() : "", v3 ? c!.AuthPassword ?? "" : "",
+                v3 ? c!.PrivProtocol.ToString() : "", v3 ? c!.PrivPassword ?? "" : "", v3 ? c!.ContextName ?? "" : "",
+                "", s.UseAsArpSource ? "true" : "false", s.Location ?? "", s.Notes ?? ""
+            };
+        }).ToList();
+        return Build("csv", rows, "Switches");
+    }
+
     private static byte[] Build(string format, IEnumerable<string[]> rows, string sheet)
     {
         if (string.Equals(format, "xlsx", StringComparison.OrdinalIgnoreCase))

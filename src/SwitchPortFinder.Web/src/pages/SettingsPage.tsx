@@ -127,13 +127,39 @@ function UsersTab() {
   );
 }
 
+function SecureExport() {
+  const { me } = useAuth();
+  const [open, setOpen] = useState(false); const [pw, setPw] = useState(''); const [pass, setPass] = useState(''); const [pass2, setPass2] = useState(''); const [ok, setOk] = useState(false);
+  const exp = useMutation({
+    mutationFn: () => api.exportSecure(pw, pass),
+    onSuccess: ({ blob, name }) => { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click(); URL.revokeObjectURL(a.href); setOk(true); setPw(''); setPass(''); setPass2(''); },
+  });
+  if (!open) return <p><button className="btn" onClick={() => { setOpen(true); setOk(false); }}>Export switches with credentials (encrypted)…</button></p>;
+  return (
+    <form className="form modal" onSubmit={(e) => { e.preventDefault(); setOk(false); exp.mutate(); }}>
+      <h3>Export switches with credentials</h3>
+      <p className="muted small">The file is encrypted (AES-256) with the passphrase you choose and can only be opened by importing it here. Without the passphrase it is unreadable. Keep the passphrase separate from the file, and delete the file when you are done. This action is written to the application log.</p>
+      {me.authRequired && <Field label="Your password"><input type="password" autoComplete="current-password" value={pw} onChange={(e) => setPw(e.target.value)} required /></Field>}
+      <div className="row">
+        <Field label="File passphrase" hint="At least 12 characters. Not your login password."><input type="password" autoComplete="new-password" value={pass} onChange={(e) => setPass(e.target.value)} required minLength={12} /></Field>
+        <Field label="Repeat passphrase"><input type="password" autoComplete="new-password" value={pass2} onChange={(e) => setPass2(e.target.value)} required /></Field>
+      </div>
+      {pass2 && pass !== pass2 && <div className="alert error">The passphrases do not match.</div>}
+      <ErrorBox error={exp.error} />
+      {ok && <div className="alert success">✓ Downloaded. To restore, choose this .spfenc file under “File” below and enter the passphrase.</div>}
+      <div className="buttons"><button className="btn primary" disabled={exp.isPending || pass.length < 12 || pass !== pass2}>{exp.isPending ? 'Encrypting…' : 'Export encrypted file'}</button><button type="button" className="btn" onClick={() => setOpen(false)}>Close</button></div>
+    </form>
+  );
+}
+
 function ImportTab() {
   const qc = useQueryClient();
+  const [passphrase, setPassphrase] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [mode, setMode] = useState<'SkipExisting' | 'UpdateExisting'>('SkipExisting');
   const [preview, setPreview] = useState<ImportPreview | null>(null);
   const [done, setDone] = useState<ImportCommit | null>(null);
-  const prev = useMutation({ mutationFn: () => api.previewImport(file!, mode), onSuccess: (p) => { setPreview(p); setDone(null); } });
+  const prev = useMutation({ mutationFn: () => api.previewImport(file!, mode, passphrase), onSuccess: (p) => { setPreview(p); setDone(null); } });
   const commit = useMutation({
     mutationFn: () => api.commitImport(preview!.previewId, mode),
     onSuccess: (r) => { setDone(r); setPreview(null); setFile(null); qc.invalidateQueries({ queryKey: ['switches'] }); },
@@ -146,8 +172,10 @@ function ImportTab() {
         Template: <a href="/api/admin/import/template?format=csv">CSV</a> · <a href="/api/admin/import/template?format=xlsx">Excel</a>
         {' · '}Export current switches (no credentials): <a href="/api/admin/export/switches?format=csv">CSV</a> · <a href="/api/admin/export/switches?format=xlsx">Excel</a>
       </p>
+      <SecureExport />
       <div className="row">
-        <Field label="File (.csv or .xlsx)"><input type="file" accept=".csv,.xlsx" onChange={(e) => { setFile(e.target.files?.[0] ?? null); setPreview(null); setDone(null); }} /></Field>
+        <Field label="File (.csv, .xlsx or encrypted .spfenc)"><input type="file" accept=".csv,.xlsx,.spfenc" onChange={(e) => { setFile(e.target.files?.[0] ?? null); setPreview(null); setDone(null); }} /></Field>
+        {file?.name.toLowerCase().endsWith('.spfenc') && <Field label="File passphrase"><input type="password" autoComplete="off" value={passphrase} onChange={(e) => setPassphrase(e.target.value)} /></Field>}
         <Field label="If a switch with the same Management IP exists">
           <select value={mode} onChange={(e) => { setMode(e.target.value as typeof mode); setPreview(null); }}>
             <option value="SkipExisting">Skip existing</option><option value="UpdateExisting">Update existing</option>

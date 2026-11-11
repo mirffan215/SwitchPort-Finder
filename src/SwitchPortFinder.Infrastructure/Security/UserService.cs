@@ -53,6 +53,16 @@ public class UserService(AppDbContext db, IMemoryCache cache, IOptions<AuthOptio
         return state;
     }
 
+    /// <summary>Re-authentication for sensitive actions (credential export). Wrong passwords count toward the lockout like a failed login.</summary>
+    public async Task<bool> VerifyPasswordAsync(int id, string password, CancellationToken ct)
+    {
+        var u = await db.Users.FirstOrDefaultAsync(x => x.Id == id, ct);
+        if (u is null || u.Disabled || u.LockedUntil > DateTime.UtcNow) return false;
+        if (PasswordHasher.Verify(password ?? "", u.PasswordHash)) return true;
+        u.FailedLogins++; if (u.FailedLogins >= Opt.MaxFailedLogins) { u.LockedUntil = DateTime.UtcNow.AddSeconds(Opt.LockoutSeconds); u.FailedLogins = 0; }
+        await db.SaveChangesAsync(ct); log.LogWarning("ReauthFailed: wrong password for {User} on a sensitive action", u.Username); return false;
+    }
+
     public async Task<AppUser> GetForSessionAsync(int id, CancellationToken ct) => await db.Users.AsNoTracking().FirstAsync(x => x.Id == id, ct);
 
     public async Task MarkLoginAsync(int id, CancellationToken ct) { var u = await db.Users.FirstAsync(x => x.Id == id, ct); u.LastLoginAt = DateTime.UtcNow; u.LockedUntil = null; await db.SaveChangesAsync(ct); log.LogInformation("LoginSucceeded: {User} (two-factor)", u.Username); }

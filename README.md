@@ -64,3 +64,12 @@ See [docs/SECURITY.md](docs/SECURITY.md) for the security model.
 ## Testing and production readiness
 
 See [docs/TEST-REPORT.md](docs/TEST-REPORT.md) for the security, penetration-test and QA results, the defects found and fixed, what was *not* tested, and a go-live checklist. Repeatable tools: `tools/security/pentest.py` (black-box security suite), `tools/security/loadtest.py`, `tools/qa/ui-qa.js` (browser QA + accessibility), `tools/sqlserver/run-sqlserver-tests.sh` (integration tests on real SQL Server).
+
+## What is in the portal
+
+* **Find** any device by MAC, IP, name, manufacturer, VLAN, switch or port; trace it to the core. Unknown devices can be given a name, owner, notes and a pinned port by an administrator.
+* **Dashboard**: utilization gauges, switch uptime, port and device donuts, active alerts, switch health. Every card opens the underlying list (Ports, Devices, Switches).
+* **Reports** (Power BI-style builder): CPU, memory, latency, uptime, downtime/availability, port traffic, drops and errors, devices by manufacturer…, exported to Excel, CSV and PDF; saved reports.
+* **Alerts by e-mail** (STARTTLS / SSL-TLS): uplink utilization, switch unreachable, CPU/memory, drops, restarts, with sustained-threshold logic and a send log.
+* **Security**: optional local login with authenticator-app MFA (required for administrators by default), hardened sessions, encrypted credential export, strict CSP, read-only SNMP.
+* Details: [docs/CONFIGURATION.md](docs/CONFIGURATION.md), tests and findings: [docs/TEST-REPORT.md](docs/TEST-REPORT.md).

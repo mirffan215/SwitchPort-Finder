@@ -34,7 +34,7 @@ public enum DeviceState { Active = 0, Offline = 1, Stale = 2 }
 
 public enum JobStatus { Queued = 0, Running = 1, Completed = 2, CompletedWithWarnings = 3, Failed = 4 }
 
-public enum HostnameSource { None = 0, ReverseDns = 1, Dhcp = 2, Snmp = 3 }
+public enum HostnameSource { None = 0, ReverseDns = 1, Dhcp = 2, Snmp = 3, Manual = 4 }
 
 public enum NeighborProtocol { Lldp = 0, Cdp = 1, Inferred = 2 }
 

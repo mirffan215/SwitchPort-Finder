@@ -135,6 +135,41 @@ public class DiscoveryApiTests(ApiFixture fx)
     }
 
     [Fact]
+    public async Task A_manual_name_and_pinned_port_survive_rescans_and_make_the_device_traceable()
+    {
+        var n = Build();
+        var access = await AddSwitch("MAN-ACCESS", n.AccessIp); var core = await AddSwitch("MAN-CORE", n.CoreIp, arp: true);
+        await Scan(access); await Scan(core);
+        var dev = (await _http.GetFromJsonAsync<Paged<DeviceDto>>($"/api/devices?q={n.PcMac}", Json))!.Items.Single();
+        var ports = await Ports(access); var target = ports.Ports.Single(p => p.Name == "Gi1/0/16"); var uplink = ports.Ports.Single(p => p.Name == "Gi1/0/24");
+
+        // refused: an uplink, a port of another switch, a malformed request
+        (await _http.PutAsJsonAsync($"/api/devices/{dev.Id}/manual", new ManualDeviceRequest(null, "x", null, null, null, access, uplink.PortId, null), Json)).StatusCode.Should().Be(HttpStatusCode.BadRequest, "an uplink is not where a device is plugged in");
+        var corePort = (await Ports(core)).Ports.First();
+        (await _http.PutAsJsonAsync($"/api/devices/{dev.Id}/manual", new ManualDeviceRequest(null, "x", null, null, null, access, corePort.PortId, null), Json)).StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        (await _http.PutAsJsonAsync($"/api/devices/{dev.Id}/manual", new ManualDeviceRequest(null, "bad\u0001name", null, null, null, null, null, null), Json)).StatusCode.Should().Be(HttpStatusCode.BadRequest);
+
+        var ok = await _http.PutAsJsonAsync($"/api/devices/{dev.Id}/manual", new ManualDeviceRequest(null, "Reception printer", null, "Front desk", "HP LaserJet, asset 4711", access, target.PortId, 60), Json);
+        ok.StatusCode.Should().Be(HttpStatusCode.OK, await ok.Content.ReadAsStringAsync());
+        var d1 = (await ok.Content.ReadFromJsonAsync<DeviceDetailDto>(Json))!.Device;
+        (d1.Hostname, d1.PortName, d1.Vlan, d1.Pinned, d1.Owner).Should().Be(("Reception printer", "Gi1/0/16", 60, true, "Front desk"));
+
+        await Scan(access); await Scan(core);   // rescans must not undo it
+        var d2 = (await _http.GetFromJsonAsync<DeviceDetailDto>($"/api/devices/{dev.Id}", Json))!;
+        (d2.Device.Hostname, d2.Device.PortName, d2.Device.Pinned).Should().Be(("Reception printer", "Gi1/0/16", true));
+        (await _http.GetFromJsonAsync<Paged<DeviceDto>>("/api/devices?q=Front%20desk", Json))!.Items.Should().ContainSingle(d => d.Id == dev.Id, "owner is searchable");
+        (await _http.GetFromJsonAsync<SearchResponse>("/api/search?q=asset%204711", Json))!.Devices.Should().ContainSingle(d => d.Id == dev.Id, "notes are searchable");
+        var trace = await _http.GetAsync($"/api/devices/{dev.Id}/trace"); trace.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await trace.Content.ReadAsStringAsync()).Should().Contain("Gi1/0/16");
+
+        // clearing the manual details hands everything back to discovery
+        (await _http.PutAsJsonAsync($"/api/devices/{dev.Id}/manual", new ManualDeviceRequest(null, null, null, null, null, null, null, null), Json)).StatusCode.Should().Be(HttpStatusCode.OK);
+        var d3 = (await _http.GetFromJsonAsync<DeviceDetailDto>($"/api/devices/{dev.Id}", Json))!.Device;
+        (d3.Pinned, d3.PortName).Should().Be((false, "Gi1/0/15"), "the discovered edge port is restored");
+        (await _http.DeleteAsync($"/api/devices/{dev.Id}")).StatusCode.Should().Be(HttpStatusCode.Conflict, "a discovered device cannot be deleted: it would reappear");
+    }
+
+    [Fact]
     public async Task Rescanning_is_incremental_no_duplicate_devices_and_first_seen_is_preserved()
     {
         var n = Build();
@@ -363,5 +398,36 @@ public class PortsListApiTests(ApiFixture fx)
         var p1 = (await _http.GetFromJsonAsync<Paged<PortListItem>>($"/api/ports?switchId={sw}&pageSize=2&page=2", Json))!; p1.Items.Should().HaveCount(2); p1.Total.Should().Be(4);
         foreach (var bad in new[] { "q=%27%20OR%201%3D1--", "q=" + new string('A', 5000), "type=Bogus", "status=%00", "pageSize=-5&page=-1", "sort=%3B%20DROP%20TABLE" })
             ((int)(await _http.GetAsync("/api/ports?" + bad)).StatusCode).Should().BeLessThan(500, bad);
+    }
+}
+
+[Collection("api")]
+public class ManualDeviceApiTests(ApiFixture fx)
+{
+    private readonly HttpClient _http = fx.CreateClient();
+    private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web) { Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() } };
+    private static int _n;
+
+    [Fact]
+    public async Task A_device_can_be_added_by_hand_with_a_location_and_deleted_again()
+    {
+        int swId, portId;
+        using (var scope = fx.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<SwitchPortFinder.Infrastructure.Persistence.AppDbContext>();
+            var sw = new SwitchPortFinder.Domain.Entities.Switch { Name = "MD-SW-" + Guid.NewGuid().ToString("N")[..5], ManagementIp = "203.0.113.240" }; db.Switches.Add(sw); await db.SaveChangesAsync();
+            var p = new SwitchPortFinder.Domain.Entities.SwitchPort { SwitchId = sw.Id, IfIndex = 5, Name = "Gi5/0/5", OperUp = true, PortType = PortType.Endpoint, Vlan = 20 }; db.SwitchPorts.Add(p); await db.SaveChangesAsync(); swId = sw.Id; portId = p.Id;
+        }
+        var mac = $"1866DA00{Interlocked.Increment(ref _n):X4}"[..12];
+        (await _http.PostAsJsonAsync("/api/devices", new ManualDeviceRequest("not-a-mac", "x", null, null, null, null, null, null), Json)).StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        (await _http.PostAsJsonAsync("/api/devices", new ManualDeviceRequest("01:00:5E:00:00:01", "multicast", null, null, null, null, null, null), Json)).StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        var r = await _http.PostAsJsonAsync("/api/devices", new ManualDeviceRequest(mac, "CNC machine controller", "10.20.30.40", "Workshop", "Unmanaged switch behind it", swId, portId, null), Json);
+        r.StatusCode.Should().Be(HttpStatusCode.Created, await r.Content.ReadAsStringAsync());
+        var d = (await r.Content.ReadFromJsonAsync<DeviceDetailDto>(Json))!.Device;
+        (d.Hostname, d.Ip, d.Manual, d.Pinned, d.PortName, d.Vlan, d.Vendor).Should().Be(("CNC machine controller", "10.20.30.40", true, true, "Gi5/0/5", 20, "Dell Inc."));
+        (await _http.PostAsJsonAsync("/api/devices", new ManualDeviceRequest(mac, "dup", null, null, null, null, null, null), Json)).StatusCode.Should().Be(HttpStatusCode.Conflict);
+        (await _http.GetFromJsonAsync<SearchResponse>("/api/search?q=CNC%20machine", Json))!.Devices.Should().ContainSingle(x => x.Id == d.Id);
+        (await _http.DeleteAsync($"/api/devices/{d.Id}")).StatusCode.Should().Be(HttpStatusCode.NoContent);
+        (await _http.GetAsync($"/api/devices/{d.Id}")).StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
 }

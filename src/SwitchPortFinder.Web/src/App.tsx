@@ -10,6 +10,7 @@ import DevicesPage from './pages/DevicesPage';
 import DiscoveryPage from './pages/DiscoveryPage';
 import DevicePage from './pages/DevicePage';
 import PortsPage from './pages/PortsPage';
+import AddDevicePage from './pages/AddDevicePage';
 import SearchPage from './pages/SearchPage';
 import TracePage from './pages/TracePage';
 
@@ -23,6 +24,7 @@ export default function App() {
         <Route path="switches/:id/edit" element={<SwitchFormPage />} />
         <Route path="switches/:id" element={<SwitchPage />} />
         <Route path="devices" element={<DevicesPage />} />
+        <Route path="devices/new" element={<AddDevicePage />} />
         <Route path="devices/:id" element={<DevicePage />} />
         <Route path="devices/:id/trace" element={<TracePage />} />
         <Route path="ports" element={<PortsPage />} />

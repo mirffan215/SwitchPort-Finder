@@ -3,6 +3,10 @@
 // Creates and removes its own data (names start with "qa-"). Exit code 0 = all checks passed.
 const { chromium } = require('playwright');
 const fs = require('fs');
+const crypto = require('crypto');
+const TOTP_ENV = process.env.ADMIN_TOTP;   // base32 secret of the admin's authenticator (printed when this script enrols the admin)
+const b32 = (s) => { const A = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567'; let bits = 0, v = 0; const out = []; for (const c of s.replace(/[ =-]/g, '').toUpperCase()) { v = (v << 5) | A.indexOf(c); bits += 5; if (bits >= 8) { out.push((v >> (bits - 8)) & 255); bits -= 8; } } return Buffer.from(out); };
+const totp = (secret, offset = 0) => { const step = Math.floor(Date.now() / 30000) + offset; const m = Buffer.alloc(8); m.writeBigUInt64BE(BigInt(step)); const h = crypto.createHmac('sha1', b32(secret)).update(m).digest(); const o = h[19] & 15; return String((((h[o] & 127) << 24) | (h[o + 1] << 16) | (h[o + 2] << 8) | h[o + 3]) % 1000000).padStart(6, '0'); };
 const BASE = process.env.BASE || 'http://127.0.0.1:5000', PASS = process.env.ADMIN_PASS, AXE = process.env.AXE;
 if (!PASS) { console.error('set ADMIN_PASS'); process.exit(2); }
 const axeSrc = AXE && fs.existsSync(AXE) ? fs.readFileSync(AXE, 'utf8') : null;
@@ -28,6 +32,28 @@ const sfx = Math.random().toString(36).slice(2, 7);
   await page.getByRole('button', { name: 'Sign in' }).click(); await page.waitForTimeout(600);
   ok(await page.getByText('Invalid username or password.').isVisible(), 'wrong password shows a generic error');
   await page.getByLabel('Password').fill(PASS); await page.getByRole('button', { name: 'Sign in' }).click();
+  // ---- two-factor: sign in with the authenticator code, or enrol through the UI the first time (policy: administrators must use MFA)
+  await page.waitForTimeout(800);
+  let secret = TOTP_ENV;
+  if (await page.getByRole('heading', { name: 'Two-factor authentication', exact: true }).count()) {
+    ok(true, 'login asks for the authenticator code after the password');
+    if (!secret) { console.error('This admin has MFA on: set ADMIN_TOTP to its base32 secret'); process.exit(2); }
+    await page.getByLabel('6-digit code').fill(totp(secret, 1)); await page.getByRole('button', { name: 'Verify' }).click();
+  } else if (await page.getByRole('heading', { name: 'Set up two-factor authentication' }).count()) {
+    ok(true, 'administrator without MFA is forced to set it up before seeing anything else');
+    ok(!(await page.locator('body').innerText()).includes('Dashboard'), 'no application pages are reachable before MFA set-up');
+    await page.getByLabel('Confirm your password').fill(PASS); await page.getByRole('button', { name: 'Set up authenticator app' }).click();
+    await page.locator('canvas.qr').waitFor();
+    ok(await page.locator('canvas.qr').isVisible(), 'a QR code is shown for the authenticator app');
+    secret = (await page.locator('code.mono').first().innerText()).replace(/\s/g, '');
+    await page.getByLabel('6-digit code').fill('000000'); await page.getByRole('button', { name: 'Verify and turn on' }).click(); await page.waitForTimeout(600);
+    ok(await page.getByText('not valid').isVisible(), 'a wrong code is rejected during set-up');
+    await page.getByLabel('6-digit code').fill(totp(secret)); await page.getByRole('button', { name: 'Verify and turn on' }).click();
+    await page.getByText('Save these recovery codes now').waitFor();
+    const codes = await page.locator('ul.recovery li').allInnerTexts(); ok(codes.length === 10, '10 one-time recovery codes are shown');
+    await page.getByLabel('I have saved my recovery codes').check(); await page.getByRole('button', { name: 'Continue' }).click();
+    console.log(`MFA ENROLLED. Secret (use as ADMIN_TOTP next time): ${secret}`);
+  }
   await page.getByRole('link', { name: 'Switches' }).first().waitFor({ timeout: 8000 });
   ok(await page.locator('.sidebar').isVisible(), 'valid login reaches the dashboard');
 
@@ -108,6 +134,18 @@ const sfx = Math.random().toString(36).slice(2, 7);
   // ---- keyboard: skip-to-content not required, but every control reachable and focus visible
   await goto('/'); await page.keyboard.press('Tab'); const focusVisible = await page.evaluate(() => { const e = document.activeElement; return !!e && e !== document.body; });
   ok(focusVisible, 'Tab moves keyboard focus onto a control');
+
+  // ---- two-factor sign-in again (after sign out) incl. replay protection
+  if (secret) {
+    await page.getByRole('button', { name: 'Sign out' }).click(); await page.waitForTimeout(600);
+    await page.getByLabel('Username').fill('admin'); await page.getByLabel('Password').fill(PASS); await page.getByRole('button', { name: 'Sign in' }).click(); await page.waitForTimeout(600);
+    ok(await page.getByRole('heading', { name: 'Two-factor authentication', exact: true }).isVisible(), 'second sign-in asks for a code');
+    await page.getByLabel('6-digit code').fill('123456'); await page.getByRole('button', { name: 'Verify' }).click(); await page.waitForTimeout(500);
+    ok(await page.getByText('That code is not valid').isVisible(), 'wrong authenticator code is refused');
+    await page.getByLabel('6-digit code').fill(totp(secret, 1)); await page.getByRole('button', { name: 'Verify' }).click();
+    await page.getByRole('link', { name: 'Switches' }).first().waitFor({ timeout: 8000 });
+    ok(true, 'correct authenticator code signs in');
+  }
 
   // ---- logout
   await page.getByRole('button', { name: 'Sign out' }).click(); await page.waitForTimeout(800);

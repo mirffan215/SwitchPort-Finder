@@ -110,6 +110,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.Property(x => x.Mac).HasMaxLength(12).IsFixedLength().IsUnicode(false).IsRequired();
             e.Property(x => x.Hostname).HasMaxLength(255).IsRequired();
             e.Property(x => x.Vendor).HasMaxLength(100);
+            e.Property(x => x.Owner).HasMaxLength(100); e.Property(x => x.Notes).HasMaxLength(1000); e.Property(x => x.ManualUpdatedBy).HasMaxLength(100);
             e.Property(x => x.IpAddress).HasMaxLength(45);
             e.HasIndex(x => x.Mac).IsUnique();
             e.HasIndex(x => x.IpAddress);

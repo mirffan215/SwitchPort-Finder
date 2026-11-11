@@ -36,6 +36,7 @@ public class SearchService(AppDbContext db, IOptions<DiscoveryOptions> opt)
             EF.Functions.Like(d.Hostname, pat, SqlText.Escape)
             || (d.IpAddress != null && EF.Functions.Like(d.IpAddress, pat, SqlText.Escape))
             || (d.Vendor != null && EF.Functions.Like(d.Vendor, pat, SqlText.Escape))
+            || (d.Owner != null && EF.Functions.Like(d.Owner, pat, SqlText.Escape)) || (d.Notes != null && EF.Functions.Like(d.Notes, pat, SqlText.Escape))
             || (macLike != null && EF.Functions.Like(d.Mac, macLike))
             || (vlan != null && d.Vlan == vlan)
             || (d.Switch != null && (EF.Functions.Like(d.Switch.Name, pat, SqlText.Escape) || EF.Functions.Like(d.Switch.ManagementIp, pat, SqlText.Escape)))
@@ -47,11 +48,11 @@ public class SearchService(AppDbContext db, IOptions<DiscoveryOptions> opt)
             .Select(d => new
             {
                 d.Id, d.Hostname, d.HostnameSource, d.IpAddress, d.Mac, d.SwitchId, SwitchName = d.Switch != null ? d.Switch.Name : null, d.PortId,
-                IfIndex = d.Port != null ? (int?)d.Port.IfIndex : null, PortName = d.Port != null ? d.Port.Name : null, d.Vlan, d.FirstSeen, d.LastSeen, d.LowConfidence, d.Vendor
+                IfIndex = d.Port != null ? (int?)d.Port.IfIndex : null, PortName = d.Port != null ? d.Port.Name : null, d.Vlan, d.FirstSeen, d.LastSeen, d.LowConfidence, d.Vendor, d.IsManual, d.PinnedPortId, d.Owner, d.Notes
             }).ToListAsync(ct);
         var truncated = rows.Count > DeviceLimit;
         var devices = rows.Take(DeviceLimit).Select(d => new DeviceDto(d.Id, d.Hostname, d.HostnameSource, d.IpAddress, MacAddress.Format(d.Mac), d.SwitchId, d.SwitchName, d.PortId, d.IfIndex,
-            d.PortName, d.Vlan, DeviceStates.Compute(d.LastSeen, now, o), d.FirstSeen, d.LastSeen, d.LowConfidence, VendorText.Of(d.Vendor, d.Mac))).ToList();
+            d.PortName, d.Vlan, DeviceStates.Compute(d.LastSeen, now, o), d.FirstSeen, d.LastSeen, d.LowConfidence, VendorText.Of(d.Vendor, d.Mac), d.IsManual, d.PinnedPortId != null, d.Owner, d.Notes)).ToList();
 
         // ---- switches: name, management IP, sysName ----
         var switches = (await db.Switches.AsNoTracking().Where(s => EF.Functions.Like(s.Name, pat, SqlText.Escape) || EF.Functions.Like(s.ManagementIp, pat, SqlText.Escape)

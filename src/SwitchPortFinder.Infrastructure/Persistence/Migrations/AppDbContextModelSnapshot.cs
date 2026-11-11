@@ -63,6 +63,21 @@ namespace SwitchPortFinder.Infrastructure.Persistence.Migrations
                     b.Property<DateTime?>("LockedUntil")
                         .HasColumnType("datetime2");
 
+                    b.Property<bool>("MfaEnabled")
+                        .HasColumnType("bit");
+
+                    b.Property<long>("MfaLastStep")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("MfaPendingSecretProtected")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("MfaRecoveryHashes")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("MfaSecretProtected")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("PasswordHash")
                         .IsRequired()
                         .HasMaxLength(300)
@@ -208,6 +223,9 @@ namespace SwitchPortFinder.Infrastructure.Persistence.Migrations
                     b.Property<int?>("IpSourceSwitchId")
                         .HasColumnType("int");
 
+                    b.Property<bool>("IsManual")
+                        .HasColumnType("bit");
+
                     b.Property<DateTime>("LastSeen")
                         .HasColumnType("datetime2");
 
@@ -220,6 +238,30 @@ namespace SwitchPortFinder.Infrastructure.Persistence.Migrations
                         .IsUnicode(false)
                         .HasColumnType("char(12)")
                         .IsFixedLength();
+
+                    b.Property<DateTime?>("ManualUpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ManualUpdatedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("Owner")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int?>("PinnedPortId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("PinnedSwitchId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("PinnedVlan")
+                        .HasColumnType("int");
 
                     b.Property<int?>("PortId")
                         .HasColumnType("int");

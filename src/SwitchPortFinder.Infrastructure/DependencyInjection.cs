@@ -45,7 +45,9 @@ public static class DependencyInjection
         services.AddSingleton<IHostnameResolver, DnsHostnameResolver>();
         services.AddSingleton<SettingsService>();
         services.AddScoped<SwitchPortFinder.Infrastructure.Security.UserService>();
+        services.AddScoped<SwitchPortFinder.Infrastructure.Security.MfaService>();
         services.AddScoped<ClassificationService>();
+        services.AddScoped<ManualDeviceService>();
         services.AddScoped<ScanResultWriter>();
         services.AddScoped<DiscoveryJobRunner>();
         services.AddScoped<DiscoveryService>();

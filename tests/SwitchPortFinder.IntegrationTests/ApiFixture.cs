@@ -184,5 +184,24 @@ public sealed class AuthApiFixture : ApiFixture
         builder.UseSetting("Authentication:MaxFailedLogins", "3");
         builder.UseSetting("Authentication:LockoutSeconds", "2");
         builder.UseSetting("Authentication:LoginsPerMinute", "40");
+        builder.UseSetting("Authentication:RequireMfaForAdmins", "false");   // the classic tests use a password-only administrator; MfaTests covers the policy
+    }
+}
+
+/// <summary>Local accounts with the production default: administrators must enrol an authenticator app.</summary>
+public sealed class MfaApiFixture : ApiFixture
+{
+    public const string AdminPassword = "Bootstrap-Root-Pass-2026";
+    public MfaApiFixture() : base(false) { }
+    protected override void ConfigureWebHost(Microsoft.AspNetCore.Hosting.IWebHostBuilder builder)
+    {
+        base.ConfigureWebHost(builder);
+        builder.UseSetting("Authentication:Mode", "Local");
+        builder.UseSetting("Authentication:BootstrapAdmin:Username", "admin");
+        builder.UseSetting("Authentication:BootstrapAdmin:Password", AdminPassword);
+        builder.UseSetting("Authentication:MaxFailedLogins", "3");
+        builder.UseSetting("Authentication:LockoutSeconds", "2");
+        builder.UseSetting("Authentication:LoginsPerMinute", "200");
+        builder.UseSetting("Authentication:RequireMfaForAdmins", "true");
     }
 }

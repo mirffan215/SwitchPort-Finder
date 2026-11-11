@@ -108,6 +108,7 @@ app.UseDefaultFiles();
 app.UseStaticFiles();
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseMiddleware<MfaEnrollmentGateMiddleware>();
 app.UseMiddleware<WriteRequiresAdminMiddleware>();
 app.MapControllers();
 app.MapGet("/api/health", () => Results.Ok(new { status = "ok" })).AllowAnonymous();

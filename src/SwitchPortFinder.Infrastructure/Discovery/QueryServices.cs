@@ -163,7 +163,7 @@ public class DeviceQueryService(AppDbContext db, IOptions<DiscoveryOptions> opt)
             var t = q.Q.Trim(); if (t.Length > ParsedQuery.MaxLength) t = t[..ParsedQuery.MaxLength]; var mac = ParsedQuery.Parse(t)?.MacKey;
             var pat = SqlText.Contains(t);
             query = query.Where(d => EF.Functions.Like(d.Hostname, pat, SqlText.Escape) || (d.IpAddress != null && EF.Functions.Like(d.IpAddress, pat, SqlText.Escape))
-                || (d.Vendor != null && EF.Functions.Like(d.Vendor, pat, SqlText.Escape)) || (mac != null && EF.Functions.Like(d.Mac, "%" + mac + "%")) || (d.Switch != null && EF.Functions.Like(d.Switch.Name, pat, SqlText.Escape))
+                || (d.Vendor != null && EF.Functions.Like(d.Vendor, pat, SqlText.Escape)) || (d.Owner != null && EF.Functions.Like(d.Owner, pat, SqlText.Escape)) || (d.Notes != null && EF.Functions.Like(d.Notes, pat, SqlText.Escape)) || (mac != null && EF.Functions.Like(d.Mac, "%" + mac + "%")) || (d.Switch != null && EF.Functions.Like(d.Switch.Name, pat, SqlText.Escape))
                 || (d.Port != null && EF.Functions.Like(d.Port.Name, pat, SqlText.Escape)));
         }
         return query;
@@ -185,9 +185,9 @@ public class DeviceQueryService(AppDbContext db, IOptions<DiscoveryOptions> opt)
         var o = opt.Value;
         var items = await query.Select(d => new
         { d.Id, d.Hostname, d.HostnameSource, d.IpAddress, d.Mac, d.SwitchId, SwitchName = d.Switch != null ? d.Switch.Name : null,
-          d.PortId, IfIndex = d.Port != null ? (int?)d.Port.IfIndex : null, PortName = d.Port != null ? d.Port.Name : null, d.Vlan, d.FirstSeen, d.LastSeen, d.LowConfidence, d.Vendor }).ToListAsync(ct);
+          d.PortId, IfIndex = d.Port != null ? (int?)d.Port.IfIndex : null, PortName = d.Port != null ? d.Port.Name : null, d.Vlan, d.FirstSeen, d.LastSeen, d.LowConfidence, d.Vendor, d.IsManual, d.PinnedPortId, d.Owner, d.Notes }).ToListAsync(ct);
         return items.Select(d => new DeviceDto(d.Id, d.Hostname, d.HostnameSource, d.IpAddress, MacAddress.Format(d.Mac), d.SwitchId, d.SwitchName,
-            d.PortId, d.IfIndex, d.PortName, d.Vlan, DeviceStates.Compute(d.LastSeen, now, o), d.FirstSeen, d.LastSeen, d.LowConfidence, VendorText.Of(d.Vendor, d.Mac))).ToList();
+            d.PortId, d.IfIndex, d.PortName, d.Vlan, DeviceStates.Compute(d.LastSeen, now, o), d.FirstSeen, d.LastSeen, d.LowConfidence, VendorText.Of(d.Vendor, d.Mac), d.IsManual, d.PinnedPortId != null, d.Owner, d.Notes)).ToList();
     }
 
     public async Task<Paged<DeviceDto>> ListAsync(DeviceQuery q, CancellationToken ct)
@@ -223,8 +223,8 @@ public class DeviceQueryService(AppDbContext db, IOptions<DiscoveryOptions> opt)
         var sightings = obs.OrderByDescending(x => x.LastSeen).Select(x => new SightingDto(x.SwitchId, names.GetValueOrDefault(x.SwitchId, "?"), x.p.Id, x.p.IfIndex, x.p.Name,
             x.p.PortType == PortType.SwitchUplink, counts.GetValueOrDefault(x.p.Id), x.Vlan, x.LastSeen)).ToList();
         var dto = new DeviceDto(d.Id, d.Hostname, d.HostnameSource, d.IpAddress, MacAddress.Format(d.Mac), d.SwitchId, d.Switch?.Name, d.PortId, d.Port?.IfIndex, d.Port?.Name, d.Vlan,
-            DeviceStates.Compute(d.LastSeen, now, o), d.FirstSeen, d.LastSeen, d.LowConfidence, VendorText.Of(d.Vendor, d.Mac));
-        var note = d.SwitchId is null ? "Not seen on an edge port yet: it has only been learned behind switch uplinks. Scan the switch it connects to."
+            DeviceStates.Compute(d.LastSeen, now, o), d.FirstSeen, d.LastSeen, d.LowConfidence, VendorText.Of(d.Vendor, d.Mac), d.IsManual, d.PinnedPortId != null, d.Owner, d.Notes);
+        var note = d.PinnedPortId != null ? "Location set manually by an administrator (kept across scans)." : d.SwitchId is null ? "Not seen on an edge port yet: it has only been learned behind switch uplinks. Scan the switch it connects to."
             : d.LowConfidence ? "Seen on more than one edge port; the port with the fewest MAC addresses was chosen." : "Learned on an edge port (not a switch uplink).";
         return new DeviceDetailDto(dto, ipSource, d.IpObservedAt, note, sightings);
     }

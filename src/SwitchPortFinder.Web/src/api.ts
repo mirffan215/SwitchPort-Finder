@@ -63,10 +63,11 @@ export interface PortTraffic { inBps?: number | null; outBps?: number | null; ut
 export interface TopPort { switchId: number; switchName: string; portId: number; ifIndex: number; portName: string; alias?: string | null; speedMbps: number; traffic: PortTraffic }
 export interface SwitchUptime { switchId: number; name: string; managementIp: string; model?: string | null; isCore: boolean; status: string; uptimeSeconds?: number | null; sampledAt?: string | null }
 export interface SwitchUptimeResponse { items: SwitchUptime[]; switchesTotal: number; withData: number }
+export interface ManualDevice { mac?: string; name?: string; ip?: string; owner?: string; notes?: string; switchId?: number | null; portId?: number | null; vlan?: number | null }
 export interface PortListItem { switchId: number; switchName: string; portId: number; ifIndex: number; name: string; alias?: string | null; status: 'UP' | 'DOWN'; type: PortType; speedMbps: number; vlan?: number | null; macCount: number; device?: string | null; traffic?: PortTraffic | null }
 export interface TopPortsResponse { metric: 'utilization' | 'drops'; items: TopPort[]; portsWithData: number; portsTotal: number }
 export interface PortsResponse { summary: { total: number; connected: number; down: number; uplinks: number; lastScan?: string | null }; ports: PortRow[]; hasArpSource: boolean }
-export interface DeviceRow { vendor?: string | null; id: number; hostname: string; hostnameSource: string; ip?: string | null; mac: string; switchId?: number | null; switchName?: string | null; portId?: number | null; ifIndex?: number | null; portName?: string | null; vlan?: number | null; state: 'Active' | 'Offline' | 'Stale'; firstSeen: string; lastSeen: string; lowConfidence: boolean }
+export interface DeviceRow { manual?: boolean; pinned?: boolean; owner?: string | null; notes?: string | null; vendor?: string | null; id: number; hostname: string; hostnameSource: string; ip?: string | null; mac: string; switchId?: number | null; switchName?: string | null; portId?: number | null; ifIndex?: number | null; portName?: string | null; vlan?: number | null; state: 'Active' | 'Offline' | 'Stale'; firstSeen: string; lastSeen: string; lowConfidence: boolean }
 export interface Paged<T> { items: T[]; total: number; page: number; pageSize: number }
 
 export interface SwitchHit { id: number; name: string; managementIp: string; manufacturerName: string; status: string; model?: string | null }
@@ -91,8 +92,9 @@ export interface RuntimeSettings {
 }
 
 export type UserRole = 'Viewer' | 'Admin';
-export interface Me { authRequired: boolean; authenticated: boolean; username?: string | null; role?: UserRole | null }
-export interface UserDto { id: number; username: string; role: UserRole; disabled: boolean; locked: boolean; createdAt: string; lastLoginAt?: string | null }
+export interface Me { authRequired: boolean; authenticated: boolean; username?: string | null; role?: UserRole | null; mfaEnabled?: boolean; mfaSetupRequired?: boolean; mfaRequired?: boolean; mfaChallenge?: string | null }
+export interface MfaSetup { secret: string; otpauthUri: string }
+export interface UserDto { id: number; username: string; role: UserRole; disabled: boolean; locked: boolean; createdAt: string; lastLoginAt?: string | null; mfaEnabled?: boolean }
 
 export class ApiError extends Error {
   constructor(public status: number, message: string, public fieldErrors: Record<string, string[]> = {}) { super(message); }
@@ -131,15 +133,23 @@ export const api = {
   devices: (p: Record<string, string | number | boolean | undefined>) =>
     request<Paged<DeviceRow>>('/api/devices?' + new URLSearchParams(Object.entries(p).filter(([, v]) => v !== undefined && v !== '').map(([k, v]) => [k, String(v)]))),
   search: (q: string) => request<SearchResponse>(`/api/search?q=${encodeURIComponent(q)}`),
+  addDevice: (r: ManualDevice) => request<DeviceDetail>('/api/devices', json('POST', r)),
+  editDevice: (id: number, r: ManualDevice) => request<DeviceDetail>(`/api/devices/${id}/manual`, json('PUT', r)),
+  deleteDevice: (id: number) => request<void>(`/api/devices/${id}`, { method: 'DELETE' }),
   device: (id: number) => request<DeviceDetail>(`/api/devices/${id}`),
   trace: (id: number) => request<TraceResult>(`/api/devices/${id}/trace`),
   me: () => request<Me>('/api/auth/me'),
   login: (username: string, password: string) => request<Me>('/api/auth/login', json('POST', { username, password })),
   logout: () => request<void>('/api/auth/logout', { method: 'POST' }),
+  loginMfa: (challenge: string, code: string) => request<Me>('/api/auth/login/mfa', json('POST', { challenge, code })),
+  mfaSetup: (password: string) => request<MfaSetup>('/api/auth/mfa/setup', json('POST', { password })),
+  mfaEnable: (code: string) => request<{ recoveryCodes: string[] }>('/api/auth/mfa/enable', json('POST', { code })),
+  mfaDisable: (password: string, code: string) => request<void>('/api/auth/mfa/disable', json('POST', { password, code })),
+  mfaRecoveryCodes: (password: string, code: string) => request<{ recoveryCodes: string[] }>('/api/auth/mfa/recovery-codes', json('POST', { password, code })),
   changePassword: (currentPassword: string, newPassword: string) => request<void>('/api/auth/change-password', json('POST', { currentPassword, newPassword })),
   users: () => request<UserDto[]>('/api/users'),
   createUser: (u: { username: string; password: string; role: UserRole }) => request<UserDto>('/api/users', json('POST', u)),
-  updateUser: (id: number, u: { role?: UserRole; disabled?: boolean; newPassword?: string }) => request<UserDto>(`/api/users/${id}`, json('PUT', u)),
+  updateUser: (id: number, u: { role?: UserRole; disabled?: boolean; newPassword?: string; resetMfa?: boolean }) => request<UserDto>(`/api/users/${id}`, json('PUT', u)),
   deleteUser: (id: number) => request<void>(`/api/users/${id}`, { method: 'DELETE' }),
   settings: () => request<RuntimeSettings>('/api/settings'),
   saveSettings: (s: RuntimeSettings) => request<RuntimeSettings>('/api/settings', json('PUT', s)),

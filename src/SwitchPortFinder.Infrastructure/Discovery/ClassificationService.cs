@@ -113,6 +113,12 @@ public class ClassificationService(AppDbContext db, IOptions<DiscoveryOptions> o
             var choice = LocationSelector.Choose(obsByMac[mac].Select(x => new LocationSelector.ObsCandidate(x.SwitchId, x.PortId, x.Vlan, x.LastSeen)),
                 uplinkPorts.Contains, pid => macCount.GetValueOrDefault(pid), window);
             d.SwitchId = choice.Best?.SwitchId; d.PortId = choice.Best?.PortId; d.Vlan = choice.Best?.Vlan; d.LowConfidence = choice.LowConfidence;
+            // A location set by hand wins over discovery (and is dropped only when its port no longer exists).
+            if (d.PinnedPortId is { } pp)
+            {
+                if (portById.TryGetValue(pp, out var pinned)) { d.SwitchId = pinned.SwitchId; d.PortId = pp; d.Vlan = d.PinnedVlan ?? d.Vlan; d.LowConfidence = false; }
+                else { d.PinnedSwitchId = null; d.PinnedPortId = null; d.PinnedVlan = null; }
+            }
         }
         log.LogInformation("Classification: {Uplinks} uplink ports, {Changed} ports changed, {Devices} devices re-located", uplinkPorts.Count, portChanges.Count, devs.Count);
     }

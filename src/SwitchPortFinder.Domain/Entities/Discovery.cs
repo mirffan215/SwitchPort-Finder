@@ -64,6 +64,17 @@ public class Device
     public string Hostname { get; set; } = "Unknown Device";
     /// <summary>Manufacturer from the MAC's OUI ("" = looked up, not in the registry; null = not looked up yet). Searchable.</summary>
     public string? Vendor { get; set; }
+    // ---- manual details (administrator): make an unknown device identifiable and traceable ----
+    /// <summary>Added by hand rather than discovered by a scan. Such a device can be deleted; a discovered one cannot (it would reappear).</summary>
+    public bool IsManual { get; set; }
+    public string? Owner { get; set; }
+    public string? Notes { get; set; }
+    /// <summary>Location set by hand: survives rescans. The device is traced from this switch/port up to the core.</summary>
+    public int? PinnedSwitchId { get; set; }
+    public int? PinnedPortId { get; set; }
+    public int? PinnedVlan { get; set; }
+    public string? ManualUpdatedBy { get; set; }
+    public DateTime? ManualUpdatedAt { get; set; }
     public HostnameSource HostnameSource { get; set; }
     public DateTime? HostnameCheckedAt { get; set; }
     public string? IpAddress { get; set; }
@@ -175,4 +186,14 @@ public class AppUser
     public DateTime? LastLoginAt { get; set; }
     /// <summary>Embedded in every session cookie. Bumped on logout, password change/reset and role change so older cookies stop working.</summary>
     public int SessionVersion { get; set; }
+    // ---- two-factor authentication (TOTP authenticator app) ----
+    public bool MfaEnabled { get; set; }
+    /// <summary>Data-Protection-encrypted base32 TOTP secret (never returned by any API after enrolment).</summary>
+    public string? MfaSecretProtected { get; set; }
+    /// <summary>Secret generated during set-up, not yet confirmed with a valid code.</summary>
+    public string? MfaPendingSecretProtected { get; set; }
+    /// <summary>JSON array of SHA-256 hashes of the unused recovery codes.</summary>
+    public string? MfaRecoveryHashes { get; set; }
+    /// <summary>Last accepted TOTP time step: a code can be used once.</summary>
+    public long MfaLastStep { get; set; }
 }

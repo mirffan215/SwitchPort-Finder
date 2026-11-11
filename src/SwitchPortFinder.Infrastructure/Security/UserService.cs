@@ -35,6 +35,8 @@ public class UserService(AppDbContext db, IMemoryCache cache, IOptions<AuthOptio
             return (LoginOutcome.Invalid, null);
         }
         if (user.Disabled) { log.LogWarning("LoginFailed: account {User} is disabled", user.Username); return (LoginOutcome.Disabled, null); }
+        // With two-factor on, the password alone proves nothing: keep the failure counter (so wrong codes lock the account) until the code is accepted.
+        if (user.MfaEnabled) { log.LogInformation("LoginPasswordOk: {User} (two-factor code required)", user.Username); return (LoginOutcome.Ok, user); }
         user.FailedLogins = 0; user.LockedUntil = null; user.LastLoginAt = now;
         await db.SaveChangesAsync(ct);
         log.LogInformation("LoginSucceeded: {User}", user.Username);
@@ -42,14 +44,18 @@ public class UserService(AppDbContext db, IMemoryCache cache, IOptions<AuthOptio
     }
 
     /// <summary>Checked on every request by the cookie handler (cached 15 s) so disabling/deleting/demoting a user takes effect quickly.</summary>
-    public async Task<(bool Valid, UserRole Role, int Version)> SessionStateAsync(int id, CancellationToken ct)
+    public async Task<(bool Valid, UserRole Role, int Version, bool Mfa)> SessionStateAsync(int id, CancellationToken ct)
     {
-        if (cache.TryGetValue(CacheKey(id), out (bool, UserRole, int) hit)) return hit;
-        var u = await db.Users.AsNoTracking().Where(x => x.Id == id).Select(x => new { x.Disabled, x.Role, x.SessionVersion }).FirstOrDefaultAsync(ct);
-        var state = u is null || u.Disabled ? (false, UserRole.Viewer, 0) : (true, u.Role, u.SessionVersion);
+        if (cache.TryGetValue(CacheKey(id), out (bool, UserRole, int, bool) hit)) return hit;
+        var u = await db.Users.AsNoTracking().Where(x => x.Id == id).Select(x => new { x.Disabled, x.Role, x.SessionVersion, x.MfaEnabled }).FirstOrDefaultAsync(ct);
+        var state = u is null || u.Disabled ? (false, UserRole.Viewer, 0, false) : (true, u.Role, u.SessionVersion, u.MfaEnabled);
         cache.Set(CacheKey(id), state, TimeSpan.FromSeconds(15));
         return state;
     }
+
+    public async Task<AppUser> GetForSessionAsync(int id, CancellationToken ct) => await db.Users.AsNoTracking().FirstAsync(x => x.Id == id, ct);
+
+    public async Task MarkLoginAsync(int id, CancellationToken ct) { var u = await db.Users.FirstAsync(x => x.Id == id, ct); u.LastLoginAt = DateTime.UtcNow; u.LockedUntil = null; await db.SaveChangesAsync(ct); log.LogInformation("LoginSucceeded: {User} (two-factor)", u.Username); }
 
     /// <summary>Invalidates every existing session cookie of the user (logout, password change). Returns the new version.</summary>
     public async Task<int> RevokeSessionsAsync(int id, CancellationToken ct)
@@ -84,6 +90,7 @@ public class UserService(AppDbContext db, IMemoryCache cache, IOptions<AuthOptio
             throw new ConflictException("This is the last active administrator; it cannot be demoted or disabled.");
         if (r.Role is { } role) { if (!Enum.IsDefined(role)) throw new ValidationFailedException("role", "Unknown role."); if (role != u.Role) u.SessionVersion++; u.Role = role; }
         if (r.Disabled is { } d) u.Disabled = d;
+        if (r.ResetMfa == true) { MfaService.Clear(u); u.SessionVersion++; log.LogWarning("MfaReset: {User} by {Actor}", u.Username, actor); }
         if (r.NewPassword is not null)
         {
             if (PasswordHasher.Policy(r.NewPassword, u.Username) is { } bad) throw new ValidationFailedException("newPassword", bad);
@@ -124,5 +131,5 @@ public class UserService(AppDbContext db, IMemoryCache cache, IOptions<AuthOptio
         log.LogWarning("A bootstrap administrator '{User}' was created from configuration. Sign in, change the password and remove it from the configuration.", b.Username);
     }
 
-    private static UserDto ToDto(AppUser u) => new(u.Id, u.Username, u.Role, u.Disabled, u.LockedUntil > DateTime.UtcNow, u.CreatedAt, u.LastLoginAt);
+    private static UserDto ToDto(AppUser u) => new(u.Id, u.Username, u.Role, u.Disabled, u.LockedUntil > DateTime.UtcNow, u.CreatedAt, u.LastLoginAt, u.MfaEnabled);
 }

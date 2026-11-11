@@ -1,10 +1,15 @@
-import { useQuery } from '@tanstack/react-query';
-import { Link, useParams } from 'react-router-dom';
+import { useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import DeviceForm from '../components/DeviceForm';
+import { useAuth } from '../components/Auth';
 import { api } from '../api';
 import { ErrorBox, StateBadge, ago, fmtDate } from '../components/Bits';
 
 export default function DevicePage() {
   const id = Number(useParams().id);
+  const { canWrite } = useAuth(); const nav = useNavigate(); const qc = useQueryClient(); const [editing, setEditing] = useState(false);
+  const del = useMutation({ mutationFn: () => api.deleteDevice(id), onSuccess: () => { qc.invalidateQueries({ queryKey: ['devices'] }); nav('/devices'); } });
   const { data, error, isLoading } = useQuery({ queryKey: ['device', id], queryFn: () => api.device(id) });
   if (isLoading) return <p>Loading…</p>;
   if (error || !data) return <ErrorBox error={error ?? new Error('Device not found')} />;
@@ -14,13 +19,18 @@ export default function DevicePage() {
       <div className="toolbar">
         <h1>{d.hostname}</h1><StateBadge state={d.state} /><div className="spacer" />
         {d.switchId ? <Link className="btn primary" to={`/switches/${d.switchId}?port=${d.ifIndex}`}>Open Switch</Link> : null}
+        {canWrite && <button className="btn" onClick={() => setEditing(!editing)}>Edit details</button>}
+        {canWrite && d.manual && <button className="btn" onClick={() => confirm('Delete this manually added device?') && del.mutate()}>Delete</button>}
         <Link className="btn" to={`/devices/${d.id}/trace`}>Trace Device</Link>
       </div>
+      {editing && <DeviceForm device={d} onDone={() => setEditing(false)} onCancel={() => setEditing(false)} />}
+      <ErrorBox error={del.error} />
       <dl className="kv big">
         <dt>Hostname</dt><dd>{d.hostname} <span className="muted">({d.hostnameSource === 'None' ? 'not resolved' : d.hostnameSource})</span></dd>
         <dt>IP address</dt><dd>{d.ip ?? 'Unknown'}{data.ipSourceSwitch && <span className="muted"> — from ARP on {data.ipSourceSwitch}, {ago(data.ipObservedAt)}</span>}</dd>
         <dt>MAC address</dt><dd className="mono">{d.mac}</dd>
         <dt>Product / manufacturer</dt><dd>{d.vendor ?? <span className="muted">Unknown (not in the IEEE registry)</span>} <span className="muted small">— from the MAC address; it names the maker of the network adapter, not the model</span></dd>
+        {(d.owner || d.notes) && <><dt>Owner</dt><dd>{d.owner ?? '—'}</dd><dt>Notes</dt><dd>{d.notes ?? '—'}</dd></>}
         <dt>Switch</dt><dd>{d.switchId ? <Link to={`/switches/${d.switchId}`}>{d.switchName}</Link> : '—'}</dd>
         <dt>Port</dt><dd>{d.portName ?? '—'}</dd>
         <dt>VLAN</dt><dd>{d.vlan ?? '—'}</dd>

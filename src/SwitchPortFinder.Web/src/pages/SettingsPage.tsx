@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { api, type CredentialInput, type ImportCommit, type ImportPreview, type ProfileDto, type RuntimeSettings, type UserRole } from '../api';
+import MfaSetup, { RecoveryCodes } from '../components/MfaSetup';
 import { useAuth } from '../components/Auth';
 import { ErrorBox, Field } from '../components/Bits';
 import CredentialFields, { emptyCredential } from '../components/CredentialFields';
@@ -31,10 +32,43 @@ export default function SettingsPage() {
   );
 }
 
+function TwoFactor() {
+  const { me } = useAuth(); const qc = useQueryClient();
+  const [mode, setMode] = useState<'idle' | 'enrol' | 'disable' | 'codes'>('idle');
+  const [pw, setPw] = useState(''); const [code, setCode] = useState(''); const [codes, setCodes] = useState<string[] | null>(null);
+  const off = useMutation({ mutationFn: () => api.mfaDisable(pw, code), onSuccess: () => { setMode('idle'); setPw(''); setCode(''); qc.invalidateQueries({ queryKey: ['me'] }); } });
+  const regen = useMutation({ mutationFn: () => api.mfaRecoveryCodes(pw, code), onSuccess: (r) => { setCodes(r.recoveryCodes); setPw(''); setCode(''); } });
+  const required = me.role === 'Admin';
+  return (
+    <div className="form" style={{ marginTop: 24 }}>
+      <h3>Two-factor authentication {me.mfaEnabled ? <span className="badge ok">On</span> : <span className="badge warnb">Off</span>}</h3>
+      {codes ? <RecoveryCodes codes={codes} onDone={() => { setCodes(null); setMode('idle'); }} /> : mode === 'enrol' ? <MfaSetup onFinished={() => setMode('idle')} /> : mode === 'idle' ? (
+        <>
+          <p className="muted">{me.mfaEnabled ? 'Your account asks for a code from your authenticator app at every sign-in.' : 'Add a second step to your sign-in with an authenticator app.'}{required && ' Required for administrators.'}</p>
+          <div className="buttons">
+            {!me.mfaEnabled && <button className="btn primary" onClick={() => setMode('enrol')}>Set up authenticator app</button>}
+            {me.mfaEnabled && <button className="btn" onClick={() => setMode('codes')}>New recovery codes</button>}
+            {me.mfaEnabled && !required && <button className="btn" onClick={() => setMode('disable')}>Turn off</button>}
+          </div>
+        </>
+      ) : (
+        <form className="form" onSubmit={(e) => { e.preventDefault(); (mode === 'disable' ? off : regen).mutate(); }}>
+          <p className="muted">{mode === 'disable' ? 'Confirm with your password and a current code to turn two-factor off.' : 'Confirm with your password and a current code. The old recovery codes stop working.'}</p>
+          <Field label="Password"><input type="password" autoComplete="current-password" value={pw} onChange={(e) => setPw(e.target.value)} required /></Field>
+          <Field label="6-digit code"><input inputMode="numeric" autoComplete="one-time-code" value={code} onChange={(e) => setCode(e.target.value)} required /></Field>
+          <ErrorBox error={off.error ?? regen.error} />
+          <div className="buttons"><button className="btn primary" disabled={off.isPending || regen.isPending}>{mode === 'disable' ? 'Turn off' : 'Generate new codes'}</button><button type="button" className="btn" onClick={() => setMode('idle')}>Cancel</button></div>
+        </form>
+      )}
+    </div>
+  );
+}
+
 function AccountTab() {
   const [cur, setCur] = useState(''); const [pw, setPw] = useState(''); const [pw2, setPw2] = useState(''); const [done, setDone] = useState(false);
   const change = useMutation({ mutationFn: () => api.changePassword(cur, pw), onSuccess: () => { setDone(true); setCur(''); setPw(''); setPw2(''); } });
   return (
+    <>
     <form className="form" onSubmit={(e) => { e.preventDefault(); setDone(false); change.mutate(); }}>
       <h3>Change password</h3>
       <Field label="Current password"><input type="password" autoComplete="current-password" value={cur} onChange={(e) => setCur(e.target.value)} required /></Field>
@@ -45,6 +79,8 @@ function AccountTab() {
       {done && <div className="alert success">✓ Password changed.</div>}
       <div className="buttons"><button className="btn primary" disabled={change.isPending || !cur || !pw || pw !== pw2}>Change password</button></div>
     </form>
+    <TwoFactor />
+    </>
   );
 }
 
@@ -54,21 +90,23 @@ function UsersTab() {
   const refresh = () => qc.invalidateQueries({ queryKey: ['users'] });
   const [name, setName] = useState(''); const [pw, setPw] = useState(''); const [role, setRole] = useState<UserRole>('Viewer');
   const create = useMutation({ mutationFn: () => api.createUser({ username: name, password: pw, role }), onSuccess: () => { setName(''); setPw(''); refresh(); } });
-  const update = useMutation({ mutationFn: (a: { id: number; body: { role?: UserRole; disabled?: boolean; newPassword?: string } }) => api.updateUser(a.id, a.body), onSuccess: refresh });
+  const update = useMutation({ mutationFn: (a: { id: number; body: { role?: UserRole; disabled?: boolean; newPassword?: string; resetMfa?: boolean } }) => api.updateUser(a.id, a.body), onSuccess: refresh });
   const del = useMutation({ mutationFn: api.deleteUser, onSuccess: refresh });
   return (
     <div>
       <p className="muted"><strong>Admin</strong> can change anything. <strong>Viewer</strong> can search, browse, trace and export, but cannot add, edit, scan or delete. Passwords are stored only as salted hashes. An account is locked for a while after repeated wrong passwords.</p>
       <ErrorBox error={error ?? update.error ?? del.error} />
       <div className="tablewrap"><table>
-        <thead><tr><th>User</th><th>Role</th><th>Status</th><th>Last sign-in</th><th /></tr></thead>
+        <thead><tr><th>User</th><th>Role</th><th>Status</th><th>2FA</th><th>Last sign-in</th><th /></tr></thead>
         <tbody>{data?.map((u) => (
           <tr key={u.id}>
             <td>{u.username}{u.username.toLowerCase() === me.username?.toLowerCase() && <span className="tag">you</span>}</td>
             <td><select value={u.role} onChange={(e) => update.mutate({ id: u.id, body: { role: e.target.value as UserRole } })}><option>Viewer</option><option>Admin</option></select></td>
             <td>{u.disabled ? <span className="badge bad">Disabled</span> : u.locked ? <span className="badge warnb">Locked</span> : <span className="badge ok">Active</span>}</td>
+            <td>{u.mfaEnabled ? <span className="badge ok">On</span> : <span className="badge warnb">Off</span>}</td>
             <td>{u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleString() : '—'}</td>
             <td className="actions">
+              {u.mfaEnabled && <button className="link" onClick={() => confirm(`Reset two-factor for ${u.username}? They will have to set up an authenticator app again.`) && update.mutate({ id: u.id, body: { resetMfa: true } })}>Reset 2FA</button>}
               <button className="link" onClick={() => update.mutate({ id: u.id, body: { disabled: !u.disabled } })}>{u.disabled ? 'Enable' : 'Disable'}</button>
               <button className="link" onClick={() => { const p = prompt(`New password for ${u.username} (12+ characters):`); if (p) update.mutate({ id: u.id, body: { newPassword: p } }); }}>Reset password</button>
               <button className="link danger" onClick={() => confirm(`Delete ${u.username}?`) && del.mutate(u.id)}>Delete</button>

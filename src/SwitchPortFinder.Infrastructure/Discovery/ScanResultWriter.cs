@@ -141,6 +141,7 @@ public class ScanResultWriter(AppDbContext db, IHostnameResolver dns, Classifica
         foreach (var (d, name) in names)
         {
             d.HostnameCheckedAt = now;
+            if (d.HostnameSource == HostnameSource.Manual) continue;          // a name typed by an administrator is never overwritten
             if (name is not null) { d.Hostname = Trunc(name, 255)!; d.HostnameSource = HostnameSource.ReverseDns; }
             else if (d.HostnameSource != HostnameSource.ReverseDns || ipChanged.Contains(d.Mac)) { d.Hostname = "Unknown Device"; d.HostnameSource = HostnameSource.None; }
         }

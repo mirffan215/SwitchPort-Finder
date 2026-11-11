@@ -44,7 +44,9 @@ public record PortsResponse(PortSummary Summary, IReadOnlyList<PortRowDto> Ports
 
 public record DeviceDto(
     int Id, string Hostname, HostnameSource HostnameSource, string? Ip, string Mac, int? SwitchId, string? SwitchName,
-    int? PortId, int? IfIndex, string? PortName, int? Vlan, DeviceState State, DateTime FirstSeen, DateTime LastSeen, bool LowConfidence, string? Vendor = null);
+    int? PortId, int? IfIndex, string? PortName, int? Vlan, DeviceState State, DateTime FirstSeen, DateTime LastSeen, bool LowConfidence, string? Vendor = null, bool Manual = false, bool Pinned = false, string? Owner = null, string? Notes = null);
+
+public record ManualDeviceRequest(string? Mac, string? Name, string? Ip, string? Owner, string? Notes, int? SwitchId, int? PortId, int? Vlan);
 
 public record Paged<T>(IReadOnlyList<T> Items, int Total, int Page, int PageSize);
 

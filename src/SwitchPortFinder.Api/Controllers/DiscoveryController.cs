@@ -5,7 +5,7 @@ using SwitchPortFinder.Infrastructure.Discovery;
 namespace SwitchPortFinder.Api.Controllers;
 
 [ApiController]
-public class DiscoveryController(DiscoveryService discovery, DeviceQueryService devices, SearchService search, TraceService trace, TopologyService topology, DashboardService dashboard, Microsoft.Extensions.Options.IOptions<SwitchPortFinder.Application.Common.ExportOptions> exportOpt) : ControllerBase
+public class DiscoveryController(ManualDeviceService manual, SwitchPortFinder.Application.Abstractions.IUserAuthorizationService who, DiscoveryService discovery, DeviceQueryService devices, SearchService search, TraceService trace, TopologyService topology, DashboardService dashboard, Microsoft.Extensions.Options.IOptions<SwitchPortFinder.Application.Common.ExportOptions> exportOpt) : ControllerBase
 {
     [HttpGet("api/discovery/jobs")]
     public async Task<IActionResult> Jobs([FromQuery] int take = 50, [FromQuery] int? switchId = null, CancellationToken ct = default) => Ok(await discovery.ListAsync(take, switchId, ct));
@@ -19,6 +19,18 @@ public class DiscoveryController(DiscoveryService discovery, DeviceQueryService 
 
     [HttpGet("api/devices/{id:int}")]
     public async Task<IActionResult> Device(int id, CancellationToken ct) => Ok(await devices.GetAsync(id, ct));
+
+    /// <summary>Add a device by hand (administrator): MAC, name, owner, notes and optionally the switch port it is plugged into.</summary>
+    [HttpPost("api/devices")]
+    public async Task<IActionResult> AddDevice(ManualDeviceRequest r, CancellationToken ct) { var id = await manual.CreateAsync(r, who.CurrentUserName, ct); return CreatedAtAction(nameof(Device), new { id }, await devices.GetAsync(id, ct)); }
+
+    /// <summary>Set or clear the manual name/owner/notes and the pinned switch port of any device (administrator).</summary>
+    [HttpPut("api/devices/{id:int}/manual")]
+    public async Task<IActionResult> EditDevice(int id, ManualDeviceRequest r, CancellationToken ct) { await manual.UpdateAsync(id, r, who.CurrentUserName, ct); return Ok(await devices.GetAsync(id, ct)); }
+
+    /// <summary>Delete a device that was added by hand and never seen by a scan.</summary>
+    [HttpDelete("api/devices/{id:int}")]
+    public async Task<IActionResult> DeleteDevice(int id, CancellationToken ct) { await manual.DeleteAsync(id, who.CurrentUserName, ct); return NoContent(); }
 
     /// <summary>Hop list from the root switch down to the device's edge port; marked partial when a hop cannot be proven.</summary>
     [HttpGet("api/devices/{id:int}/trace")]

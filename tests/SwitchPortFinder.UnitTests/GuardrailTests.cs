@@ -70,7 +70,7 @@ public class GuardrailTests
         var hits = Lines(Files("src", ".cs")).Where(l => logCall.IsMatch(l.Text)).Select(l => (l, args: literal.Replace(l.Text[logCall.Match(l.Text).Index..], "\"\"")))   // only the log call itself, not an `if (...)` before it on the same line
             .Where(x => secretNames.IsMatch(x.args)
                 // SNMPv3 usernames are credentials; the portal's own ACCOUNT names (UserService) are not, and are logged for audit.
-                || (username.IsMatch(x.args) && !x.l.File.EndsWith("UserService.cs"))).Select(x => x.l).ToList();
+                || (username.IsMatch(x.args) && !x.l.File.EndsWith("UserService.cs") && !x.l.File.EndsWith("MfaService.cs"))).Select(x => x.l).ToList();
         hits.Should().BeEmpty(string.Join("; ", hits.Select(h => $"{Path.GetFileName(h.File)}:{h.Line}")));
     }
 }

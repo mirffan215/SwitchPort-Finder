@@ -61,6 +61,9 @@ public class AuthOptions
     public int MaxFailedLogins { get; set; } = 5;
     public int LockoutSeconds { get; set; } = 900;
     public int LoginsPerMinute { get; set; } = 10;
+    /// <summary>Administrators must enrol an authenticator app (TOTP) before they can use the portal. Recommended; viewers may enrol voluntarily.</summary>
+    public bool RequireMfaForAdmins { get; set; } = true;
+    public string MfaIssuer { get; set; } = "SwitchPort Finder";
     /// <summary>Used ONLY when Local mode is on and no user exists yet. Change the password immediately after the first login.</summary>
     public BootstrapAdminOptions BootstrapAdmin { get; set; } = new();
 }

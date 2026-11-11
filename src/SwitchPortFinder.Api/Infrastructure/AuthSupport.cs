@@ -39,11 +39,32 @@ public static class AuthSetup
         {
             // Re-check the account on every request (cached 15 s): disabled, deleted or re-roled users lose their session quickly.
             var ok = int.TryParse(ctx.Principal?.FindFirstValue(ClaimTypes.NameIdentifier), out var id);
-            var state = ok ? await ctx.HttpContext.RequestServices.GetRequiredService<UserService>().SessionStateAsync(id, ctx.HttpContext.RequestAborted) : (false, UserRole.Viewer, 0);
+            var state = ok ? await ctx.HttpContext.RequestServices.GetRequiredService<UserService>().SessionStateAsync(id, ctx.HttpContext.RequestAborted) : (false, UserRole.Viewer, 0, false);
             // a cookie minted before the last logout / password change / role change carries an older version and is refused
             if (!state.Item1 || ctx.Principal?.FindFirstValue(ClaimTypes.Role) != state.Item2.ToString() || ctx.Principal?.FindFirstValue(VersionClaim) != state.Item3.ToString())
             { ctx.RejectPrincipal(); await ctx.HttpContext.SignOutAsync(Scheme); }
         };
+    }
+}
+
+/// <summary>
+/// Policy "administrators must use two-factor authentication": an administrator who has not enrolled yet is signed in but can only reach /api/auth/*
+/// (to enrol, read their state or sign out) until enrolment is complete. Everything else answers 403 with mfaSetupRequired.
+/// </summary>
+public class MfaEnrollmentGateMiddleware(RequestDelegate next, IOptions<AuthOptions> options)
+{
+    public async Task InvokeAsync(HttpContext ctx, UserService users)
+    {
+        var o = options.Value;
+        if (o.IsLocal && o.RequireMfaForAdmins && ctx.Request.Path.StartsWithSegments("/api") && !ctx.Request.Path.StartsWithSegments("/api/auth")
+            && ctx.User.Identity?.IsAuthenticated == true && ctx.User.IsInRole(nameof(UserRole.Admin))
+            && int.TryParse(ctx.User.FindFirstValue(ClaimTypes.NameIdentifier), out var id) && !(await users.SessionStateAsync(id, ctx.RequestAborted)).Mfa)
+        {
+            ctx.Response.StatusCode = StatusCodes.Status403Forbidden;
+            await ctx.Response.WriteAsJsonAsync(new { title = "Two-factor authentication required", status = 403, detail = "Set up an authenticator app to continue.", mfaSetupRequired = true });
+            return;
+        }
+        await next(ctx);
     }
 }
 

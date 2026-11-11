@@ -52,7 +52,7 @@ function MailServer() {
       <div className="row">
         <Field label="From address"><input type="email" value={f.fromAddress} onChange={(e) => set({ fromAddress: e.target.value })} placeholder="switchport@example.com" /></Field>
         <Field label="From name"><input value={f.fromName} onChange={(e) => set({ fromName: e.target.value })} /></Field>
-        <Field label="Portal address for links (optional)"><input value={f.publicBaseUrl ?? ''} onChange={(e) => set({ publicBaseUrl: e.target.value })} placeholder="https://switchport.example.com:8450" /></Field>
+        <Field label="Portal address for links (optional)" hint="Full address including the scheme and port, as users type it in the browser."><input value={f.publicBaseUrl ?? ''} onChange={(e) => set({ publicBaseUrl: e.target.value })} placeholder="address of this portal" /></Field>
       </div>
       <Field label="Recipients" hint="One address per line (up to 20)."><textarea rows={3} value={rcpt} onChange={(e) => { setRcpt(e.target.value); setSaved(false); }} /></Field>
       <label className="check"><input type="checkbox" checked={f.trustServerCertificate} onChange={(e) => set({ trustServerCertificate: e.target.checked })} /> Trust the server certificate even if it is self-signed or from an unknown CA <small>(only for an internal relay you control)</small></label>

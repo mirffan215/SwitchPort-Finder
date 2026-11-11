@@ -32,7 +32,7 @@ export default function DevicesPage() {
         <h1>Devices</h1><div className="spacer" />
         <input placeholder="Search hostname, IP, MAC, manufacturer, switch, port, VLAN" value={q} onChange={(e) => setQ(e.target.value)} style={{ minWidth: 340 }} aria-label="Search devices" />
         {canWrite && <Link className="btn primary" to="/devices/new">+ Add device</Link>}<a className="btn" href={exportHref('csv')} download>Export CSV</a><a className="btn" href={exportHref('xlsx')} download>Export Excel</a>
-        <select value={state} onChange={(e) => { setState(e.target.value); setPage(1); }} aria-label="State"><option value="">All states</option><option>Active</option><option>Offline</option><option>Stale</option></select>
+        <select value={state} onChange={(e) => { setState(e.target.value); setPage(1); }} aria-label="State"><option value="">All states</option><option value="Active">Online</option><option value="Offline">Offline</option><option value="Stale">Stale</option></select>
       </div>
       <ErrorBox error={error} />
       <div className="tablewrap" style={{ opacity: isFetching ? 0.7 : 1 }}>

@@ -59,7 +59,9 @@ export function PortTypeBadge({ type }: { type: string }) {
 }
 
 export function StateBadge({ state }: { state: string }) {
-  return <span className={`badge ${state === 'Active' ? 'ok' : state === 'Offline' ? 'warnb' : 'muted'}`}>{state}</span>;
+  const label = state === 'Active' ? 'Online' : state;
+  const why = state === 'Active' ? 'Found by the latest scan of its switch' : state === 'Offline' ? 'Not found by the latest scan of its switch' : 'Not found by the scans of its switch for a long time';
+  return <span className={`badge ${state === 'Active' ? 'ok' : state === 'Offline' ? 'warnb' : 'muted'}`} title={why}>{label}</span>;
 }
 
 export function ConfidenceBadge({ c }: { c: string }) {

@@ -37,12 +37,12 @@ public class DashboardService(AppDbContext db, DiscoveryService discovery, Devic
 {
     public async Task<DashboardDto> GetAsync(CancellationToken ct)
     {
-        var o = opt.Value; var activeSince = DateTime.UtcNow.AddMinutes(-o.OfflineAfterMinutes);
+        var latest = await db.Switches.AsNoTracking().MaxAsync(s => s.LastScanAt, ct);
         var jobs = await discovery.ListAsync(10, null, ct);
         return new DashboardDto(
             await db.Switches.CountAsync(ct), await db.Devices.CountAsync(ct),
             await db.SwitchPorts.CountAsync(p => p.OperUp, ct), await db.SwitchPorts.CountAsync(p => p.PortType == PortType.SwitchUplink, ct),
-            await db.Devices.CountAsync(d => d.LastSeen < activeSince, ct),
+            await db.Devices.CountAsync(d => d.LastSeen < ((d.Switch != null && d.Switch.LastScanAt != null ? d.Switch.LastScanAt.Value : (latest ?? d.LastSeen))).AddMinutes(-DeviceStates.ToleranceMinutes), ct),
             jobs.FirstOrDefault(j => j.Status is JobStatus.Completed or JobStatus.CompletedWithWarnings or JobStatus.Failed), jobs, await devices.RecentAsync(10, ct),
             await db.SwitchPorts.CountAsync(ct), await db.SwitchPorts.CountAsync(p => !p.OperUp, ct));
     }

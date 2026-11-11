@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { api, type CredentialInput, type ImportCommit, type ImportPreview, type ProfileDto, type RuntimeSettings, type UserRole } from '../api';
@@ -277,16 +277,47 @@ const FIELDS: { key: keyof RuntimeSettings; label: string; hint: string; step?: 
   { key: 'maxParallelScans', label: 'Parallel switch scans', hint: '1–50. Limits load on the network and the database.' },
   { key: 'perVlanTimeoutMs', label: 'Per-VLAN timeout (ms)', hint: 'Cisco per-VLAN MAC queries use short timeouts so scans stay fast.' },
   { key: 'perVlanParallelism', label: 'Per-VLAN parallelism', hint: '1–16 simultaneous VLAN queries per switch.' },
-  { key: 'offlineAfterMinutes', label: 'Device offline after (minutes)', hint: 'Not seen for longer than this → Offline.' },
-  { key: 'staleAfterDays', label: 'Device stale after (days)', hint: 'Not seen for longer than this → Stale (must be later than Offline).' },
-  { key: 'healthPollMinutes', label: 'Health poll interval (minutes)', hint: '0 = off. Reads uptime, CPU, memory, latency and port counters of every switch; feeds the Reports and the alerts.' },
+  { key: 'offlineAfterMinutes', label: 'Location window (minutes)', hint: 'When a device was seen on several ports, only sightings this close to the newest one are compared. Does not affect Online/Offline.' },
+  { key: 'staleAfterDays', label: 'Device stale after (days)', hint: 'Not found by the scans of its switch for longer than this → Stale.' },
   { key: 'metricsRetentionDays', label: 'Keep health and traffic history (days)', hint: '7 to 1095. Older data is deleted automatically.' },
-  { key: 'scanIntervalMinutes', label: 'Scheduled scan interval (minutes)', hint: '0 = off, otherwise 5 or more. Scans all switches.' },
   { key: 'dnsTimeoutMs', label: 'Reverse-DNS timeout (ms)', hint: 'A slow DNS never fails a scan; the name stays “Unknown Device”.' },
   { key: 'hostnameRefreshHours', label: 'Retry unresolved hostnames after (hours)', hint: '1–720.' },
   { key: 'uplinkHeuristicMinMacs', label: 'Uplink heuristic: minimum MACs', hint: 'Used only when LLDP/CDP are unavailable. Higher = more cautious.' },
   { key: 'uplinkHeuristicRatio', label: 'Uplink heuristic: overlap ratio', hint: '0.3–1.0. Fraction of a port’s MACs that must also be edge MACs elsewhere.', step: 0.05 },
 ];
+
+const SCAN_CHOICES: [number, string][] = [[0, 'Off (scan only when I click Scan Now)'], [15, 'Every 15 minutes'], [30, 'Every 30 minutes'], [60, 'Every hour'], [120, 'Every 2 hours'], [360, 'Every 6 hours'], [720, 'Every 12 hours'], [1440, 'Once a day']];
+const POLL_CHOICES: [number, string][] = [[0, 'Off (no CPU, memory, latency or traffic history; alerts cannot work)'], [5, 'Every 5 minutes (recommended)'], [15, 'Every 15 minutes'], [30, 'Every 30 minutes'], [60, 'Every hour']];
+
+/** The two things that make the portal talk to the switches on its own. Both are choices the administrator makes here. */
+function ScheduleCard({ values, onSaved }: { values: RuntimeSettings; onSaved: (r: RuntimeSettings) => void }) {
+  const [scan, setScan] = useState(values.scanIntervalMinutes); const [poll, setPoll] = useState(values.healthPollMinutes); const [ok, setOk] = useState(false);
+  useEffect(() => { setScan(values.scanIntervalMinutes); setPoll(values.healthPollMinutes); }, [values.scanIntervalMinutes, values.healthPollMinutes]);
+  const save = useMutation({ mutationFn: () => api.saveSettings({ ...values, scanIntervalMinutes: scan, healthPollMinutes: poll }), onSuccess: (r) => { setOk(true); onSaved(r); } });
+  const scanAll = useMutation({ mutationFn: api.scanAll });
+  const opts = (list: [number, string][], cur: number) => (list.some(([v]) => v === cur) ? list : [...list, [cur, `Custom: every ${cur} minutes`] as [number, string]]);
+  return (
+    <div className="panelx" style={{ marginBottom: 20 }}>
+      <h2>Scheduled scans</h2>
+      <p className="hint">Nothing here runs unless you turn it on. Device status (Online / Offline) always reflects the <strong>most recent scan</strong> of the switch a device sits behind; it never changes just because time passes.</p>
+      <form className="form" onSubmit={(e) => { e.preventDefault(); setOk(false); save.mutate(); }}>
+        <div className="row">
+          <Field label="Full discovery scan (devices, ports, VLANs, neighbors)" hint="Reads the MAC, ARP and interface tables of every switch. Off by default: no traffic until you click Scan Now.">
+            <select value={scan} onChange={(e) => { setScan(Number(e.target.value)); setOk(false); }}>{opts(SCAN_CHOICES, scan).map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
+          </Field>
+          <Field label="Health poll (uptime, CPU, memory, latency, port counters)" hint="A small read-only SNMP poll. Needed for the trend reports, the utilization gauges and e-mail alerts; it does not update device status.">
+            <select value={poll} onChange={(e) => { setPoll(Number(e.target.value)); setOk(false); }}>{opts(POLL_CHOICES, poll).map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
+          </Field>
+        </div>
+        <ErrorBox error={save.error ?? scanAll.error} />
+        {ok && <div className="alert success">✓ Schedule saved and applied.</div>}
+        {scanAll.isSuccess && <div className="alert success">✓ A scan of every switch was queued.</div>}
+        <div className="buttons"><button className="btn primary" disabled={save.isPending || (scan === values.scanIntervalMinutes && poll === values.healthPollMinutes)}>Save schedule</button>
+          <button type="button" className="btn" disabled={scanAll.isPending} onClick={() => scanAll.mutate()}>Scan all switches now</button></div>
+      </form>
+    </div>
+  );
+}
 
 function GeneralTab() {
   const qc = useQueryClient();
@@ -298,6 +329,7 @@ function GeneralTab() {
   const fieldErrors = save.error instanceof Error && 'fieldErrors' in save.error ? (save.error as { fieldErrors: Record<string, string[]> }).fieldErrors : {};
   return (
     <div>
+      {values && <ScheduleCard values={values} onSaved={(r) => { setForm(r); qc.setQueryData(['settings'], r); }} />}
       <h3>Discovery settings</h3>
       <p className="muted">Applied immediately and kept in the database; no restart needed. Connection string, ports, TLS and logging stay in <code>appsettings.json</code> (see CONFIGURATION.md).</p>
       <ErrorBox error={error ?? (Object.keys(fieldErrors).length ? null : save.error)} />

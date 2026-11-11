@@ -124,3 +124,21 @@ public class OuiLookupTests
 
     [Fact] public void The_embedded_registry_is_loaded() => SwitchPortFinder.Domain.OuiLookup.Count.Should().BeGreaterThan(30_000);
 }
+
+public class DeviceStateTests
+{
+    private static readonly DateTime Scan = new(2026, 6, 1, 12, 0, 0, DateTimeKind.Utc);
+    private static readonly SwitchPortFinder.Application.Common.DiscoveryOptions O = new() { StaleAfterDays = 7 };
+    private static SwitchPortFinder.Domain.Enums.DeviceState S(DateTime lastSeen, DateTime reference) => SwitchPortFinder.Application.Discovery.DeviceStates.Compute(lastSeen, reference, O);
+
+    [Fact] public void A_device_found_by_the_last_scan_is_online_even_days_after_that_scan() => S(Scan, Scan).Should().Be(SwitchPortFinder.Domain.Enums.DeviceState.Active, "the clock plays no part: only scans change a status");
+    [Fact] public void Slack_of_a_minute_between_device_and_switch_timestamps_is_tolerated() => S(Scan.AddMinutes(-1), Scan).Should().Be(SwitchPortFinder.Domain.Enums.DeviceState.Active);
+    [Fact] public void A_device_the_last_scan_did_not_find_is_offline() => S(Scan.AddMinutes(-30), Scan).Should().Be(SwitchPortFinder.Domain.Enums.DeviceState.Offline);
+    [Fact] public void A_device_missing_for_more_than_the_stale_period_of_scans_is_stale() => S(Scan.AddDays(-8), Scan).Should().Be(SwitchPortFinder.Domain.Enums.DeviceState.Stale);
+
+    [Fact] public void The_reference_is_the_switch_scan_then_the_newest_scan_anywhere_then_the_device_itself()
+    {
+        var r = SwitchPortFinder.Application.Discovery.DeviceStates.Reference;
+        r(Scan.AddDays(-1), Scan, Scan.AddDays(5)).Should().Be(Scan); r(Scan.AddDays(-1), null, Scan.AddDays(5)).Should().Be(Scan.AddDays(5)); r(Scan.AddDays(-1), null, null).Should().Be(Scan.AddDays(-1));
+    }
+}

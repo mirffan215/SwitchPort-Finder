@@ -195,12 +195,12 @@ public class ReportEngine(AppDbContext db)
             }
             case "devices":
             {
-                var o = new DiscoveryOptions(); var now = DateTime.UtcNow;
-                var ds = await db.Devices.AsNoTracking().Select(d => new { d, Sw = d.Switch != null ? d.Switch.Name : null, Pt = d.Port != null ? d.Port.Name : null }).ToListAsync(ct);
+                var o = new DiscoveryOptions(); var latest = await db.Switches.AsNoTracking().MaxAsync(s => s.LastScanAt, ct);
+                var ds = await db.Devices.AsNoTracking().Select(d => new { d, SwScan = d.Switch != null ? d.Switch.LastScanAt : null, Sw = d.Switch != null ? d.Switch.Name : null, Pt = d.Port != null ? d.Port.Name : null }).ToListAsync(ct);
                 return ds.Select(x => new Row
                 {
                     ["hostname"] = x.d.Hostname, ["ip"] = x.d.IpAddress, ["mac"] = MacAddress.Format(x.d.Mac), ["vendor"] = VendorText.Of(x.d.Vendor, x.d.Mac), ["switch"] = x.Sw, ["port"] = x.Pt, ["vlan"] = x.d.Vlan is { } v ? (double)v : null,
-                    ["state"] = DeviceStates.Compute(x.d.LastSeen, now, o).ToString(), ["owner"] = x.d.Owner, ["firstSeen"] = x.d.FirstSeen, ["lastSeen"] = x.d.LastSeen,
+                    ["state"] = DeviceStates.Compute(x.d.LastSeen, DeviceStates.Reference(x.d.LastSeen, x.SwScan, latest), o).ToString(), ["owner"] = x.d.Owner, ["firstSeen"] = x.d.FirstSeen, ["lastSeen"] = x.d.LastSeen,
                 }).ToList();
             }
             case "switch_health":

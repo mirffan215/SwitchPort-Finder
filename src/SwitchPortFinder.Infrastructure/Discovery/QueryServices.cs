@@ -24,7 +24,7 @@ public class PortQueryService(AppDbContext db, IOptions<DiscoveryOptions> opt)
             p.Id, p.IfIndex, p.Name, p.Alias, p.OperUp ? "UP" : "DOWN", p.PortType, p.SpeedMbps, p.Vlan, macCounts.GetValueOrDefault(p.Id), p.PhysAddress is null ? null : MacAddress.Format(p.PhysAddress),
             // Spec 5.8: an uplink never lists downstream devices (and a down port has none).
             (p.PortType is PortType.Down or PortType.SwitchUplink) ? new List<PortDeviceDto>() : devs[p.Id].OrderBy(d => d.Mac).Take(10).Select(d => new PortDeviceDto(
-                d.Id, d.Hostname, d.IpAddress, MacAddress.Format(d.Mac), d.Vlan, d.LastSeen, DeviceStates.Compute(d.LastSeen, now, opt.Value), d.LowConfidence)).ToList(),
+                d.Id, d.Hostname, d.IpAddress, MacAddress.Format(d.Mac), d.Vlan, d.LastSeen, DeviceStates.Compute(d.LastSeen, DeviceStates.Reference(d.LastSeen, sw.LastScanAt, null), opt.Value), d.LowConfidence)).ToList(),
             p.NeighborId is { } nid && neighbors.TryGetValue(nid, out var nb) ? nb with { Confidence = p.Confidence } : null,
             SupportList(p), TrafficOf(p))).ToList();
         var summary = new PortSummary(rows.Count, rows.Count(r => r.Status == "UP"), rows.Count(r => r.Status == "DOWN"), rows.Count(r => r.Type == PortType.SwitchUplink), sw.LastScanAt);
@@ -143,19 +143,23 @@ public static class VendorText
 public class DeviceQueryService(AppDbContext db, IOptions<DiscoveryOptions> opt)
 {
     /// <summary>Shared by the paged list and the export so "respect the current filters" is true by construction.</summary>
-    private IQueryable<Device> Filter(DeviceQuery q, DateTime now)
+    private async Task<DateTime?> LatestScanAsync(CancellationToken ct) => await db.Switches.AsNoTracking().MaxAsync(s => s.LastScanAt, ct);
+
+    private IQueryable<Device> Filter(DeviceQuery q, DateTime? latest)
     {
         var o = opt.Value;
         var query = db.Devices.AsNoTracking().AsQueryable();
         if (q.SwitchId is { } sid) query = query.Where(d => d.SwitchId == sid);
         if (q.State is { } st)
         {
-            var offline = now.AddMinutes(-o.OfflineAfterMinutes); var stale = now.AddDays(-o.StaleAfterDays);
+            // reference = the last scan of the device's switch (else the newest scan anywhere): see DeviceStates
+            var days = o.StaleAfterDays;
             query = st switch
             {
-                DeviceState.Active => query.Where(d => d.LastSeen >= offline),
-                DeviceState.Offline => query.Where(d => d.LastSeen < offline && d.LastSeen >= stale),
-                _ => query.Where(d => d.LastSeen < stale)
+                DeviceState.Active => query.Where(d => d.LastSeen >= ((d.Switch != null && d.Switch.LastScanAt != null ? d.Switch.LastScanAt.Value : (latest ?? d.LastSeen))).AddMinutes(-DeviceStates.ToleranceMinutes)),
+                DeviceState.Offline => query.Where(d => d.LastSeen < ((d.Switch != null && d.Switch.LastScanAt != null ? d.Switch.LastScanAt.Value : (latest ?? d.LastSeen))).AddMinutes(-DeviceStates.ToleranceMinutes)
+                    && d.LastSeen >= ((d.Switch != null && d.Switch.LastScanAt != null ? d.Switch.LastScanAt.Value : (latest ?? d.LastSeen))).AddDays(-days)),
+                _ => query.Where(d => d.LastSeen < ((d.Switch != null && d.Switch.LastScanAt != null ? d.Switch.LastScanAt.Value : (latest ?? d.LastSeen))).AddDays(-days))
             };
         }
         if (!string.IsNullOrWhiteSpace(q.Q))
@@ -180,35 +184,35 @@ public class DeviceQueryService(AppDbContext db, IOptions<DiscoveryOptions> opt)
         ("lastseen", false) => query.OrderBy(d => d.LastSeen), _ => query.OrderByDescending(d => d.LastSeen),
     };
 
-    private async Task<List<DeviceDto>> Project(IQueryable<Device> query, DateTime now, CancellationToken ct)
+    private async Task<List<DeviceDto>> Project(IQueryable<Device> query, DateTime? latest, CancellationToken ct)
     {
         var o = opt.Value;
         var items = await query.Select(d => new
         { d.Id, d.Hostname, d.HostnameSource, d.IpAddress, d.Mac, d.SwitchId, SwitchName = d.Switch != null ? d.Switch.Name : null,
-          d.PortId, IfIndex = d.Port != null ? (int?)d.Port.IfIndex : null, PortName = d.Port != null ? d.Port.Name : null, d.Vlan, d.FirstSeen, d.LastSeen, d.LowConfidence, d.Vendor, d.IsManual, d.PinnedPortId, d.Owner, d.Notes }).ToListAsync(ct);
+          d.PortId, IfIndex = d.Port != null ? (int?)d.Port.IfIndex : null, PortName = d.Port != null ? d.Port.Name : null, d.Vlan, d.FirstSeen, d.LastSeen, d.LowConfidence, d.Vendor, d.IsManual, d.PinnedPortId, d.Owner, d.Notes, SwitchScan = d.Switch != null ? d.Switch.LastScanAt : null }).ToListAsync(ct);
         return items.Select(d => new DeviceDto(d.Id, d.Hostname, d.HostnameSource, d.IpAddress, MacAddress.Format(d.Mac), d.SwitchId, d.SwitchName,
-            d.PortId, d.IfIndex, d.PortName, d.Vlan, DeviceStates.Compute(d.LastSeen, now, o), d.FirstSeen, d.LastSeen, d.LowConfidence, VendorText.Of(d.Vendor, d.Mac), d.IsManual, d.PinnedPortId != null, d.Owner, d.Notes)).ToList();
+            d.PortId, d.IfIndex, d.PortName, d.Vlan, DeviceStates.Compute(d.LastSeen, DeviceStates.Reference(d.LastSeen, d.SwitchScan, latest), o), d.FirstSeen, d.LastSeen, d.LowConfidence, VendorText.Of(d.Vendor, d.Mac), d.IsManual, d.PinnedPortId != null, d.Owner, d.Notes)).ToList();
     }
 
     public async Task<Paged<DeviceDto>> ListAsync(DeviceQuery q, CancellationToken ct)
     {
-        var page = Math.Max(1, q.Page); var size = Math.Clamp(q.PageSize, 1, 200); var now = DateTime.UtcNow;
-        var query = Filter(q, now);
+        var page = Math.Max(1, q.Page); var size = Math.Clamp(q.PageSize, 1, 200); var latest = await LatestScanAsync(ct);
+        var query = Filter(q, latest);
         var total = await query.CountAsync(ct);
-        return new Paged<DeviceDto>(await Project(Sort(query, q).Skip((page - 1) * size).Take(size), now, ct), total, page, size);
+        return new Paged<DeviceDto>(await Project(Sort(query, q).Skip((page - 1) * size).Take(size), latest, ct), total, page, size);
     }
 
     /// <summary>Every device matching the filters (no paging), same order as the list. Bounded by <paramref name="max"/>.</summary>
     public async Task<(List<DeviceDto> Rows, int Total)> ExportAsync(DeviceQuery q, int max, CancellationToken ct)
     {
-        var now = DateTime.UtcNow; var query = Filter(q, now);
+        var latest = await LatestScanAsync(ct); var query = Filter(q, latest);
         var total = await query.CountAsync(ct);
         if (total > max) throw new ValidationFailedException("export", $"{total} devices match; the export limit is {max}. Narrow the filters.");
-        return (await Project(Sort(query, q), now, ct), total);
+        return (await Project(Sort(query, q), latest, ct), total);
     }
 
     public async Task<List<DeviceDto>> RecentAsync(int take, CancellationToken ct) =>
-        await Project(db.Devices.AsNoTracking().OrderByDescending(d => d.FirstSeen).ThenByDescending(d => d.Id).Take(take), DateTime.UtcNow, ct);
+        await Project(db.Devices.AsNoTracking().OrderByDescending(d => d.FirstSeen).ThenByDescending(d => d.Id).Take(take), await LatestScanAsync(ct), ct);
 
     public async Task<DeviceDetailDto> GetAsync(int id, CancellationToken ct)
     {
@@ -223,7 +227,7 @@ public class DeviceQueryService(AppDbContext db, IOptions<DiscoveryOptions> opt)
         var sightings = obs.OrderByDescending(x => x.LastSeen).Select(x => new SightingDto(x.SwitchId, names.GetValueOrDefault(x.SwitchId, "?"), x.p.Id, x.p.IfIndex, x.p.Name,
             x.p.PortType == PortType.SwitchUplink, counts.GetValueOrDefault(x.p.Id), x.Vlan, x.LastSeen)).ToList();
         var dto = new DeviceDto(d.Id, d.Hostname, d.HostnameSource, d.IpAddress, MacAddress.Format(d.Mac), d.SwitchId, d.Switch?.Name, d.PortId, d.Port?.IfIndex, d.Port?.Name, d.Vlan,
-            DeviceStates.Compute(d.LastSeen, now, o), d.FirstSeen, d.LastSeen, d.LowConfidence, VendorText.Of(d.Vendor, d.Mac), d.IsManual, d.PinnedPortId != null, d.Owner, d.Notes);
+            DeviceStates.Compute(d.LastSeen, DeviceStates.Reference(d.LastSeen, d.Switch?.LastScanAt, await LatestScanAsync(ct)), o), d.FirstSeen, d.LastSeen, d.LowConfidence, VendorText.Of(d.Vendor, d.Mac), d.IsManual, d.PinnedPortId != null, d.Owner, d.Notes);
         var note = d.PinnedPortId != null ? "Location set manually by an administrator (kept across scans)." : d.SwitchId is null ? "Not seen on an edge port yet: it has only been learned behind switch uplinks. Scan the switch it connects to."
             : d.LowConfidence ? "Seen on more than one edge port; the port with the fewest MAC addresses was chosen." : "Learned on an edge port (not a switch uplink).";
         return new DeviceDetailDto(dto, ipSource, d.IpObservedAt, note, sightings);

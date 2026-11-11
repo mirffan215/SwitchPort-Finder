@@ -168,3 +168,15 @@ Open a device and choose **Edit details** (or *Devices → + Add device* for one
 ## Ports page and navigation
 
 *Ports* lists every port of every switch (filter by status, type, switch, VLAN, text). The dashboard's **Connected Ports** and **Switch Uplinks** cards and the port donut open it pre-filtered. Every page except the dashboard has a **Back** button.
+
+## Device status: Online / Offline / Stale
+
+A device's status always reflects the **most recent scan of the switch it sits behind**, never the clock:
+
+* **Online** — the latest scan of its switch found the device's MAC address.
+* **Offline** — the latest scan did not find it.
+* **Stale** — its switch's scans have not found it for more than *Device stale after (days)* (default 7).
+
+So with scheduled scans off (the default) nothing changes between scans: devices found by your last *Scan Now* stay Online until you scan again. A device that is located nowhere yet (seen only behind uplinks) is compared with the newest scan of any switch.
+
+**Scheduled scans are optional** and set by an administrator under *Settings → General → Scheduled scans*: *Full discovery scan* (off by default; every 15/30/60 min, 2/6/12 h, daily) and *Health poll* (default every 5 min; needed for the reports, utilization gauges and e-mail alerts, off = no history and no alerts). The same page has **Scan all switches now**. Changes apply immediately.

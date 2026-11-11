@@ -478,3 +478,40 @@ public class ManualDeviceApiTests(ApiFixture fx)
         (await _http.GetAsync($"/api/devices/{d.Id}")).StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
 }
+
+[Collection("api")]
+public class DeviceOnlineStateApiTests(ApiFixture fx)
+{
+    private readonly HttpClient _http = fx.CreateClient();
+    private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web) { Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() } };
+
+    [Fact]
+    public async Task Status_follows_the_last_scan_not_the_clock_in_the_list_filters_search_and_dashboard()
+    {
+        var scanAt = DateTime.UtcNow.AddDays(-3);   // the switch was scanned three days ago and nobody has scanned since
+        using (var scope = fx.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<SwitchPortFinder.Infrastructure.Persistence.AppDbContext>();
+            foreach (var other in db.Switches) other.LastScanAt = null;   // isolate from other tests: only this switch has scanned
+            db.Devices.RemoveRange(db.Devices.Where(d => d.Hostname.StartsWith("ONL-"))); db.Switches.RemoveRange(db.Switches.Where(s => s.Name == "ONLINE-SW"));
+            var sw = new SwitchPortFinder.Domain.Entities.Switch { Name = "ONLINE-SW", ManagementIp = "198.18.70.1", LastScanAt = scanAt }; db.Switches.Add(sw); await db.SaveChangesAsync();
+            SwitchPortFinder.Domain.Entities.Device D(string n, string mac, DateTime seen, int? swId) => new() { Mac = mac, Hostname = n, FirstSeen = seen, LastSeen = seen, SwitchId = swId };
+            db.Devices.AddRange(D("ONL-found", "AA00000000A1", scanAt, sw.Id),                          // found by that scan
+                                D("ONL-missed", "AA00000000A2", scanAt.AddMinutes(-45), sw.Id),         // not found by that scan
+                                D("ONL-ancient", "AA00000000A3", scanAt.AddDays(-30), sw.Id),           // not found for a month of scans
+                                D("ONL-behind-uplink", "AA00000000A4", scanAt, null),                   // located nowhere: compared with the newest scan anywhere
+                                D("ONL-behind-uplink-missed", "AA00000000A5", scanAt.AddHours(-3), null));
+            await db.SaveChangesAsync();
+        }
+        async Task<List<string>> Names(string state) => (await _http.GetFromJsonAsync<Paged<DeviceDto>>($"/api/devices?q=ONL-&state={state}&pageSize=50", Json))!.Items.Select(d => d.Hostname).OrderBy(x => x).ToList();
+        (await Names("Active")).Should().Equal("ONL-behind-uplink", "ONL-found");
+        (await Names("Offline")).Should().Equal("ONL-behind-uplink-missed", "ONL-missed");
+        (await Names("Stale")).Should().Equal("ONL-ancient");
+        var all = (await _http.GetFromJsonAsync<Paged<DeviceDto>>("/api/devices?q=ONL-&pageSize=50", Json))!.Items.ToDictionary(d => d.Hostname, d => d.State);
+        (all["ONL-found"], all["ONL-missed"], all["ONL-ancient"]).Should().Be((DeviceState.Active, DeviceState.Offline, DeviceState.Stale));
+        (await _http.GetFromJsonAsync<SearchResponse>("/api/search?q=ONL-found", Json))!.Devices.Single().State.Should().Be(DeviceState.Active);
+        (await _http.GetFromJsonAsync<DeviceDetailDto>($"/api/devices/{(await _http.GetFromJsonAsync<Paged<DeviceDto>>("/api/devices?q=ONL-found", Json))!.Items.Single().Id}", Json))!.Device.State.Should().Be(DeviceState.Active);
+        var dash = (await _http.GetFromJsonAsync<DashboardDto>("/api/dashboard", Json))!;
+        dash.OfflineDevices.Should().BeGreaterThanOrEqualTo(3, "missed + behind-uplink-missed + ancient");
+    }
+}

@@ -77,11 +77,22 @@ public class DeviceQuery
     public DeviceState? State { get; set; }
 }
 
+/// <summary>
+/// A device is judged by the LAST SCAN, not by the clock: Online (Active) if the latest scan of the switch it sits behind found it, Offline if that scan did not,
+/// Stale if it has not been found for more than StaleAfterDays of scans. Nothing changes while nobody scans, so scheduled scans can stay off and devices do not
+/// "age" into Offline just because time passed.
+/// </summary>
 public static class DeviceStates
 {
-    public static DeviceState Compute(DateTime lastSeen, DateTime now, DiscoveryOptions o) =>
-        now - lastSeen <= TimeSpan.FromMinutes(o.OfflineAfterMinutes) ? DeviceState.Active
-        : now - lastSeen <= TimeSpan.FromDays(o.StaleAfterDays) ? DeviceState.Offline : DeviceState.Stale;
+    /// <summary>Devices of one scan get their LastSeen within the same moment as the switch's LastScanAt; allow a little slack.</summary>
+    public const int ToleranceMinutes = 2;
+
+    /// <summary>The scan time to compare with: the switch it is located on, else the newest scan of any switch (an unlocated device is learned behind uplinks), else itself.</summary>
+    public static DateTime Reference(DateTime lastSeen, DateTime? switchLastScan, DateTime? latestScanAnywhere) => switchLastScan ?? latestScanAnywhere ?? lastSeen;
+
+    public static DeviceState Compute(DateTime lastSeen, DateTime reference, DiscoveryOptions o) =>
+        reference - lastSeen <= TimeSpan.FromMinutes(ToleranceMinutes) ? DeviceState.Active
+        : reference - lastSeen <= TimeSpan.FromDays(o.StaleAfterDays) ? DeviceState.Offline : DeviceState.Stale;
 }
 
 public record SightingDto(int SwitchId, string SwitchName, int PortId, int IfIndex, string PortName, bool IsUplink, int MacsOnPort, int? Vlan, DateTime LastSeen);

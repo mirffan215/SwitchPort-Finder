@@ -28,7 +28,7 @@ export default function DeviceForm({ device, onDone, onCancel }: { device?: Devi
       <div className="row">
         {!device && <Field label="MAC address" hint="AA:BB:CC:DD:EE:FF, aa-bb-cc-dd-ee-ff or aabb.ccdd.eeff"><input value={mac} onChange={(e) => setMac(e.target.value)} required placeholder="AA:BB:CC:DD:EE:FF" /></Field>}
         <Field label="Name"><input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Reception printer" maxLength={255} /></Field>
-        {!device && <Field label="IP address (optional)"><input value={ip} onChange={(e) => setIp(e.target.value)} placeholder="10.0.0.25" /></Field>}
+        {!device && <Field label="IP address (optional)"><input value={ip} onChange={(e) => setIp(e.target.value)} placeholder="IPv4 or IPv6 address" /></Field>}
       </div>
       <div className="row">
         <Field label="Owner / department"><input value={owner} onChange={(e) => setOwner(e.target.value)} maxLength={100} /></Field>

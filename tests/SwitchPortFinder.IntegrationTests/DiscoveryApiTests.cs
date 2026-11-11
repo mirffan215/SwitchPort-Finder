@@ -357,6 +357,7 @@ public class SwitchUptimeApiTests(ApiFixture fx)
         {
             var db = scope.ServiceProvider.GetRequiredService<SwitchPortFinder.Infrastructure.Persistence.AppDbContext>();
             db.Switches.RemoveRange(db.Switches.Where(s => s.Name.StartsWith("UP-")));
+            foreach (var other in db.Switches.Where(s => !s.Name.StartsWith("UP-"))) { other.UptimeSeconds = null; other.UptimeAt = null; }   // other tests scan switches too; the endpoint is capped at 20 rows
             var t = DateTime.UtcNow;
             SwitchPortFinder.Domain.Entities.Switch S(string n, int ip, long up, bool core = false, SwitchStatus st = SwitchStatus.Reachable) => new() { Name = n, ManagementIp = $"203.0.113.{ip}", UseAsArpSource = core, Status = st, UptimeSeconds = up, UptimeAt = t };
             db.Switches.AddRange(S("UP-old", 211, 400 * 86400L), S("UP-new", 212, 3600), S("UP-core", 213, 90 * 86400L, core: true), S("UP-mid", 214, 10 * 86400L), S("UP-down", 215, 99 * 86400L, st: SwitchStatus.Unreachable));

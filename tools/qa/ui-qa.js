@@ -32,12 +32,20 @@ const sfx = Math.random().toString(36).slice(2, 7);
   ok(await page.locator('.sidebar').isVisible(), 'valid login reaches the dashboard');
 
   // ---- every route renders without JS errors / blank page
-  const routes = ['/', '/switches', '/devices', '/topology', '/discovery', '/settings', '/switches/new', '/search?q=test', '/devices?state=Offline', '/switches/999999', '/devices/999999', '/devices/999999/trace', '/no/such/page'];
+  const routes = ['/', '/switches', '/ports', '/ports?status=up', '/ports?type=SwitchUplink', '/devices', '/topology', '/discovery', '/settings', '/switches/new', '/search?q=test', '/devices?state=Offline', '/switches/999999', '/devices/999999', '/devices/999999/trace', '/no/such/page'];
   for (const r of routes) {
     problems.length = 0; await goto(r);
     const text = (await page.locator('body').innerText()).trim();
     ok(text.length > 20 && problems.length === 0, `route ${r} renders (no blank page, no JS errors)`, problems.join(' | ') || 'blank');
   }
+
+  // ---- navigation: Back button and clickable dashboard cards
+  await goto('/switches'); await page.getByRole('button', { name: 'Go back' }).click(); await page.waitForLoadState('networkidle');
+  ok(new URL(page.url()).pathname === '/', 'Back button returns to the previous page');
+  await goto('/'); await page.getByText('Connected Ports').first().click(); await page.waitForLoadState('networkidle');
+  ok(page.url().includes('/ports') && page.url().includes('status=up'), 'dashboard "Connected Ports" card opens the filtered Ports page');
+  await goto('/'); await page.getByText('Switch Uplinks').first().click(); await page.waitForLoadState('networkidle');
+  ok(page.url().includes('type=SwitchUplink'), 'dashboard "Switch Uplinks" card opens the filtered Ports page');
 
   // ---- theme
   await goto('/');

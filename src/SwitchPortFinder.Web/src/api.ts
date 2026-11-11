@@ -63,6 +63,7 @@ export interface PortTraffic { inBps?: number | null; outBps?: number | null; ut
 export interface TopPort { switchId: number; switchName: string; portId: number; ifIndex: number; portName: string; alias?: string | null; speedMbps: number; traffic: PortTraffic }
 export interface SwitchUptime { switchId: number; name: string; managementIp: string; model?: string | null; isCore: boolean; status: string; uptimeSeconds?: number | null; sampledAt?: string | null }
 export interface SwitchUptimeResponse { items: SwitchUptime[]; switchesTotal: number; withData: number }
+export interface PortListItem { switchId: number; switchName: string; portId: number; ifIndex: number; name: string; alias?: string | null; status: 'UP' | 'DOWN'; type: PortType; speedMbps: number; vlan?: number | null; macCount: number; device?: string | null; traffic?: PortTraffic | null }
 export interface TopPortsResponse { metric: 'utilization' | 'drops'; items: TopPort[]; portsWithData: number; portsTotal: number }
 export interface PortsResponse { summary: { total: number; connected: number; down: number; uplinks: number; lastScan?: string | null }; ports: PortRow[]; hasArpSource: boolean }
 export interface DeviceRow { vendor?: string | null; id: number; hostname: string; hostnameSource: string; ip?: string | null; mac: string; switchId?: number | null; switchName?: string | null; portId?: number | null; ifIndex?: number | null; portName?: string | null; vlan?: number | null; state: 'Active' | 'Offline' | 'Stale'; firstSeen: string; lastSeen: string; lowConfidence: boolean }
@@ -144,6 +145,10 @@ export const api = {
   saveSettings: (s: RuntimeSettings) => request<RuntimeSettings>('/api/settings', json('PUT', s)),
   topology: () => request<Topology>('/api/topology'),
   dashboard: () => request<Dashboard>('/api/dashboard'),
+  allPorts: (p: { q?: string; status?: string; type?: string; switchId?: number; sort?: string; desc?: boolean; page?: number; pageSize?: number }) => {
+    const u = new URLSearchParams(); Object.entries(p).forEach(([k, v]) => v !== undefined && v !== '' && u.set(k, String(v)));
+    return request<Paged<PortListItem>>(`/api/ports?${u}`);
+  },
   switchUptime: () => request<SwitchUptimeResponse>('/api/metrics/switch-uptime?n=5'),
   topPorts: (metric: 'utilization' | 'drops', n = 5) => request<TopPortsResponse>(`/api/metrics/top-ports?metric=${metric}&n=${n}`),
   listProfiles: () => request<ProfileDto[]>('/api/credential-profiles'),

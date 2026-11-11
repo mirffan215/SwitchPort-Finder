@@ -21,8 +21,8 @@ export default function Dashboard() {
       <div className="cards">
         <Card n={d?.switches} label="Switches" to="/switches" />
         <Card n={d?.devices} label="Devices" to="/devices" />
-        <Card n={d?.connectedPorts} label="Connected Ports" />
-        <Card n={d?.switchUplinks} label="Switch Uplinks" to="/topology" />
+        <Card n={d?.connectedPorts} label="Connected Ports" to="/ports?status=up" />
+        <Card n={d?.switchUplinks} label="Switch Uplinks" to="/ports?type=SwitchUplink" />
         <Card n={d?.offlineDevices} label="Offline Devices" to="/devices?state=Offline" warn={!!d?.offlineDevices} />
         <div className="card"><div className="num sm">{last ? ago(last.completedAt ?? last.queuedAt) : '—'}</div><div>Last Discovery</div>{last && <small className={`badge ${BADGE[last.status]}`}>{last.switchName}: {last.status === 'CompletedWithWarnings' ? 'warnings' : last.status}</small>}</div>
       </div>
@@ -31,7 +31,7 @@ export default function Dashboard() {
         <TopUtilization />
         <div className="panelx">
           <h2>Ports by state</h2>
-          <p className="hint">Click a slice or legend row to open the switch list.</p>
+          <p className="hint">Click a slice or legend row to list those ports.</p>
           {d && d.totalPorts > 0 ? <Donut centre="ports" caption="Ports by state" slices={portSlices(d, nav)} /> : <div className="empty">No ports yet. Scan a switch.</div>}
         </div>
       </div>
@@ -73,9 +73,9 @@ export default function Dashboard() {
 function portSlices(d: DashboardDto, nav: (to: string) => void) {
   const up = Math.max(0, d.totalPorts - d.downPorts); const uplinks = Math.min(d.switchUplinks, up); const endpoints = up - uplinks;
   return [
-    { label: 'Connected', value: endpoints, color: 'var(--ok)', onClick: () => nav('/switches') },
-    { label: 'Switch uplinks', value: uplinks, color: 'var(--accent)', onClick: () => nav('/topology') },
-    { label: 'Down / unused', value: d.downPorts, color: 'var(--muted)', onClick: () => nav('/switches') }];
+    { label: 'Connected', value: endpoints, color: 'var(--ok)', onClick: () => nav('/ports?status=up') },
+    { label: 'Switch uplinks', value: uplinks, color: 'var(--accent)', onClick: () => nav('/ports?type=SwitchUplink') },
+    { label: 'Down / unused', value: d.downPorts, color: 'var(--muted)', onClick: () => nav('/ports?status=down') }];
 }
 
 function Card({ n, label, to, warn }: { n?: number; label: string; to?: string; warn?: boolean }) {

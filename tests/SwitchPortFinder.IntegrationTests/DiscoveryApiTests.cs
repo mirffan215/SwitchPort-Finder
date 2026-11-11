@@ -336,3 +336,32 @@ public class SwitchUptimeApiTests(ApiFixture fx)
         (await _http.GetFromJsonAsync<SwitchUptimeResponse>("/api/metrics/switch-uptime?n=99999", Json))!.Items.Count.Should().BeLessThanOrEqualTo(20);
     }
 }
+
+[Collection("api")]
+public class PortsListApiTests(ApiFixture fx)
+{
+    private readonly HttpClient _http = fx.CreateClient();
+    private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web) { Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() } };
+
+    [Fact]
+    public async Task Ports_list_filters_by_status_type_search_and_pages()
+    {
+        int sw;
+        using (var scope = fx.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<SwitchPortFinder.Infrastructure.Persistence.AppDbContext>();
+            var s = new SwitchPortFinder.Domain.Entities.Switch { Name = "PL-SW-" + Guid.NewGuid().ToString("N")[..5], ManagementIp = "203.0.113.230" }; db.Switches.Add(s); await db.SaveChangesAsync(); sw = s.Id;
+            SwitchPortFinder.Domain.Entities.SwitchPort P(int i, bool up, PortType t, string? alias = null) => new() { SwitchId = s.Id, IfIndex = i, Name = $"Gi7/0/{i}", OperUp = up, PortType = t, SpeedMbps = 1000, Alias = alias, Vlan = 70 };
+            db.SwitchPorts.AddRange(P(1, true, PortType.Endpoint), P(2, true, PortType.SwitchUplink, "to-core"), P(3, false, PortType.Down), P(4, true, PortType.Endpoint));
+            await db.SaveChangesAsync();
+        }
+        var up = (await _http.GetFromJsonAsync<Paged<PortListItem>>($"/api/ports?switchId={sw}&status=up", Json))!; up.Total.Should().Be(3);
+        (await _http.GetFromJsonAsync<Paged<PortListItem>>($"/api/ports?switchId={sw}&type=SwitchUplink", Json))!.Items.Should().ContainSingle(p => p.Name == "Gi7/0/2");
+        (await _http.GetFromJsonAsync<Paged<PortListItem>>($"/api/ports?switchId={sw}&status=down", Json))!.Total.Should().Be(1);
+        (await _http.GetFromJsonAsync<Paged<PortListItem>>($"/api/ports?switchId={sw}&q=to-core", Json))!.Total.Should().Be(1);
+        (await _http.GetFromJsonAsync<Paged<PortListItem>>($"/api/ports?switchId={sw}&q=70", Json))!.Total.Should().Be(4, "a number also matches the VLAN");
+        var p1 = (await _http.GetFromJsonAsync<Paged<PortListItem>>($"/api/ports?switchId={sw}&pageSize=2&page=2", Json))!; p1.Items.Should().HaveCount(2); p1.Total.Should().Be(4);
+        foreach (var bad in new[] { "q=%27%20OR%201%3D1--", "q=" + new string('A', 5000), "type=Bogus", "status=%00", "pageSize=-5&page=-1", "sort=%3B%20DROP%20TABLE" })
+            ((int)(await _http.GetAsync("/api/ports?" + bad)).StatusCode).Should().BeLessThan(500, bad);
+    }
+}

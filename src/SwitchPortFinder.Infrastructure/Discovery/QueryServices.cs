@@ -32,6 +32,43 @@ public class PortQueryService(AppDbContext db, IOptions<DiscoveryOptions> opt)
         return new PortsResponse(summary, rows, hasArp);
     }
 
+    /// <summary>Every port of every switch, filterable and pageable (the page behind the dashboard's Connected Ports / Switch Uplinks cards).</summary>
+    public async Task<Paged<PortListItem>> ListAllAsync(PortListQuery q, CancellationToken ct)
+    {
+        var size = Math.Clamp(q.PageSize, 1, 500); var page = Math.Max(1, q.Page);
+        var query = db.SwitchPorts.AsNoTracking().AsQueryable();
+        if (q.SwitchId is { } sid) query = query.Where(p => p.SwitchId == sid);
+        if (string.Equals(q.Status, "up", StringComparison.OrdinalIgnoreCase)) query = query.Where(p => p.OperUp);
+        else if (string.Equals(q.Status, "down", StringComparison.OrdinalIgnoreCase)) query = query.Where(p => !p.OperUp);
+        if (q.Type is { } t) query = query.Where(p => p.PortType == t);
+        if (!string.IsNullOrWhiteSpace(q.Q))
+        {
+            var text = q.Q.Trim(); if (text.Length > ParsedQuery.MaxLength) text = text[..ParsedQuery.MaxLength];
+            var pat = SqlText.Contains(text); int? vlan = int.TryParse(text, out var vn) && vn is >= 1 and <= 4094 ? vn : null;
+            query = query.Where(p => EF.Functions.Like(p.Name, pat, SqlText.Escape) || (p.Alias != null && EF.Functions.Like(p.Alias, pat, SqlText.Escape))
+                || EF.Functions.Like(p.Switch!.Name, pat, SqlText.Escape) || (vlan != null && p.Vlan == vlan));
+        }
+        var total = await query.CountAsync(ct);
+        var ordered = (q.Sort?.ToLowerInvariant(), q.Desc) switch
+        {
+            ("switch", false) => query.OrderBy(p => p.Switch!.Name).ThenBy(p => p.IfIndex), ("switch", true) => query.OrderByDescending(p => p.Switch!.Name).ThenBy(p => p.IfIndex),
+            ("speed", false) => query.OrderBy(p => p.SpeedMbps), ("speed", true) => query.OrderByDescending(p => p.SpeedMbps),
+            ("vlan", false) => query.OrderBy(p => p.Vlan), ("vlan", true) => query.OrderByDescending(p => p.Vlan),
+            ("util", false) => query.OrderBy(p => p.RateInBps), ("util", true) => query.OrderByDescending(p => p.RateInBps),
+            ("name", true) => query.OrderByDescending(p => p.Name), ("name", false) => query.OrderBy(p => p.Name),
+            _ => query.OrderBy(p => p.Switch!.Name).ThenBy(p => p.IfIndex),
+        };
+        var rows = await ordered.Skip((page - 1) * size).Take(size).Select(p => new { p, SwitchName = p.Switch!.Name }).ToListAsync(ct);
+        var ids = rows.Select(r => r.p.Id).ToList();
+        var macCounts = await db.Observations.AsNoTracking().Where(o => ids.Contains(o.PortId)).GroupBy(o => o.PortId).Select(g => new { g.Key, N = g.Count() }).ToDictionaryAsync(g => g.Key, g => g.N, ct);
+        var devs = await db.Devices.AsNoTracking().Where(d => d.PortId != null && ids.Contains(d.PortId!.Value)).OrderBy(d => d.Mac).Select(d => new { PortId = d.PortId!.Value, d.Hostname, d.IpAddress, d.Mac }).ToListAsync(ct);
+        var first = devs.GroupBy(d => d.PortId).ToDictionary(g => g.Key, g => g.First());
+        var items = rows.Select(r => new PortListItem(r.p.SwitchId, r.SwitchName, r.p.Id, r.p.IfIndex, r.p.Name, r.p.Alias, r.p.OperUp ? "UP" : "DOWN", r.p.PortType, r.p.SpeedMbps, r.p.Vlan,
+            macCounts.GetValueOrDefault(r.p.Id), r.p.PortType is PortType.Down or PortType.SwitchUplink ? null : first.TryGetValue(r.p.Id, out var d) ? (d.Hostname == "Unknown Device" ? (d.IpAddress ?? MacAddress.Format(d.Mac)) : d.Hostname) : null,
+            TrafficOf(r.p))).ToList();
+        return new Paged<PortListItem>(items, total, page, size);
+    }
+
     /// <summary>Null until two scans have produced a trustworthy rate.</summary>
     public static PortTrafficDto? TrafficOf(SwitchPort p)
     {

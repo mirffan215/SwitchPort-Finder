@@ -48,6 +48,22 @@ public record DeviceDto(
 
 public record Paged<T>(IReadOnlyList<T> Items, int Total, int Page, int PageSize);
 
+public class PortListQuery
+{
+    public int Page { get; set; } = 1;
+    public int PageSize { get; set; } = 50;
+    public string? Sort { get; set; }
+    public bool Desc { get; set; }
+    public string? Q { get; set; }
+    public int? SwitchId { get; set; }
+    /// <summary>"up" or "down" (operational status).</summary>
+    public string? Status { get; set; }
+    public PortType? Type { get; set; }
+}
+
+public record PortListItem(int SwitchId, string SwitchName, int PortId, int IfIndex, string Name, string? Alias, string Status, PortType Type, long SpeedMbps, int? Vlan,
+    int MacCount, string? Device, PortTrafficDto? Traffic);
+
 public class DeviceQuery
 {
     public int Page { get; set; } = 1;

@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using SwitchPortFinder.Application.Discovery;
 using SwitchPortFinder.Application.Switches;
 using SwitchPortFinder.Infrastructure.Discovery;
 
@@ -42,6 +43,9 @@ public class SwitchesController(SwitchService svc, DiscoveryService discovery, P
     public async Task<IActionResult> ScanAll(CancellationToken ct) { var ids = await discovery.EnqueueAllAsync(ct); return Accepted(new { jobIds = ids }); }
 
     [HttpGet("{id:int}/neighbors")] public async Task<IActionResult> Neighbors(int id, CancellationToken ct) => Ok(await ports.NeighborsAsync(id, ct));
+
+    /// <summary>All ports across all switches (filters: q, switchId, status=up|down, type, sort, desc, page, pageSize).</summary>
+    [HttpGet("/api/ports")] public async Task<IActionResult> AllPorts([FromQuery] PortListQuery query, CancellationToken ct) => Ok(await ports.ListAllAsync(query, ct));
 
     [HttpGet("{id:int}/ports")] public async Task<IActionResult> Ports(int id, CancellationToken ct) => Ok(await ports.GetAsync(id, ct));
 }

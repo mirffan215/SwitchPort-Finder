@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { NavLink, Outlet, useLocation } from 'react-router-dom';
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import SearchBox from './SearchBox';
 import ThemeSwitch from './ThemeSwitch';
@@ -12,16 +12,20 @@ const NAV = [
   { to: '/', label: 'Dashboard', end: true, icon: I('M3 12l9-9 9 9M5 10v10h5v-6h4v6h5V10') },
   { to: '/switches', label: 'Switches', icon: I('M3 6h18v5H3zM3 13h18v5H3zM7 8.5h.01M7 15.5h.01') },
   { to: '/devices', label: 'Devices', icon: I('M4 5h16v11H4zM8 20h8M12 16v4') },
+  { to: '/ports', label: 'Ports', icon: I('M6 3h12v8H6zM9 11v4M15 11v4M5 15h14v6H5z') },
   { to: '/topology', label: 'Topology', icon: I('M12 3v6M5 21v-6h14v6M12 9v6M3 21h4M17 21h4M10 21h4') },
   { to: '/discovery', label: 'Discovery', icon: I('M21 12a9 9 0 11-3-6.7L21 8M21 3v5h-5') },
   { to: '/settings', label: 'Settings', icon: I('M12 15a3 3 0 100-6 3 3 0 000 6zM19 12a7 7 0 00-.1-1l2-1.5-2-3.5-2.3 1a7 7 0 00-1.7-1L15 3h-4l-.4 3a7 7 0 00-1.7 1l-2.3-1-2 3.5 2 1.5a7 7 0 000 2l-2 1.5 2 3.5 2.3-1a7 7 0 001.7 1l.4 3h4l.4-3a7 7 0 001.7-1l2.3 1 2-3.5-2-1.5a7 7 0 00.1-1z') },
 ];
-const TITLES: [string, string][] = [['/switches', 'Switch Inventory & Port Matrix'], ['/devices', 'Devices'], ['/topology', 'Network Topology'], ['/discovery', 'Discovery'], ['/settings', 'Settings'], ['/search', 'Search Results']];
+const TITLES: [string, string][] = [['/switches', 'Switch Inventory & Port Matrix'], ['/devices', 'Devices'], ['/ports', 'Ports'], ['/topology', 'Network Topology'], ['/discovery', 'Discovery'], ['/settings', 'Settings'], ['/search', 'Search Results']];
 const titleFor = (path: string) => (path === '/' ? 'Dashboard & Overview' : TITLES.find(([p]) => path.startsWith(p))?.[1] ?? 'SwitchPort Finder');
 
 export default function Layout() {
   const { me, logout } = useAuth();
   const { pathname } = useLocation();
+  const nav = useNavigate();
+  // Back goes to the previous page in this tab's history; with no history (page opened directly) it goes to the parent section.
+  const goBack = () => { if (window.history.state && window.history.state.idx > 0) nav(-1); else nav(pathname.split('/').length > 2 ? pathname.split('/').slice(0, 2).join('/') : '/'); };
   const { data: d } = useQuery({ queryKey: ['dashboard'], queryFn: api.dashboard, refetchInterval: 15_000 });
   const last = d?.lastDiscovery;
   const name = me.username ?? 'Local user';
@@ -50,6 +54,7 @@ export default function Layout() {
       </aside>
       <div className="content">
         <header className="topbar">
+          {pathname !== '/' && <button type="button" className="btn backbtn" onClick={goBack} aria-label="Go back"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6" /></svg> Back</button>}
           <h1>{titleFor(pathname)}</h1>
           <SearchBox />
           <ThemeSwitch />

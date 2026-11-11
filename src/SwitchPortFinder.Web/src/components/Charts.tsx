@@ -81,3 +81,46 @@ export function HBars({ bars, selected, onSelect }: { bars: Bar[]; selected?: st
     </ul>
   );
 }
+
+export const PALETTE = ['var(--accent)', 'var(--purple)', 'var(--ok)', 'var(--warn)', 'var(--bad)', '#60a5fa'];
+
+export interface Series { name: string; values: (number | null)[]; unit?: string }
+
+const niceMax = (v: number) => { if (v <= 0) return 1; const p = 10 ** Math.floor(Math.log10(v)); const n = v / p; return (n <= 1 ? 1 : n <= 2 ? 2 : n <= 5 ? 5 : 10) * p; };
+const fmtNum = (v: number) => (Math.abs(v) >= 1000 ? `${(v / 1000).toFixed(v >= 10000 ? 0 : 1)}k` : v >= 100 ? v.toFixed(0) : v.toFixed(v === Math.round(v) ? 0 : 1));
+
+/** Column, line or area chart over categories (or time). Hover shows exact values; clicking a category reports it (cross-filter). */
+export function XYChart({ kind, cats, series, unit, onPick, selected }: { kind: 'column' | 'line' | 'area'; cats: string[]; series: Series[]; unit?: string; onPick?: (cat: string) => void; selected?: string | null }) {
+  const [hover, setHover] = useState<number | null>(null);
+  const W = 720, H = 300, L = 48, R = 12, T = 14, B = cats.length > 12 ? 70 : 46;
+  const max = niceMax(Math.max(0, ...series.flatMap((s) => s.values.map((v) => v ?? 0))));
+  const iw = W - L - R, ih = H - T - B; const n = Math.max(1, cats.length);
+  const x = (i: number) => L + (kind === 'column' ? (i + 0.5) * (iw / n) : n === 1 ? iw / 2 : (i / (n - 1)) * iw);
+  const y = (v: number) => T + ih - (v / max) * ih;
+  const step = Math.max(1, Math.ceil(n / 14)); const bw = (iw / n) * 0.7 / series.length;
+  return (
+    <div className="xychart">
+      <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`${kind} chart`}>
+        {[0, 0.25, 0.5, 0.75, 1].map((f) => <g key={f}><line x1={L} x2={W - R} y1={y(max * f)} y2={y(max * f)} className="gridline" /><text x={L - 6} y={y(max * f) + 4} textAnchor="end" className="axis">{fmtNum(max * f)}</text></g>)}
+        {unit && <text x={L} y={10} className="axis">{unit}</text>}
+        {cats.map((c, i) => i % step === 0 && <text key={c + i} x={x(i)} y={H - B + 14} textAnchor={cats.length > 12 ? 'end' : 'middle'} className="axis" transform={cats.length > 12 ? `rotate(-35 ${x(i)} ${H - B + 14})` : undefined}>{c.length > 14 ? c.slice(0, 13) + '…' : c}</text>)}
+        {kind !== 'column' && series.map((s, si) => {
+          const pts = s.values.map((v, i) => (v == null ? null : [x(i), y(v)] as const));
+          const d = pts.filter(Boolean).map((p, i) => `${i ? 'L' : 'M'}${p![0].toFixed(1)} ${p![1].toFixed(1)}`).join(' ');
+          const first = pts.find(Boolean), last = [...pts].reverse().find(Boolean);
+          return <g key={s.name}>{kind === 'area' && first && last && <path d={`${d} L${last[0]} ${y(0)} L${first[0]} ${y(0)} Z`} fill={PALETTE[si % 6]} opacity={0.18} />}<path d={d} fill="none" stroke={PALETTE[si % 6]} strokeWidth={2.2} strokeLinejoin="round" />
+            {n <= 40 && pts.map((p, i) => p && <circle key={i} cx={p[0]} cy={p[1]} r={hover === i ? 5 : 2.6} fill={PALETTE[si % 6]} />)}</g>;
+        })}
+        {kind === 'column' && cats.map((c, i) => series.map((s, si) => { const v = s.values[i]; if (v == null) return null; return <rect key={`${c}-${si}`} x={x(i) - (bw * series.length) / 2 + si * bw} y={y(v)} width={Math.max(2, bw - 1)} height={Math.max(0, y(0) - y(v))} rx={2} fill={PALETTE[si % 6]} opacity={selected && selected !== c ? 0.35 : hover === null || hover === i ? 1 : 0.6} />; }))}
+        {cats.map((c, i) => <rect key={'h' + i} x={x(i) - iw / n / 2} y={T} width={iw / n} height={ih} fill="transparent" style={{ cursor: onPick ? 'pointer' : 'default' }} onMouseEnter={() => setHover(i)} onMouseLeave={() => setHover(null)} onClick={() => onPick?.(c)} />)}
+        {hover !== null && <line x1={x(hover)} x2={x(hover)} y1={T} y2={T + ih} className="cursorline" />}
+      </svg>
+      {hover !== null && (
+        <div className="tip" style={{ left: `${(x(hover) / W) * 100}%` }}>
+          <b>{cats[hover]}</b>{series.map((s, si) => <div key={s.name}><i style={{ background: PALETTE[si % 6] }} />{s.name}: <b>{s.values[hover] == null ? '—' : `${s.values[hover]!.toLocaleString(undefined, { maximumFractionDigits: 2 })}${s.unit ? ' ' + s.unit : ''}`}</b></div>)}
+        </div>
+      )}
+      {series.length > 1 && <div className="legendrow">{series.map((s, si) => <span key={s.name}><i style={{ background: PALETTE[si % 6] }} />{s.name}</span>)}</div>}
+    </div>
+  );
+}

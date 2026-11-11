@@ -10,6 +10,7 @@ import DevicesPage from './pages/DevicesPage';
 import DiscoveryPage from './pages/DiscoveryPage';
 import DevicePage from './pages/DevicePage';
 import PortsPage from './pages/PortsPage';
+import ReportsPage from './pages/ReportsPage';
 import AddDevicePage from './pages/AddDevicePage';
 import SearchPage from './pages/SearchPage';
 import TracePage from './pages/TracePage';
@@ -27,6 +28,7 @@ export default function App() {
         <Route path="devices/new" element={<AddDevicePage />} />
         <Route path="devices/:id" element={<DevicePage />} />
         <Route path="devices/:id/trace" element={<TracePage />} />
+        <Route path="reports" element={<ReportsPage />} />
         <Route path="ports" element={<PortsPage />} />
         <Route path="topology" element={<TopologyPage />} />
         <Route path="discovery" element={<DiscoveryPage />} />

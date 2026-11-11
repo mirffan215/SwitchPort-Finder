@@ -58,7 +58,7 @@ const sfx = Math.random().toString(36).slice(2, 7);
   ok(await page.locator('.sidebar').isVisible(), 'valid login reaches the dashboard');
 
   // ---- every route renders without JS errors / blank page
-  const routes = ['/', '/switches', '/ports', '/ports?status=up', '/ports?type=SwitchUplink', '/devices', '/topology', '/discovery', '/settings', '/switches/new', '/search?q=test', '/devices?state=Offline', '/switches/999999', '/devices/999999', '/devices/999999/trace', '/no/such/page'];
+  const routes = ['/', '/reports', '/switches', '/ports', '/ports?status=up', '/ports?type=SwitchUplink', '/devices', '/topology', '/discovery', '/settings', '/switches/new', '/search?q=test', '/devices?state=Offline', '/switches/999999', '/devices/999999', '/devices/999999/trace', '/no/such/page'];
   for (const r of routes) {
     problems.length = 0; await goto(r);
     const text = (await page.locator('body').innerText()).trim();
@@ -72,6 +72,16 @@ const sfx = Math.random().toString(36).slice(2, 7);
   ok(page.url().includes('/ports') && page.url().includes('status=up'), 'dashboard "Connected Ports" card opens the filtered Ports page');
   await goto('/'); await page.getByText('Switch Uplinks').first().click(); await page.waitForLoadState('networkidle');
   ok(page.url().includes('type=SwitchUplink'), 'dashboard "Switch Uplinks" card opens the filtered Ports page');
+
+  // ---- reports: presets render, exports download
+  await goto('/reports');
+  for (const name of ['Switch health overview', 'CPU and memory trend', 'Devices by manufacturer', 'Availability (last 30 days)']) {
+    await page.getByRole('button', { name, exact: true }).click(); await page.waitForTimeout(900);
+    ok(await page.locator('.alert.error').count() === 0 && problems.filter(p => p.startsWith('pageerror')).length === 0, `report preset "${name}" renders without errors`);
+  }
+  const dl = async (btn) => { const [d] = await Promise.all([page.waitForEvent('download', { timeout: 60000 }), page.getByRole('button', { name: btn }).click()]); return d; };
+  const xl = await dl('Export Excel'); ok(xl.suggestedFilename().endsWith('.xlsx'), 'report exports to Excel');
+  const pd = await dl('Export PDF'); ok(pd.suggestedFilename().endsWith('.pdf'), 'report exports to PDF (works under the strict CSP)');
 
   // ---- theme
   await goto('/');

@@ -65,6 +65,14 @@ export interface SwitchUptime { switchId: number; name: string; managementIp: st
 export interface SwitchUptimeResponse { items: SwitchUptime[]; switchesTotal: number; withData: number }
 export interface ManualDevice { mac?: string; name?: string; ip?: string; owner?: string; notes?: string; switchId?: number | null; portId?: number | null; vlan?: number | null }
 export interface PortListItem { switchId: number; switchName: string; portId: number; ifIndex: number; name: string; alias?: string | null; status: 'UP' | 'DOWN'; type: PortType; speedMbps: number; vlan?: number | null; macCount: number; device?: string | null; traffic?: PortTraffic | null }
+export interface ReportField { key: string; label: string; type: 'Text' | 'Number' | 'DateTime' | 'Bool'; unit?: string | null; measure: boolean }
+export interface ReportDataset { key: string; label: string; description: string; history: boolean; fields: ReportField[] }
+export interface ReportMeasure { field: string; agg: string }
+export interface ReportFilter { field: string; op: string; value?: string | null }
+export interface ReportQuery { dataset: string; columns?: string[]; groupBy?: string[]; measures?: ReportMeasure[]; filters?: ReportFilter[]; from?: string; to?: string; timeBucket?: string; sortBy?: string; desc?: boolean; limit?: number }
+export interface ReportColumn { key: string; label: string; type: ReportField['type']; unit?: string | null }
+export interface ReportResult { dataset: string; columns: ReportColumn[]; rows: (string | number | null)[][]; totalRows: number; truncated: boolean; generatedAt: string }
+export interface SavedReport { id: number; name: string; json: string; createdBy?: string | null; updatedAt: string }
 export interface TopPortsResponse { metric: 'utilization' | 'drops'; items: TopPort[]; portsWithData: number; portsTotal: number }
 export interface PortsResponse { summary: { total: number; connected: number; down: number; uplinks: number; lastScan?: string | null }; ports: PortRow[]; hasArpSource: boolean }
 export interface DeviceRow { manual?: boolean; pinned?: boolean; owner?: string | null; notes?: string | null; vendor?: string | null; id: number; hostname: string; hostnameSource: string; ip?: string | null; mac: string; switchId?: number | null; switchName?: string | null; portId?: number | null; ifIndex?: number | null; portName?: string | null; vlan?: number | null; state: 'Active' | 'Offline' | 'Stale'; firstSeen: string; lastSeen: string; lowConfidence: boolean }
@@ -159,6 +167,17 @@ export const api = {
     const u = new URLSearchParams(); Object.entries(p).forEach(([k, v]) => v !== undefined && v !== '' && u.set(k, String(v)));
     return request<Paged<PortListItem>>(`/api/ports?${u}`);
   },
+  reportDatasets: () => request<ReportDataset[]>('/api/reports/datasets'),
+  runReport: (q: ReportQuery) => request<ReportResult>('/api/reports/run', json('POST', q)),
+  exportReport: async (q: ReportQuery, title: string, format: 'xlsx' | 'csv') => {
+    const res = await fetch(`/api/reports/export?format=${format}`, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query: q, title }) });
+    if (!res.ok) throw new Error('Export failed.');
+    return { blob: await res.blob(), name: /filename="?([^";]+)/.exec(res.headers.get('Content-Disposition') ?? '')?.[1] ?? `report.${format}` };
+  },
+  savedReports: () => request<SavedReport[]>('/api/reports'),
+  saveReport: (name: string, jsonText: string) => request<SavedReport>('/api/reports', json('POST', { name, json: jsonText })),
+  updateReport: (id: number, name: string, jsonText: string) => request<SavedReport>(`/api/reports/${id}`, json('PUT', { name, json: jsonText })),
+  deleteReport: (id: number) => request<void>(`/api/reports/${id}`, { method: 'DELETE' }),
   switchUptime: () => request<SwitchUptimeResponse>('/api/metrics/switch-uptime?n=5'),
   topPorts: (metric: 'utilization' | 'drops', n = 5) => request<TopPortsResponse>(`/api/metrics/top-ports?metric=${metric}&n=${n}`),
   listProfiles: () => request<ProfileDto[]>('/api/credential-profiles'),

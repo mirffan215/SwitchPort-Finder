@@ -13,11 +13,12 @@ const NAV = [
   { to: '/switches', label: 'Switches', icon: I('M3 6h18v5H3zM3 13h18v5H3zM7 8.5h.01M7 15.5h.01') },
   { to: '/devices', label: 'Devices', icon: I('M4 5h16v11H4zM8 20h8M12 16v4') },
   { to: '/ports', label: 'Ports', icon: I('M6 3h12v8H6zM9 11v4M15 11v4M5 15h14v6H5z') },
+  { to: '/reports', label: 'Reports', icon: I('M4 20V10M10 20V4M16 20v-7M22 20H2') },
   { to: '/topology', label: 'Topology', icon: I('M12 3v6M5 21v-6h14v6M12 9v6M3 21h4M17 21h4M10 21h4') },
   { to: '/discovery', label: 'Discovery', icon: I('M21 12a9 9 0 11-3-6.7L21 8M21 3v5h-5') },
   { to: '/settings', label: 'Settings', icon: I('M12 15a3 3 0 100-6 3 3 0 000 6zM19 12a7 7 0 00-.1-1l2-1.5-2-3.5-2.3 1a7 7 0 00-1.7-1L15 3h-4l-.4 3a7 7 0 00-1.7 1l-2.3-1-2 3.5 2 1.5a7 7 0 000 2l-2 1.5 2 3.5 2.3-1a7 7 0 001.7 1l.4 3h4l.4-3a7 7 0 001.7-1l2.3 1 2-3.5-2-1.5a7 7 0 00.1-1z') },
 ];
-const TITLES: [string, string][] = [['/switches', 'Switch Inventory & Port Matrix'], ['/devices', 'Devices'], ['/ports', 'Ports'], ['/topology', 'Network Topology'], ['/discovery', 'Discovery'], ['/settings', 'Settings'], ['/search', 'Search Results']];
+const TITLES: [string, string][] = [['/switches', 'Switch Inventory & Port Matrix'], ['/devices', 'Devices'], ['/ports', 'Ports'], ['/reports', 'Reports'], ['/topology', 'Network Topology'], ['/discovery', 'Discovery'], ['/settings', 'Settings'], ['/search', 'Search Results']];
 const titleFor = (path: string) => (path === '/' ? 'Dashboard & Overview' : TITLES.find(([p]) => path.startsWith(p))?.[1] ?? 'SwitchPort Finder');
 
 export default function Layout() {

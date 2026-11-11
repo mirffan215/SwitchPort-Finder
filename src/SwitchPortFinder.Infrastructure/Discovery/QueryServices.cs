@@ -144,7 +144,7 @@ public static class VendorText
 public class DeviceQueryService(AppDbContext db, IOptions<DiscoveryOptions> opt)
 {
     /// <summary>Shared by the paged list and the export so "respect the current filters" is true by construction.</summary>
-    private async Task<DateTime?> LatestScanAsync(CancellationToken ct) => await db.Switches.AsNoTracking().MaxAsync(s => s.LastScanAt, ct);
+    public async Task<DateTime?> LatestScanAsync(CancellationToken ct) => await db.Switches.AsNoTracking().MaxAsync(s => s.LastScanAt, ct);
 
     private IQueryable<Device> Filter(DeviceQuery q, DateTime? latest)
     {
@@ -188,7 +188,7 @@ public class DeviceQueryService(AppDbContext db, IOptions<DiscoveryOptions> opt)
         ("lastseen", false) => query.OrderBy(d => d.LastSeen), _ => query.OrderByDescending(d => d.LastSeen),
     };
 
-    private async Task<List<DeviceDto>> Project(IQueryable<Device> query, DateTime? latest, CancellationToken ct)
+    public async Task<List<DeviceDto>> Project(IQueryable<Device> query, DateTime? latest, CancellationToken ct)
     {
         var o = opt.Value;
         var items = await query.Select(d => new
@@ -207,25 +207,6 @@ public class DeviceQueryService(AppDbContext db, IOptions<DiscoveryOptions> opt)
     }
 
     /// <summary>Every device matching the filters (no paging), same order as the list. Bounded by <paramref name="max"/>.</summary>
-    /// <summary>All access points with their location, status and the number of MAC addresses learned on their port (a rough "clients behind this AP"; wireless clients that a controller tunnels never appear here).</summary>
-    public async Task<AccessPointsResponse> AccessPointsAsync(CancellationToken ct)
-    {
-        var latest = await LatestScanAsync(ct);
-        var aps = await Project(db.Devices.AsNoTracking().Where(d => d.Category == DeviceCategory.AccessPoint).OrderBy(d => d.Switch!.Name).ThenBy(d => d.Port!.Name), latest, ct);
-        var portIds = aps.Where(a => a.PortId != null).Select(a => a.PortId!.Value).Distinct().ToList();
-        var macs = new Dictionary<int, int>(); var neigh = new Dictionary<int, string>();
-        foreach (var chunk in portIds.Chunk(800))
-        {
-            foreach (var g in await db.Devices.AsNoTracking().Where(d => d.PortId != null && chunk.Contains(d.PortId!.Value)).GroupBy(d => d.PortId!.Value).Select(g => new { g.Key, N = g.Count() }).ToListAsync(ct)) macs[g.Key] = g.N;
-            foreach (var n in await db.Neighbors.AsNoTracking().Where(n => chunk.Contains(n.PortId) && n.Protocol != NeighborProtocol.Inferred).Select(n => new { n.PortId, n.SysName, n.Platform }).ToListAsync(ct))
-                neigh[n.PortId] = string.Join(" · ", new[] { n.SysName, n.Platform }.Where(x => !string.IsNullOrWhiteSpace(x)));
-        }
-        var items = aps.Select(a => new AccessPointDto(a, a.PortId is { } p ? Math.Max(0, macs.GetValueOrDefault(p) - 1) : 0, a.PortId is { } p2 ? neigh.GetValueOrDefault(p2) : null)).ToList();
-        var online = aps.Count(a => a.State == DeviceState.Active);
-        KeyValuePair<string, int>[] Top(IEnumerable<string> keys) => keys.GroupBy(k => k).OrderByDescending(g => g.Count()).ThenBy(g => g.Key).Select(g => new KeyValuePair<string, int>(g.Key, g.Count())).ToArray();
-        return new AccessPointsResponse(new AccessPointSummary(aps.Count, online, aps.Count - online, Top(aps.Select(a => a.SwitchName ?? "Not located")), Top(aps.Select(a => a.Vendor ?? "Unknown"))), items);
-    }
-
     public async Task<(List<DeviceDto> Rows, int Total)> ExportAsync(DeviceQuery q, int max, CancellationToken ct)
     {
         var latest = await LatestScanAsync(ct); var query = Filter(q, latest);

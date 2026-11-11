@@ -12,6 +12,7 @@ public static class Steps
     public const string Arp = "ARP";
     public const string Lldp = "LLDP";
     public const string Cdp = "CDP";
+    public const string WirelessAps = "Wireless access points";
     public const string Correlation = "Device correlation";
 }
 
@@ -48,8 +49,12 @@ public record SupportInfo(PortSupport Flags, int VlanCount);
 
 public record ArpInfo(string Ip, string Mac, int? IfIndex);
 
+/// <summary>One access point as listed by a wireless controller.</summary>
+public record WirelessApInfo(string SysMac, string? EthMac, string? Name, string? Model, string? Serial, string? Ip, long? UptimeSeconds, int? Clients, bool? AdminEnabled, bool? Associated);
+
 public class ScanResult
 {
+    public List<WirelessApInfo> WirelessAps { get; } = [];
     public SystemInfo? System { get; set; }
     public HealthReading? Health { get; set; }
     public Manufacturer? DetectedManufacturer { get; set; }
@@ -72,7 +77,7 @@ public class ScanResult
     public List<ScanError> Errors { get; } = [];
 }
 
-public record ScanRequest(string Ip, SnmpCredentials Credentials, Manufacturer Selected, bool UseAsArpSource);
+public record ScanRequest(string Ip, SnmpCredentials Credentials, Manufacturer Selected, bool UseAsArpSource, bool IsWirelessController = false);
 
 /// <summary>Runs the read-only SNMP collection for one switch. Never throws for a single failed table.</summary>
 public interface ISwitchScanner

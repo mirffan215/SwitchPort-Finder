@@ -50,6 +50,21 @@ public class ScanResultWriter(AppDbContext db, IHostnameResolver dns, Classifica
         var o = opt.Value; var now = DateTime.UtcNow;
         ApplySwitch(sw, r, now);
 
+        // ---- wireless controller: the access points it lists ----
+        if (sw.IsWirelessController && r.WirelessAps.Count > 0)
+        {
+            var known = await db.WirelessAps.Where(a => a.ControllerId == sw.Id).ToDictionaryAsync(a => a.SysMac, ct);
+            foreach (var ap in r.WirelessAps.GroupBy(a => a.SysMac).Select(g => g.First()))
+            {
+                if (!known.TryGetValue(ap.SysMac, out var row)) { row = new WirelessAp { ControllerId = sw.Id, SysMac = ap.SysMac, FirstSeen = now }; db.WirelessAps.Add(row); }
+                row.EthMac = ap.EthMac ?? row.EthMac; row.Name = Trunc(ap.Name, 100) ?? row.Name; row.Model = Trunc(ap.Model, 100) ?? row.Model; row.Serial = Trunc(ap.Serial, 60) ?? row.Serial; row.Ip = Trunc(ap.Ip, 45) ?? row.Ip;
+                row.UptimeSeconds = ap.UptimeSeconds; row.Clients = ap.Clients; row.AdminEnabled = ap.AdminEnabled; row.Associated = ap.Associated; row.LastSeen = now;
+            }
+            // an access point the controller did not list this time is no longer joined (the row is kept so it shows as Offline)
+            var listed = r.WirelessAps.Select(x => x.SysMac).ToHashSet();
+            foreach (var row in known.Values.Where(k => !listed.Contains(k.SysMac))) { row.Associated = false; row.Clients = 0; }
+        }
+
         // ---- ports ----
         var ports = await db.SwitchPorts.Where(p => p.SwitchId == sw.Id).ToDictionaryAsync(p => p.IfIndex, ct);
         var portSamples = new List<(SwitchPort Port, DateTime At)>();
@@ -147,7 +162,7 @@ public class ScanResultWriter(AppDbContext db, IHostnameResolver dns, Classifica
             d.HostnameCheckedAt = now;
             if (d.HostnameSource == HostnameSource.Manual) continue;          // a name typed by an administrator is never overwritten
             if (name is not null) { d.Hostname = Trunc(name, 255)!; d.HostnameSource = HostnameSource.ReverseDns; }
-            else if (d.HostnameSource != HostnameSource.ReverseDns || ipChanged.Contains(d.Mac)) { d.Hostname = "Unknown Device"; d.HostnameSource = HostnameSource.None; }
+            else if ((d.HostnameSource is not (HostnameSource.ReverseDns or HostnameSource.Snmp)) || ipChanged.Contains(d.Mac)) { d.Hostname = "Unknown Device"; d.HostnameSource = HostnameSource.None; }   // a name taken from the wireless controller is kept
         }
         await db.SaveChangesAsync(ct);
         await categories.ApplyAsync(devices.Values.Where(d => d.Id != 0).ToList(), ct);   // access point / IP phone / ... from the rules (needs location, neighbors and names)

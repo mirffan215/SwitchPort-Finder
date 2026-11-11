@@ -31,6 +31,12 @@ public static class Oids
     public const string CiscoCpuTotalEntry = "1.3.6.1.4.1.9.9.109.1.1.1.1"; // column 8 = cpmCPUTotal5minRev (%)
     public const string CiscoMemoryPoolEntry = "1.3.6.1.4.1.9.9.48.1.1.1";  // column 5 = used, 6 = free (bytes)
     public const string JuniperOperatingEntry = "1.3.6.1.4.1.2636.3.1.13.1"; // column 8 = jnxOperatingCPU (%), 11 = jnxOperatingBuffer (memory %)
+    // Cisco wireless controllers. CISCO-LWAPP-AP-MIB cLApTable (IOS-XE Catalyst 9800 and AireOS), indexed by the AP's MAC; columns verified against the MIB:
+    //   2 cLApIfMacAddress (Ethernet MAC), 5 cLApName, 6 cLApUpTime, 38 cLApAdminStatus, 54 cLApAssociatedClientCount
+    public const string LwappApEntry = "1.3.6.1.4.1.9.9.513.1.1.1.1";
+    // AIRESPACE-WIRELESS-MIB bsnAPTable (older AireOS), indexed by the AP's MAC:
+    //   3 bsnAPName, 6 bsnAPOperationStatus (1 = associated), 16 bsnAPModel, 17 bsnAPSerialNumber, 19 bsnApIpAddress, 33 bsnAPEthernetMacAddress
+    public const string BsnApEntry = "1.3.6.1.4.1.14179.2.2.1.1";
     // ENTITY-MIB
     public const string EntPhysicalSerial = "1.3.6.1.2.1.47.1.1.1.1.11";
     public const string EntPhysicalModel = "1.3.6.1.2.1.47.1.1.1.1.13";

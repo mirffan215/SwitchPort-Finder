@@ -11,7 +11,7 @@ using SwitchPortFinder.Infrastructure.Persistence;
 namespace SwitchPortFinder.Infrastructure.Reports;
 
 /// <summary>Runs report queries against the current state and the metric history. Whitelist-driven and bounded (row caps, time-range caps).</summary>
-public class ReportEngine(AppDbContext db)
+public class ReportEngine(AppDbContext db, SwitchPortFinder.Infrastructure.Discovery.AccessPointService accessPoints)
 {
     public const int MaxOutputRows = 5000, MaxHistoryRows = 400_000;
     private static readonly string[] Aggs = ["count", "sum", "avg", "min", "max", "distinct"];
@@ -33,6 +33,8 @@ public class ReportEngine(AppDbContext db)
              N("inMbps", "Inbound", "Mbit/s"), N("outMbps", "Outbound", "Mbit/s"), N("utilPct", "Utilization", "%"), N("discardsPerSec", "Drops", "pkt/s"), N("errorsPerSec", "Errors", "pkt/s"), N("macs", "MACs learned")]),
         new("devices", "Devices", "One row per discovered or manually added device.", false,
             [T("hostname", "Hostname"), T("ip", "IP"), T("mac", "MAC"), T("vendor", "Manufacturer"), T("switch", "Switch"), T("port", "Port"), N("vlan", "VLAN", null, false), T("state", "State"), T("owner", "Owner"), T("category", "Type"), D("firstSeen", "First seen"), D("lastSeen", "Last seen")]),
+        new("access_points", "Access points", "One row per access point: controller, switch and port, status, uptime and the Wi-Fi clients the controller reports.", false,
+            [T("name", "Access point"), T("ip", "IP"), T("mac", "MAC"), T("vendor", "Manufacturer"), T("model", "Model"), T("controller", "Controller"), T("switch", "Switch"), T("port", "Port"), N("vlan", "VLAN", null, false), T("status", "Status"), N("wifiClients", "Wi-Fi clients"), N("uptimeDays", "Uptime", "days"), N("devicesBehind", "Devices behind"), D("lastSeen", "Last seen")]),
         new("switch_health", "Switch health history", "CPU, memory, latency and uptime over time (one point per scan or health poll).", true,
             [D("at", "Time"), T("switch", "Switch"), N("up", "Reachable (1/0)", null), N("uptimeDays", "Uptime", "days"), N("cpuPct", "CPU", "%"), N("memPct", "Memory", "%"), N("latencyMs", "SNMP latency", "ms")]),
         new("port_traffic", "Port traffic history", "Per-port traffic, utilization, drops and errors over time.", true,
@@ -209,6 +211,12 @@ public class ReportEngine(AppDbContext db)
                     ["hostname"] = x.d.Hostname, ["ip"] = x.d.IpAddress, ["mac"] = MacAddress.Format(x.d.Mac), ["vendor"] = VendorText.Of(x.d.Vendor, x.d.Mac), ["switch"] = x.Sw, ["port"] = x.Pt, ["vlan"] = x.d.Vlan is { } v ? (double)v : null,
                     ["state"] = DeviceStates.Compute(x.d.LastSeen, DeviceStates.Reference(x.d.LastSeen, x.SwScan, latest), o).ToString(), ["owner"] = x.d.Owner, ["category"] = x.d.Category == DeviceCategory.Unclassified ? "Unclassified" : x.d.Category.ToString(), ["firstSeen"] = x.d.FirstSeen, ["lastSeen"] = x.d.LastSeen,
                 }).ToList();
+            }
+            case "access_points":
+            {
+                var aps = (await accessPoints.GetAsync(ct)).Items;
+                return aps.Select(a => new Row { ["name"] = a.Name, ["ip"] = a.Ip, ["mac"] = a.Mac, ["vendor"] = a.Vendor, ["model"] = a.Model, ["controller"] = a.Controller, ["switch"] = a.SwitchName, ["port"] = a.PortName, ["vlan"] = a.Vlan is { } v ? (double)v : null,
+                    ["status"] = a.Status, ["wifiClients"] = a.WifiClients is { } c ? (double)c : null, ["uptimeDays"] = a.UptimeSeconds is { } u ? u / 86400.0 : null, ["devicesBehind"] = (double)a.DevicesBehind, ["lastSeen"] = a.LastSeen }).ToList();
             }
             case "switch_health":
             {

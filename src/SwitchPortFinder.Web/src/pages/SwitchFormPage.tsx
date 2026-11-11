@@ -21,6 +21,7 @@ export default function SwitchFormPage() {
   const [model, setModel] = useState('');
   const [location, setLocation] = useState('');
   const [arp, setArp] = useState(false);
+  const [wlc, setWlc] = useState(false);
   const [profileId, setProfileId] = useState<number | ''>('');
   const [cred, setCred] = useState<CredentialInput>(emptyCredential());
   const [testResult, setTestResult] = useState<TestResult | null>(null);
@@ -29,7 +30,7 @@ export default function SwitchFormPage() {
     const s = existing.data;
     if (!s) return;
     setName(s.name); setIp(s.managementIp); setManufacturer(s.manufacturer); setOther(s.manufacturerOther ?? '');
-    setModel(s.model ?? ''); setLocation(s.location ?? ''); setArp(s.useAsArpSource); setProfileId(s.credentialProfileId ?? '');
+    setModel(s.model ?? ''); setLocation(s.location ?? ''); setArp(s.useAsArpSource); setWlc(!!s.isWirelessController); setProfileId(s.credentialProfileId ?? '');
     if (s.credential) setCred({ ...emptyCredential(), version: s.credential.version, authProtocol: s.credential.authProtocol, privProtocol: s.credential.privProtocol, contextName: s.credential.contextName ?? '' });
   }, [existing.data]);
 
@@ -40,7 +41,7 @@ export default function SwitchFormPage() {
   });
   const save = useMutation({
     mutationFn: () => {
-      const body = { name, managementIp: ip, manufacturer, manufacturerOther: other, model, location, useAsArpSource: arp,
+      const body = { name, managementIp: ip, manufacturer, manufacturerOther: other, model, location, useAsArpSource: arp, isWirelessController: wlc,
         credentialProfileId: usingProfile ? Number(profileId) : null, credential: usingProfile ? null : cred };
       return editId ? api.updateSwitch(editId, body) : api.createSwitch(body);
     },
@@ -81,6 +82,11 @@ export default function SwitchFormPage() {
         <label className="check">
           <input type="checkbox" checked={arp} onChange={(e) => setArp(e.target.checked)} />
           Use as ARP source <small>(core / Layer 3 switch or router that holds the IP→MAC table; Layer 3 devices are also auto-detected)</small>
+        </label>
+
+        <label className="check">
+          <input type="checkbox" checked={wlc} onChange={(e) => setWlc(e.target.checked)} />
+          This is a Cisco wireless controller <small>(the scan reads its access point list, so the access points appear on the Access points page automatically)</small>
         </label>
 
         {testResult && <TestResultBox r={testResult} />}

@@ -290,6 +290,41 @@ public class DiscoveryApiTests(ApiFixture fx)
         (await _http.GetAsync($"/api/switches/{access}/ports")).StatusCode.Should().Be(HttpStatusCode.NotFound);
         (await _http.GetFromJsonAsync<List<JobSummaryDto>>($"/api/discovery/jobs?switchId={access}", Json))!.Should().BeEmpty("jobs cascade with the switch");
     }
+
+    [Fact]
+    public async Task A_wireless_controller_scan_lists_its_access_points_and_marks_the_ones_it_stops_listing_offline()
+    {
+        var n = Interlocked.Increment(ref _seed); var ip = $"203.9.{n}.5";
+        var net = fx.Services.GetService(typeof(FakeSnmpClient)).As<FakeSnmpClient>().Net;
+        net.WithSystem(ip, "WLC-01", "1.3.6.1.4.1.9.1.2530");
+        string Idx(int a) => $"0.17.34.51.68.{a}";
+        void Aps(params int[] which)
+        {
+            string R(int c) => $"{Oids.LwappApEntry}.{c}";
+            net.Walks.Remove($"{ip}|pub");
+            void Col(int c, Func<int, SnmpValue> v) => net.Walk(ip, "pub", R(c), which.Select(a => Vb($"{R(c)}.{Idx(a)}", v(a))));
+            Col(2, a => new SnmpValue(SnmpValueKind.OctetString, 0, [0, 17, 34, 51, 68, (byte)a]));
+            Col(5, a => Txt($"AP-{n}-{a}"));
+            Col(6, _ => new SnmpValue(SnmpValueKind.TimeTicks, 8_640_000));
+            Col(54, a => new SnmpValue(SnmpValueKind.Gauge, a));
+        }
+        Aps(1, 2, 3);
+        var r = await _http.PostAsJsonAsync("/api/switches", new SwitchRequest { Name = $"WLC-{n}", ManagementIp = ip, IsWirelessController = true, Credential = new CredentialInput { Version = SnmpVersion.V2c, Community = "pub" } }, Json);
+        r.StatusCode.Should().Be(HttpStatusCode.Created);
+        var id = (await r.Content.ReadFromJsonAsync<SwitchDetailDto>(Json))!.Id;
+        (await Scan(id)).Job.Status.Should().NotBe(JobStatus.Failed);
+
+        var ours = (await _http.GetFromJsonAsync<AccessPointsResponse>("/api/access-points", Json))!.Items.Where(i => i.Name.StartsWith($"AP-{n}-")).ToList();
+        ours.Should().HaveCount(3);
+        ours.Should().OnlyContain(a => a.Online && a.Controller == $"WLC-{n}" && a.UptimeSeconds == 86400);
+        ours.Single(a => a.Name.EndsWith("-3")).WifiClients.Should().Be(3);
+
+        Aps(1, 2);                                  // AP 3 is no longer joined
+        await Scan(id);
+        var after = (await _http.GetFromJsonAsync<AccessPointsResponse>("/api/access-points", Json))!.Items.Where(i => i.Name.StartsWith($"AP-{n}-")).ToList();
+        after.Single(a => a.Name.EndsWith("-3")).Online.Should().BeFalse();
+        after.Where(a => !a.Name.EndsWith("-3")).Should().OnlyContain(a => a.Online);
+    }
 }
 
 [Collection("api")]

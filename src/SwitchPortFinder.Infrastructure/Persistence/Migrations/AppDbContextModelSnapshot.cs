@@ -844,6 +844,9 @@ namespace SwitchPortFinder.Infrastructure.Persistence.Migrations
                     b.Property<int?>("ImportBatchId")
                         .HasColumnType("int");
 
+                    b.Property<bool>("IsWirelessController")
+                        .HasColumnType("bit");
+
                     b.Property<DateTime?>("LastScanAt")
                         .HasColumnType("datetime2");
 
@@ -1234,6 +1237,70 @@ namespace SwitchPortFinder.Infrastructure.Persistence.Migrations
                     b.ToTable("SwitchPorts");
                 });
 
+            modelBuilder.Entity("SwitchPortFinder.Domain.Entities.WirelessAp", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<bool?>("AdminEnabled")
+                        .HasColumnType("bit");
+
+                    b.Property<bool?>("Associated")
+                        .HasColumnType("bit");
+
+                    b.Property<int?>("Clients")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ControllerId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("EthMac")
+                        .HasMaxLength(12)
+                        .HasColumnType("nvarchar(12)");
+
+                    b.Property<DateTime>("FirstSeen")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Ip")
+                        .HasMaxLength(45)
+                        .HasColumnType("nvarchar(45)");
+
+                    b.Property<DateTime>("LastSeen")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Model")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Name")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Serial")
+                        .HasMaxLength(60)
+                        .HasColumnType("nvarchar(60)");
+
+                    b.Property<string>("SysMac")
+                        .IsRequired()
+                        .HasMaxLength(12)
+                        .HasColumnType("nvarchar(12)");
+
+                    b.Property<long?>("UptimeSeconds")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EthMac");
+
+                    b.HasIndex("ControllerId", "SysMac")
+                        .IsUnique();
+
+                    b.ToTable("WirelessAps");
+                });
+
             modelBuilder.Entity("SwitchPortFinder.Domain.Entities.AlertEvent", b =>
                 {
                     b.HasOne("SwitchPortFinder.Domain.Entities.AlertRule", "Rule")
@@ -1380,6 +1447,17 @@ namespace SwitchPortFinder.Infrastructure.Persistence.Migrations
                         .IsRequired();
 
                     b.Navigation("Switch");
+                });
+
+            modelBuilder.Entity("SwitchPortFinder.Domain.Entities.WirelessAp", b =>
+                {
+                    b.HasOne("SwitchPortFinder.Domain.Entities.Switch", "Controller")
+                        .WithMany()
+                        .HasForeignKey("ControllerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Controller");
                 });
 
             modelBuilder.Entity("SwitchPortFinder.Domain.Entities.DiscoveryJob", b =>

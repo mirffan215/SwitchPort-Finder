@@ -27,7 +27,7 @@ export interface SwitchSummary {
   id: number; name: string; managementIp: string; manufacturer: Manufacturer; manufacturerName: string;
   detectedManufacturer?: Manufacturer | null; vendorMismatch: boolean; model?: string | null;
   status: 'Unknown' | 'Reachable' | 'Unreachable'; lastScanAt?: string | null; useAsArpSource: boolean;
-  location?: string | null; credentialProfileId?: number | null; credentialProfileName?: string | null; portCount: number;
+  location?: string | null; credentialProfileId?: number | null; credentialProfileName?: string | null; portCount: number; isWirelessController?: boolean;
 }
 export interface SwitchDetail extends Omit<SwitchSummary, 'portCount'> {
   manufacturerOther?: string | null; notes?: string | null; sysName?: string | null; sysDescr?: string | null;
@@ -35,7 +35,7 @@ export interface SwitchDetail extends Omit<SwitchSummary, 'portCount'> {
 }
 export interface SwitchRequest {
   name: string; managementIp: string; manufacturer: Manufacturer; manufacturerOther?: string; model?: string;
-  location?: string; notes?: string; useAsArpSource: boolean; credentialProfileId?: number | null; credential?: CredentialInput | null;
+  location?: string; notes?: string; useAsArpSource: boolean; isWirelessController?: boolean; credentialProfileId?: number | null; credential?: CredentialInput | null;
 }
 export interface TestResult {
   success: boolean; message: string; errorCode?: string | null; sysName?: string | null; sysDescr?: string | null;
@@ -86,8 +86,13 @@ export const CATEGORIES = ['AccessPoint', 'IpPhone', 'Printer', 'Camera', 'Serve
 export const categoryLabel = (c?: string | null) => (c ? ({ AccessPoint: 'Access point', IpPhone: 'IP phone', Printer: 'Printer', Camera: 'Camera', Server: 'Server', Other: 'Other' } as Record<string, string>)[c] ?? c : '');
 export interface CategoryRule { id: number; name: string; category: string; enabled: boolean; priority: number; vendorContains?: string | null; hostnameStartsWith?: string | null; hostnameContains?: string | null; portDescriptionContains?: string | null; neighborContains?: string | null; neighborCapability?: string | null; vlan?: number | null }
 export type CategoryRuleRequest = Omit<CategoryRule, 'id'>;
-export interface AccessPointItem { device: DeviceRow; clientsBehind: number; neighborInfo?: string | null }
-export interface AccessPointsResponse { summary: { total: number; online: number; offline: number; bySwitch: { key: string; value: number }[]; byManufacturer: { key: string; value: number }[] }; items: AccessPointItem[] }
+export interface AccessPointItem {
+  deviceId?: number | null; name: string; ip?: string | null; mac: string; vendor?: string | null; model?: string | null;
+  switchId?: number | null; switchName?: string | null; portId?: number | null; ifIndex?: number | null; portName?: string | null; vlan?: number | null;
+  online: boolean; status: string; lastSeen?: string | null; devicesBehind: number; wifiClients?: number | null; uptimeSeconds?: number | null;
+  controller?: string | null; source: string; note?: string | null;
+}
+export interface AccessPointsResponse { summary: { total: number; online: number; offline: number; controllers: number; wifiClients: number; bySwitch: { key: string; value: number }[]; byManufacturer: { key: string; value: number }[] }; items: AccessPointItem[] }
 export interface TopPortsResponse { metric: 'utilization' | 'drops'; items: TopPort[]; portsWithData: number; portsTotal: number }
 export interface PortsResponse { summary: { total: number; connected: number; down: number; uplinks: number; lastScan?: string | null }; ports: PortRow[]; hasArpSource: boolean }
 export interface DeviceRow { category?: string | null; categoryManual?: boolean; categoryReason?: string | null; manual?: boolean; pinned?: boolean; owner?: string | null; notes?: string | null; vendor?: string | null; id: number; hostname: string; hostnameSource: string; ip?: string | null; mac: string; switchId?: number | null; switchName?: string | null; portId?: number | null; ifIndex?: number | null; portName?: string | null; vlan?: number | null; state: 'Active' | 'Offline' | 'Stale'; firstSeen: string; lastSeen: string; lowConfidence: boolean }

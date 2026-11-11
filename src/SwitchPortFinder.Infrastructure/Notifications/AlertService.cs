@@ -238,7 +238,17 @@ public class AlertService(AppDbContext db, MailSender mail, ICredentialProtector
                 var latestScan = await db.Switches.AsNoTracking().MaxAsync(s => s.LastScanAt, ct);
                 var aps = await db.Devices.AsNoTracking().Where(d => d.Category == DeviceCategory.AccessPoint).Select(d => new { d.Id, d.Hostname, d.Mac, d.LastSeen, d.SwitchId, SwitchName = d.Switch != null ? d.Switch.Name : null, SwitchScan = d.Switch != null ? d.Switch.LastScanAt : null, Port = d.Port != null ? d.Port.Name : null }).ToListAsync(ct);
                 var o = new DiscoveryOptions(); var result = new List<Finding>();
-                foreach (var d in aps)
+                // access points the wireless controller lists: offline when the controller's latest scan no longer lists them (or reports them as not associated)
+                var waps = await db.WirelessAps.AsNoTracking().Select(w => new { w.Id, w.SysMac, w.EthMac, w.Name, w.LastSeen, w.Associated, Controller = w.Controller!.Name, w.Controller.LastScanAt, w.ControllerId }).ToListAsync(ct);
+                var controllerMacs = waps.SelectMany(w => new[] { w.SysMac, w.EthMac }).Where(m => m != null).ToHashSet();
+                foreach (var w in waps)
+                {
+                    if (rule.SwitchId is { } rsid && w.ControllerId != rsid) continue;
+                    var gone = w.LastScanAt is { } cs && w.LastSeen < cs.AddMinutes(-DeviceStates.ToleranceMinutes) || w.Associated == false;
+                    var label = w.Name ?? MacAddress.Format(w.EthMac ?? w.SysMac);
+                    result.Add(new Finding($"wap:{w.Id}", $"Access point offline: {label}", $"{label} is no longer listed as joined by wireless controller {w.Controller} (last listed {w.LastSeen:yyyy-MM-dd HH:mm} UTC).", (now - w.LastSeen).TotalMinutes, gone && (now - w.LastSeen).TotalMinutes >= dur, !gone));
+                }
+                foreach (var d in aps.Where(d => !controllerMacs.Contains(d.Mac)))
                 {
                     if (rule.SwitchId is { } sid && d.SwitchId != sid) continue;
                     var reference = DeviceStates.Reference(d.LastSeen, d.SwitchScan, latestScan); var state = DeviceStates.Compute(d.LastSeen, reference, o);

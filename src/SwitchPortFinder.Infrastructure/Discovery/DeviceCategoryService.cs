@@ -147,9 +147,21 @@ public class DeviceCategoryService(AppDbContext db, ILogger<DeviceCategoryServic
                 neighbors[g.Key] = g.Select(n => new NeighborInfo($"{n.SysName} {n.Platform} {n.SysDescr}", n.Caps, n.ChassisMac, n.MgmtIp, n.SysName)).ToList();
             foreach (var g in await db.Devices.AsNoTracking().Where(d => d.PortId != null && chunk.Contains(d.PortId!.Value)).GroupBy(d => d.PortId!.Value).Select(g => new { g.Key, N = g.Count() }).ToListAsync(ct)) onPort[g.Key] = g.N;
         }
+        // access points that a wireless controller lists are access points, whatever the rules say (matched by Ethernet or system MAC)
+        var listed = new Dictionary<string, (string? Name, string Controller)>();
+        foreach (var a in await db.WirelessAps.AsNoTracking().Select(a => new { a.SysMac, a.EthMac, a.Name, Controller = a.Controller!.Name }).ToListAsync(ct))
+        { listed[a.SysMac] = (a.Name, a.Controller); if (a.EthMac is not null) listed[a.EthMac] = (a.Name, a.Controller); }
         var changed = 0;
         foreach (var d in list)
         {
+            if (listed.TryGetValue(d.Mac, out var lap))
+            {
+                var why = $"Listed as an access point by wireless controller {lap.Controller}";
+                if (d.Category != DeviceCategory.AccessPoint || d.CategoryReason != why) changed++;
+                d.Category = DeviceCategory.AccessPoint; d.CategoryReason = why;
+                if (d.HostnameSource == HostnameSource.None && !string.IsNullOrWhiteSpace(lap.Name)) { d.Hostname = lap.Name!; d.HostnameSource = HostnameSource.Snmp; }
+                continue;
+            }
             var mine = d.PortId is { } pid && neighbors.TryGetValue(pid, out var nb) ? nb.Where(n => NeighborIsDevice(n, d.Mac, d.IpAddress, d.HostnameSource == HostnameSource.None ? "" : d.Hostname, onPort.GetValueOrDefault(pid))).ToList() : [];
             var nText = string.Join(" | ", mine.Select(n => n.Text)); var nCaps = mine.Aggregate(NeighborCaps.None, (a, n) => a | n.Caps);
             var ctx = new CategoryContext(VendorText.Of(d.Vendor, d.Mac), d.HostnameSource == HostnameSource.None ? "" : d.Hostname, d.Vlan, d.PortId is { } p2 ? ports.GetValueOrDefault(p2) : null, nText, nCaps);

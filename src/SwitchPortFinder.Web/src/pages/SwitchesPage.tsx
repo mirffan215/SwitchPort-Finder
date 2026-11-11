@@ -43,7 +43,7 @@ export default function SwitchesPage() {
             <tbody>
               {rows.map((s) => (
                 <tr key={s.id}>
-                  <td><Link to={`/switches/${s.id}`}>{s.name}</Link>{s.useAsArpSource && <span className="tag" title="ARP source">ARP</span>}</td>
+                  <td><Link to={`/switches/${s.id}`}>{s.name}</Link>{s.useAsArpSource && <span className="tag" title="ARP source">ARP</span>}{s.isWirelessController && <span className="tag" title="Wireless controller">WLC</span>}</td>
                   <td>{s.managementIp}</td>
                   <td>{s.manufacturerName}{s.vendorMismatch && <span title="Selected manufacturer differs from detected vendor"> ⚠</span>}</td>
                   <td>{s.model ?? '—'}</td>

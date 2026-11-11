@@ -5,7 +5,7 @@ using SwitchPortFinder.Infrastructure.Discovery;
 namespace SwitchPortFinder.Api.Controllers;
 
 [ApiController]
-public class DiscoveryController(ManualDeviceService manual, SwitchPortFinder.Application.Abstractions.IUserAuthorizationService who, DiscoveryService discovery, DeviceQueryService devices, SearchService search, TraceService trace, TopologyService topology, DashboardService dashboard, Microsoft.Extensions.Options.IOptions<SwitchPortFinder.Application.Common.ExportOptions> exportOpt) : ControllerBase
+public class DiscoveryController(AccessPointService accessPoints, ManualDeviceService manual, SwitchPortFinder.Application.Abstractions.IUserAuthorizationService who, DiscoveryService discovery, DeviceQueryService devices, SearchService search, TraceService trace, TopologyService topology, DashboardService dashboard, Microsoft.Extensions.Options.IOptions<SwitchPortFinder.Application.Common.ExportOptions> exportOpt) : ControllerBase
 {
     [HttpGet("api/discovery/jobs")]
     public async Task<IActionResult> Jobs([FromQuery] int take = 50, [FromQuery] int? switchId = null, CancellationToken ct = default) => Ok(await discovery.ListAsync(take, switchId, ct));
@@ -22,7 +22,7 @@ public class DiscoveryController(ManualDeviceService manual, SwitchPortFinder.Ap
 
     /// <summary>Access points: location, status and the MACs learned on their ports.</summary>
     [HttpGet("api/access-points")]
-    public async Task<IActionResult> AccessPoints(CancellationToken ct) => Ok(await devices.AccessPointsAsync(ct));
+    public async Task<IActionResult> AccessPoints(CancellationToken ct) => Ok(await accessPoints.GetAsync(ct));
 
     /// <summary>Add a device by hand (administrator): MAC, name, owner, notes and optionally the switch port it is plugged into.</summary>
     [HttpPost("api/devices")]

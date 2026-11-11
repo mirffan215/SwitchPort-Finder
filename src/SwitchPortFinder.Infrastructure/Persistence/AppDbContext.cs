@@ -12,6 +12,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<NotificationConfig> NotificationConfigs => Set<NotificationConfig>();
     public DbSet<AlertRule> AlertRules => Set<AlertRule>();
     public DbSet<CategoryRule> CategoryRules => Set<CategoryRule>();
+    public DbSet<WirelessAp> WirelessAps => Set<WirelessAp>();
     public DbSet<AlertEvent> AlertEvents => Set<AlertEvent>();
     public DbSet<NotificationLogEntry> NotificationLog => Set<NotificationLogEntry>();
     public DbSet<SwitchCredential> SwitchCredentials => Set<SwitchCredential>();
@@ -34,6 +35,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         // No foreign key to the port: SQL Server forbids a second cascade path (switch -> port and switch -> sample). Samples are removed with the switch by the retention job.
         b.Entity<PortMetricSample>(e => { e.HasIndex(x => new { x.PortId, x.At }); e.HasIndex(x => x.At); e.HasIndex(x => new { x.SwitchId, x.At }); e.Ignore(x => x.Port); });
         b.Entity<NotificationConfig>(e => { e.HasKey(x => x.Id); e.Property(x => x.Id).ValueGeneratedNever(); e.Property(x => x.Host).HasMaxLength(255); e.Property(x => x.Username).HasMaxLength(255); e.Property(x => x.FromAddress).HasMaxLength(255); e.Property(x => x.FromName).HasMaxLength(100); e.Property(x => x.Recipients).HasMaxLength(2000); e.Property(x => x.PublicBaseUrl).HasMaxLength(255); });
+        b.Entity<WirelessAp>(e => { e.HasOne(x => x.Controller).WithMany().HasForeignKey(x => x.ControllerId).OnDelete(DeleteBehavior.Cascade); e.Property(x => x.SysMac).HasMaxLength(12).IsRequired(); e.Property(x => x.EthMac).HasMaxLength(12); e.Property(x => x.Name).HasMaxLength(100); e.Property(x => x.Model).HasMaxLength(100); e.Property(x => x.Serial).HasMaxLength(60); e.Property(x => x.Ip).HasMaxLength(45); e.HasIndex(x => new { x.ControllerId, x.SysMac }).IsUnique(); e.HasIndex(x => x.EthMac); });
         b.Entity<CategoryRule>(e => { e.Property(x => x.Name).HasMaxLength(150).IsRequired(); e.Property(x => x.Category).HasConversion<string>().HasMaxLength(20); e.Property(x => x.VendorContains).HasMaxLength(100); e.Property(x => x.HostnameStartsWith).HasMaxLength(100); e.Property(x => x.HostnameContains).HasMaxLength(100); e.Property(x => x.PortDescriptionContains).HasMaxLength(100); e.Property(x => x.NeighborContains).HasMaxLength(100); e.Property(x => x.NeighborCapability).HasMaxLength(20); });
         b.Entity<AlertRule>(e => { e.Property(x => x.Name).HasMaxLength(150).IsRequired(); e.HasIndex(x => x.Type); });
         b.Entity<AlertEvent>(e => { e.HasOne(x => x.Rule).WithMany().HasForeignKey(x => x.RuleId).OnDelete(DeleteBehavior.Cascade); e.Property(x => x.Subject).HasMaxLength(60).IsRequired(); e.Property(x => x.Title).HasMaxLength(300); e.Property(x => x.Detail).HasMaxLength(1000); e.HasIndex(x => new { x.RuleId, x.Subject, x.State }); e.HasIndex(x => x.State); });

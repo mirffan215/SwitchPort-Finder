@@ -22,7 +22,7 @@ public class DiscoveryJobRunner(
         var job = await db.DiscoveryJobs.FirstOrDefaultAsync(j => j.Id == jobId, ct);
         if (job is null || job.Status != JobStatus.Queued) return;
         var sw = await switches.GetAsync(job.SwitchId, ct);
-        var steps = AllSteps.Select(n => new StepResult(n, StepState.Pending)).ToList();
+        var steps = (sw is { IsWirelessController: true } ? AllSteps.Concat([Steps.WirelessAps]) : AllSteps).Select(n => new StepResult(n, StepState.Pending)).ToList();
 
         async Task Save() { job.StepsJson = JsonSerializer.Serialize(steps); await db.SaveChangesAsync(CancellationToken.None); }
         async Task SetStep(StepResult s) { var i = steps.FindIndex(x => x.Name == s.Name); if (i >= 0) steps[i] = s; else steps.Add(s); await Save(); }
@@ -36,7 +36,7 @@ public class DiscoveryJobRunner(
         {
             var creds = switchService.ResolveCredentials(sw);
             if (creds is null) { await Finish(job, JobStatus.Failed, "No SNMP credentials configured.", steps); return; }
-            var result = await scanner.ScanAsync(new ScanRequest(sw.ManagementIp, creds, sw.Manufacturer, sw.UseAsArpSource), SetStep, ct);
+            var result = await scanner.ScanAsync(new ScanRequest(sw.ManagementIp, creds, sw.Manufacturer, sw.UseAsArpSource, sw.IsWirelessController), SetStep, ct);
             foreach (var e in result.Errors) job.Errors.Add(new DiscoveryError { Step = e.Step, Code = e.Code, Message = Trunc(e.Message, 1000), CreatedAt = DateTime.UtcNow });
 
             if (!result.Reachable)

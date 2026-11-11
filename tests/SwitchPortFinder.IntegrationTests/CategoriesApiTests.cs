@@ -84,10 +84,10 @@ public class CategoriesApiTests(ApiFixture fx)
             await db.SaveChangesAsync();
         }
         var r = (await _http.GetFromJsonAsync<AccessPointsResponse>("/api/access-points", Json))!;
-        var mine = r.Items.Where(i => i.Device.Hostname.StartsWith("CAT-")).ToList();
-        mine.Should().HaveCount(3, "the lldp, cdp and grandstream devices; a device in VLAN 50 is not an access point by VLAN alone"); mine.Count(i => i.Device.State == DeviceState.Offline).Should().Be(1);
-        mine.Single(i => i.Device.Hostname == "CAT-cdp").ClientsBehind.Should().Be(3, "the AP's own MAC is not a client");
-        mine.Single(i => i.Device.Hostname == "CAT-cdp").NeighborInfo.Should().Contain("AIR-AP3802I");
+        var mine = r.Items.Where(i => i.Name.StartsWith("CAT-")).ToList();
+        mine.Should().HaveCount(3, "the lldp, cdp and grandstream devices; a device in VLAN 50 is not an access point by VLAN alone"); mine.Count(i => i.Status == "Offline").Should().Be(1);
+        mine.Single(i => i.Name == "CAT-cdp").DevicesBehind.Should().Be(3, "the AP itself is not counted");
+        mine.Single(i => i.Name == "CAT-cdp").Source.Should().Be("Rules");
         r.Summary.Total.Should().BeGreaterThanOrEqualTo(3); r.Summary.BySwitch.Should().Contain(k => k.Key == "CAT-SW");
     }
 
@@ -152,8 +152,8 @@ public class AccessPointClientsApiTests(ApiFixture fx)
         var all = (await _http.GetFromJsonAsync<Paged<DeviceDto>>("/api/devices?q=WIFI-&pageSize=50", Json))!.Items.ToDictionary(d => d.Hostname, d => d.Category);
         all["WIFI-ap-lobby"].Should().Be("AccessPoint"); all["WIFI-iphone"].Should().BeNull(); all["WIFI-laptop"].Should().BeNull(); all["WIFI-cisco-client"].Should().BeNull();
 
-        var aps = (await _http.GetFromJsonAsync<AccessPointsResponse>("/api/access-points", Json))!.Items.Where(i => i.Device.Hostname.Contains("WIFI-")).ToList();
-        aps.Should().ContainSingle(); aps[0].ClientsBehind.Should().Be(3);
+        var aps = (await _http.GetFromJsonAsync<AccessPointsResponse>("/api/access-points", Json))!.Items.Where(i => i.Name.Contains("WIFI-")).ToList();
+        aps.Should().ContainSingle(); aps[0].DevicesBehind.Should().Be(3);
         var behind = (await _http.GetFromJsonAsync<Paged<DeviceDto>>($"/api/devices?portId={portId}&excludeId={apId}&pageSize=50", Json))!;
         behind.Total.Should().Be(3); behind.Items.Select(d => d.Id).Should().BeEquivalentTo(clients);
     }

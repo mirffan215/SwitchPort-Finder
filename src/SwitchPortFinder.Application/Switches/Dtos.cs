@@ -31,6 +31,8 @@ public class SwitchRequest
     public string? Location { get; set; }
     public string? Notes { get; set; }
     public bool UseAsArpSource { get; set; }
+    /// <summary>A Cisco wireless controller: scans also read its list of access points.</summary>
+    public bool IsWirelessController { get; set; }
     public int? CredentialProfileId { get; set; }
     public CredentialInput? Credential { get; set; }
 }
@@ -39,13 +41,13 @@ public record SwitchSummaryDto(
     int Id, string Name, string ManagementIp, Manufacturer Manufacturer, string ManufacturerName,
     Manufacturer? DetectedManufacturer, bool VendorMismatch, string? Model, SwitchStatus Status,
     DateTime? LastScanAt, bool UseAsArpSource, string? Location, int? CredentialProfileId, string? CredentialProfileName,
-    int PortCount);
+    int PortCount, bool IsWirelessController = false);
 
 public record SwitchDetailDto(
     int Id, string Name, string ManagementIp, Manufacturer Manufacturer, string ManufacturerName, string? ManufacturerOther,
     Manufacturer? DetectedManufacturer, bool VendorMismatch, string? Model, string? Location, string? Notes, bool UseAsArpSource,
     SwitchStatus Status, DateTime? LastScanAt, string? SysName, string? SysDescr, string? SysObjectId,
-    int? CredentialProfileId, string? CredentialProfileName, CredentialSummary? Credential, DateTime CreatedAt, DateTime UpdatedAt);
+    int? CredentialProfileId, string? CredentialProfileName, CredentialSummary? Credential, DateTime CreatedAt, DateTime UpdatedAt, bool IsWirelessController = false);
 
 public class TestConnectionRequest
 {

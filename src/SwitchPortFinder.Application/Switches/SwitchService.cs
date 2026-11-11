@@ -148,7 +148,7 @@ public class SwitchService(
         sw.Manufacturer = r.Manufacturer;
         sw.ManufacturerOther = r.Manufacturer == Manufacturer.OtherGeneric ? r.ManufacturerOther?.Trim() : null;
         sw.Model = Blank(r.Model); sw.Location = Blank(r.Location); sw.Notes = Blank(r.Notes);
-        sw.UseAsArpSource = r.UseAsArpSource;
+        sw.UseAsArpSource = r.UseAsArpSource; sw.IsWirelessController = r.IsWirelessController;
     }
 
     private static string? Blank(string? s) => string.IsNullOrWhiteSpace(s) ? null : s.Trim();
@@ -181,7 +181,7 @@ public class SwitchService(
     internal static SwitchSummaryDto ToSummary(Switch s) => new(
         s.Id, s.Name, s.ManagementIp, s.Manufacturer, ManufacturerLabel(s), s.DetectedManufacturer,
         VendorDetector.Mismatch(s.Manufacturer, s.DetectedManufacturer), s.Model, s.Status, s.LastScanAt,
-        s.UseAsArpSource, s.Location, s.CredentialProfileId, s.CredentialProfile?.Name, 0);
+        s.UseAsArpSource, s.Location, s.CredentialProfileId, s.CredentialProfile?.Name, 0, s.IsWirelessController);
 
     private SwitchDetailDto ToDetail(Switch s)
     {
@@ -192,7 +192,7 @@ public class SwitchService(
             s.Id, s.Name, s.ManagementIp, s.Manufacturer, ManufacturerLabel(s), s.ManufacturerOther, s.DetectedManufacturer,
             VendorDetector.Mismatch(s.Manufacturer, s.DetectedManufacturer), s.Model, s.Location, s.Notes, s.UseAsArpSource,
             s.Status, s.LastScanAt, s.SysName, s.SysDescr, s.SysObjectId, s.CredentialProfileId, s.CredentialProfile?.Name, cs,
-            s.CreatedAt, s.UpdatedAt);
+            s.CreatedAt, s.UpdatedAt, s.IsWirelessController);
     }
 
     private static string ManufacturerLabel(Switch s) =>

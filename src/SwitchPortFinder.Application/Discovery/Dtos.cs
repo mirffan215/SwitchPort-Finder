@@ -52,8 +52,10 @@ public record ManualDeviceRequest(string? Mac, string? Name, string? Ip, string?
 public record CategoryRuleDto(int Id, string Name, string Category, bool Enabled, int Priority, string? VendorContains, string? HostnameStartsWith, string? HostnameContains, string? PortDescriptionContains, string? NeighborContains, string? NeighborCapability, int? Vlan);
 public record CategoryRuleRequest(string Name, string Category, bool Enabled, int Priority, string? VendorContains, string? HostnameStartsWith, string? HostnameContains, string? PortDescriptionContains, string? NeighborContains, string? NeighborCapability, int? Vlan);
 
-public record AccessPointDto(DeviceDto Device, int ClientsBehind, string? NeighborInfo);
-public record AccessPointSummary(int Total, int Online, int Offline, IReadOnlyList<KeyValuePair<string, int>> BySwitch, IReadOnlyList<KeyValuePair<string, int>> ByManufacturer);
+/// <summary>One access point. It comes from the wireless controller's list and/or from the device rules; the two are merged by MAC address.</summary>
+public record AccessPointDto(int? DeviceId, string Name, string? Ip, string Mac, string? Vendor, string? Model, int? SwitchId, string? SwitchName, int? PortId, int? IfIndex, string? PortName, int? Vlan,
+    bool Online, string Status, DateTime? LastSeen, int DevicesBehind, int? WifiClients, long? UptimeSeconds, string? Controller, string Source, string? Note);
+public record AccessPointSummary(int Total, int Online, int Offline, int Controllers, int? WifiClients, IReadOnlyList<KeyValuePair<string, int>> BySwitch, IReadOnlyList<KeyValuePair<string, int>> ByManufacturer);
 public record AccessPointsResponse(AccessPointSummary Summary, IReadOnlyList<AccessPointDto> Items);
 
 public record Paged<T>(IReadOnlyList<T> Items, int Total, int Page, int PageSize);

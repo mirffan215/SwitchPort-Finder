@@ -54,6 +54,7 @@ public static class DependencyInjection
         services.AddScoped<SwitchPortFinder.Infrastructure.Reports.SwitchNameLookup>();
         services.AddScoped<ManualDeviceService>();
         services.AddScoped<DeviceCategoryService>();
+        services.AddScoped<AccessPointService>();
         services.AddScoped<ScanResultWriter>();
         services.AddScoped<DiscoveryJobRunner>();
         services.AddScoped<DiscoveryService>();

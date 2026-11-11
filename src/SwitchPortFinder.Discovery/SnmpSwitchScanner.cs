@@ -221,6 +221,20 @@ public sealed class SnmpSwitchScanner(ISnmpClient snmp, IOptions<SnmpOptions> sn
             });
         }
         else await onStep(new StepResult(Steps.Cdp, StepState.Skipped, "CDP does not apply to this manufacturer."));
+
+        // 8. Wireless controller: the access points it manages (name, MACs, uptime, associated Wi-Fi clients). Read-only.
+        if (req.IsWirelessController)
+            await Run(Steps.WirelessAps, async () =>
+            {
+                async Task<IReadOnlyList<SnmpVarBind>> Walk(string root) { try { return await snmp.WalkAsync(target, root, ct); } catch (SnmpException) { return []; } }
+                async Task<IReadOnlyDictionary<int, IReadOnlyList<SnmpVarBind>>> Cols(string entry, params int[] cols) { var d = new Dictionary<int, IReadOnlyList<SnmpVarBind>>(); foreach (var c in cols) d[c] = await Walk($"{entry}.{c}"); return d; }
+                var aps = WirelessApParser.Lwapp(await Cols(Oids.LwappApEntry, 2, 5, 6, 38, 54));          // Catalyst 9800 / AireOS 8.x
+                if (aps.Count == 0) aps = WirelessApParser.Bsn(await Cols(Oids.BsnApEntry, 3, 6, 16, 17, 19, 33));   // older AireOS
+                res.WirelessAps.AddRange(aps);
+                if (aps.Count > 0) return null;
+                const string m = "No access points were returned. Check that this is a Cisco wireless controller and that its SNMP view allows the wireless (CISCO-LWAPP-AP-MIB) tables.";
+                res.Errors.Add(new ScanError(Steps.WirelessAps, "Empty", m)); return m;
+            });
         return res;
     }
 

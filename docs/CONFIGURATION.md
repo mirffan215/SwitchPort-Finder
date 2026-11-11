@@ -195,3 +195,15 @@ Every device has a **type**: access point, IP phone, printer, camera, server, ot
 ## Reports: choosing switches
 
 In *Reports*, the **Switches** box limits any report to one switch, several, or all (empty = all). It works for every dataset (current ports/devices/switches and the health, traffic and availability history), is saved with the report, is kept when you switch between templates, and is written on the Excel *Definition* sheet.
+
+## Wireless controller (Cisco) and its access points
+
+Access points that join a Cisco wireless controller are not seen by a switch scan as "access points", so the portal reads them from the controller instead.
+
+1. **Switches → Add switch**: enter the controller's management IP and its SNMP read community (or SNMPv3 user), and tick **"This is a Cisco wireless controller"**. Save, then click **Scan**.
+2. The scan reads the controller's access-point table (CISCO-LWAPP-AP-MIB, Catalyst 9800 / AireOS 8.x; older AireOS uses AIRESPACE-WIRELESS-MIB). Nothing is written to the controller (SNMP read only).
+3. Every access point the controller lists appears on **Access points** automatically, with its name, model, uptime, Wi-Fi client count and **Online / Offline / Disabled** status. When the same MAC is also seen on a switch, the two are merged and the switch and port are shown.
+4. An access point the controller stops listing becomes **Offline** after the next scan of the controller. The *Access point offline* alert rule (Admin → Notifications) covers these too.
+5. If the scan reports "No access points were returned", the controller's SNMP view probably blocks the wireless tables: allow `1.3.6.1.4.1.9.9.513` (and `1.3.6.1.4.1.14179` on older AireOS).
+
+The switch import/export CSV does not carry the wireless-controller flag; tick it after importing.

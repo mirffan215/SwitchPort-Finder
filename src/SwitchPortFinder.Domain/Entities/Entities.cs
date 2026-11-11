@@ -47,6 +47,8 @@ public class Switch
     public string? Location { get; set; }
     public string? Notes { get; set; }
     public bool UseAsArpSource { get; set; }
+    /// <summary>A wireless controller (Cisco WLC): its scan also reads the list of access points it manages.</summary>
+    public bool IsWirelessController { get; set; }
     /// <summary>Set by discovery when the device routes (ipForwarding=1) and has an ARP table.</summary>
     public bool ArpAutoDetected { get; set; }
     public string? SerialNumber { get; set; }

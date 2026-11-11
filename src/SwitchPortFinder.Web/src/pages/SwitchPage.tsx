@@ -41,7 +41,7 @@ export default function SwitchPage() {
   return (
     <section>
       <div className="toolbar">
-        <h1>{s.name}</h1>
+        <h1>{s.name}{s.isWirelessController && <span className="tag" title="Wireless controller" style={{ marginLeft: 8 }}>Wireless controller</span>}</h1>
         <span className="muted">· {s.managementIp} · {s.manufacturerName}{sum ? ` · ${sum.total} Ports · ${sum.connected} Connected · ${sum.down} Down · ${sum.uplinks} Switch Uplinks` : ''}</span>
         <StatusBadge status={s.status} />
         <div className="spacer" />

@@ -88,7 +88,7 @@ export interface Dashboard { switches: number; devices: number; connectedPorts: 
 
 export interface RuntimeSettings {
   snmpTimeoutMs: number; snmpRetries: number; snmpMaxRepetitions: number; maxParallelScans: number; perVlanTimeoutMs: number; perVlanParallelism: number;
-  offlineAfterMinutes: number; staleAfterDays: number; scanIntervalMinutes: number; dnsTimeoutMs: number; hostnameRefreshHours: number; uplinkHeuristicMinMacs: number; uplinkHeuristicRatio: number;
+  offlineAfterMinutes: number; staleAfterDays: number; scanIntervalMinutes: number; dnsTimeoutMs: number; hostnameRefreshHours: number; uplinkHeuristicMinMacs: number; uplinkHeuristicRatio: number; healthPollMinutes: number; metricsRetentionDays: number;
 }
 
 export type UserRole = 'Viewer' | 'Admin';

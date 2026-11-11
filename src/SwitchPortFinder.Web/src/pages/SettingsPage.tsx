@@ -276,6 +276,8 @@ const FIELDS: { key: keyof RuntimeSettings; label: string; hint: string; step?: 
   { key: 'perVlanParallelism', label: 'Per-VLAN parallelism', hint: '1–16 simultaneous VLAN queries per switch.' },
   { key: 'offlineAfterMinutes', label: 'Device offline after (minutes)', hint: 'Not seen for longer than this → Offline.' },
   { key: 'staleAfterDays', label: 'Device stale after (days)', hint: 'Not seen for longer than this → Stale (must be later than Offline).' },
+  { key: 'healthPollMinutes', label: 'Health poll interval (minutes)', hint: '0 = off. Reads uptime, CPU, memory, latency and port counters of every switch; feeds the Reports and the alerts.' },
+  { key: 'metricsRetentionDays', label: 'Keep health and traffic history (days)', hint: '7 to 1095. Older data is deleted automatically.' },
   { key: 'scanIntervalMinutes', label: 'Scheduled scan interval (minutes)', hint: '0 = off, otherwise 5 or more. Scans all switches.' },
   { key: 'dnsTimeoutMs', label: 'Reverse-DNS timeout (ms)', hint: 'A slow DNS never fails a scan; the name stays “Unknown Device”.' },
   { key: 'hostnameRefreshHours', label: 'Retry unresolved hostnames after (hours)', hint: '1–720.' },

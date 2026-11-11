@@ -75,7 +75,9 @@ public class WriteRequiresAdminMiddleware(RequestDelegate next, IOptions<AuthOpt
 
     public async Task InvokeAsync(HttpContext ctx)
     {
-        if (options.Value.IsLocal && ctx.Request.Path.StartsWithSegments("/api") && !ctx.Request.Path.StartsWithSegments("/api/auth")
+        // running and exporting a report only READ data (the query travels in a POST body), so a Viewer may do both
+        var readOnlyPost = ctx.Request.Path.StartsWithSegments("/api/reports/run") || ctx.Request.Path.StartsWithSegments("/api/reports/export");
+        if (options.Value.IsLocal && ctx.Request.Path.StartsWithSegments("/api") && !ctx.Request.Path.StartsWithSegments("/api/auth") && !readOnlyPost
             && !Safe.Contains(ctx.Request.Method) && ctx.User.Identity?.IsAuthenticated == true && !ctx.User.IsInRole(nameof(UserRole.Admin)))
         {
             ctx.Response.StatusCode = StatusCodes.Status403Forbidden;

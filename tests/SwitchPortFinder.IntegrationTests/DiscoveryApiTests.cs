@@ -170,6 +170,52 @@ public class DiscoveryApiTests(ApiFixture fx)
     }
 
     [Fact]
+    public async Task The_health_poll_records_cpu_memory_latency_uptime_traffic_and_downtime_history()
+    {
+        var n = Build();
+        var access = await AddSwitch("POLL-ACCESS", n.AccessIp);
+        await Scan(access);                                   // creates the ports; the poll only reads existing ones
+        var net = fx.Services.GetService(typeof(FakeSnmpClient)).As<FakeSnmpClient>().Net;
+        SnmpVarBind C(string oid, long v) => Vb(oid, new SnmpValue(SnmpValueKind.Counter, v));
+        void Counters(long inOct) => net.Walk(n.AccessIp, "pub", Oids.IfXTable, IfXTable((15, "Gi1/0/15", 1000, "PC-001 wall jack"), (24, "Gi1/0/24", 1000, "uplink"), (16, "Gi1/0/16", 1000, ""))
+            .Concat([C($"{Oids.IfXTable}.6.15", inOct), C($"{Oids.IfXTable}.10.15", inOct / 2)]));
+        net.Walk(n.AccessIp, "pub", Oids.CiscoCpuTotalEntry, [Vb($"{Oids.CiscoCpuTotalEntry}.8.1", new SnmpValue(SnmpValueKind.Gauge, 37))]);
+        net.Walk(n.AccessIp, "pub", Oids.CiscoMemoryPoolEntry, [Vb($"{Oids.CiscoMemoryPoolEntry}.5.1", new SnmpValue(SnmpValueKind.Gauge, 250)), Vb($"{Oids.CiscoMemoryPoolEntry}.6.1", new SnmpValue(SnmpValueKind.Gauge, 750))]);
+        var poll = fx.Services.GetServices<Microsoft.Extensions.Hosting.IHostedService>().OfType<SwitchPortFinder.Infrastructure.Discovery.HealthPollService>().Single();
+
+        Counters(0); await poll.PollOneAsync(access, CancellationToken.None);                       // baseline
+        using (var scope = fx.Services.CreateScope())
+        {   // pretend the baseline was taken 5 minutes ago
+            var db = scope.ServiceProvider.GetRequiredService<SwitchPortFinder.Infrastructure.Persistence.AppDbContext>();
+            foreach (var p in db.SwitchPorts.Where(p => p.SwitchId == access)) if (p.CtrAt != null) p.CtrAt = p.CtrAt.Value.AddMinutes(-5);
+            await db.SaveChangesAsync();
+        }
+        Counters(75_000_000); await poll.PollOneAsync(access, CancellationToken.None);               // 75 MB in -> 2 Mbit/s over 300 s
+
+        using (var scope = fx.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<SwitchPortFinder.Infrastructure.Persistence.AppDbContext>();
+            var sw = db.Switches.Single(x => x.Id == access);
+            (sw.CpuPct, sw.MemPct).Should().Be((37, 25)); sw.LatencyMs.Should().NotBeNull(); sw.UptimeSeconds.Should().BeGreaterThan(0);
+            var port = db.SwitchPorts.Single(p => p.SwitchId == access && p.IfIndex == 15);
+            port.RateInBps.Should().BeApproximately(2_000_000, 2_000);
+            db.PortMetrics.Where(m => m.PortId == port.Id).Select(m => m.UtilPct).Single().Should().BeApproximately(0.2, 0.01);
+            db.SwitchMetrics.Count(m => m.SwitchId == access && m.Reachable).Should().BeGreaterThanOrEqualTo(3, "scan + two polls");
+        }
+
+        // the switch goes away: a failed poll is a downtime sample and flips the status
+        net.Unreachable.Add(n.AccessIp);
+        await poll.PollOneAsync(access, CancellationToken.None);
+        using (var scope = fx.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<SwitchPortFinder.Infrastructure.Persistence.AppDbContext>();
+            db.Switches.Single(x => x.Id == access).Status.Should().Be(SwitchStatus.Unreachable);
+            db.SwitchMetrics.Count(m => m.SwitchId == access && !m.Reachable).Should().Be(1);
+        }
+        net.Unreachable.Remove(n.AccessIp);
+    }
+
+    [Fact]
     public async Task Rescanning_is_incremental_no_duplicate_devices_and_first_seen_is_preserved()
     {
         var n = Build();

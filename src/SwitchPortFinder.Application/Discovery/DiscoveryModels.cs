@@ -51,6 +51,7 @@ public record ArpInfo(string Ip, string Mac, int? IfIndex);
 public class ScanResult
 {
     public SystemInfo? System { get; set; }
+    public HealthReading? Health { get; set; }
     public Manufacturer? DetectedManufacturer { get; set; }
     public List<InterfaceInfo> Interfaces { get; } = [];
     public Dictionary<int, int> PvidByIfIndex { get; } = [];

@@ -27,12 +27,12 @@ public class ScanResultWriter(AppDbContext db, IHostnameResolver dns, Classifica
     }
 
     /// <summary>Keeps the previous scan's counters as the baseline and derives average rates from the last two scans.</summary>
-    public static void UpdateRates(SwitchPort p, PortCounters c, long upTicks, DateTime now)
+    public static bool UpdateRates(SwitchPort p, PortCounters c, long upTicks, DateTime now)
     {
         var cur = new CounterSample(c.InOctets, c.OutOctets, c.InDiscards, c.OutDiscards, c.InErrors, c.OutErrors, c.Wide, now, upTicks);
         if (p.CtrAt is { } at && p.CtrInOctets is not null)
         {
-            if ((now - at).TotalSeconds < PortRateCalculator.MinSeconds) return;   // back-to-back scans: keep the older baseline
+            if ((now - at).TotalSeconds < PortRateCalculator.MinSeconds) return false;   // back-to-back scans: keep the older baseline
             var prev = new CounterSample(p.CtrInOctets.Value, p.CtrOutOctets ?? 0, p.CtrInDiscards ?? 0, p.CtrOutDiscards ?? 0, p.CtrInErrors ?? 0, p.CtrOutErrors ?? 0, p.CtrWide, at, p.CtrUpTicks);
             if (PortRateCalculator.Compute(prev, cur, p.SpeedMbps) is { } rt)
             {
@@ -42,6 +42,7 @@ public class ScanResultWriter(AppDbContext db, IHostnameResolver dns, Classifica
         }
         p.CtrInOctets = c.InOctets; p.CtrOutOctets = c.OutOctets; p.CtrInDiscards = c.InDiscards; p.CtrOutDiscards = c.OutDiscards;
         p.CtrInErrors = c.InErrors; p.CtrOutErrors = c.OutErrors; p.CtrWide = c.Wide; p.CtrUpTicks = upTicks; p.CtrAt = now;
+        return p.RateAt == now;   // true when this reading produced a new rate
     }
 
     private async Task<Counts> WriteCoreAsync(Switch sw, ScanResult r, CancellationToken ct)
@@ -51,6 +52,7 @@ public class ScanResultWriter(AppDbContext db, IHostnameResolver dns, Classifica
 
         // ---- ports ----
         var ports = await db.SwitchPorts.Where(p => p.SwitchId == sw.Id).ToDictionaryAsync(p => p.IfIndex, ct);
+        var portSamples = new List<(SwitchPort Port, DateTime At)>();
         foreach (var i in r.Interfaces)
         {
             if (!ports.TryGetValue(i.IfIndex, out var p)) { p = new SwitchPort { SwitchId = sw.Id, IfIndex = i.IfIndex }; db.SwitchPorts.Add(p); ports[i.IfIndex] = p; }
@@ -60,10 +62,12 @@ public class ScanResultWriter(AppDbContext db, IHostnameResolver dns, Classifica
             p.SpeedMbps = i.SpeedMbps; p.PhysAddress = i.Mac; p.Mtu = i.Mtu;
             p.Vlan = r.PvidByIfIndex.TryGetValue(i.IfIndex, out var v) ? v : null;
             var sup = r.Support.GetValueOrDefault(i.IfIndex); p.Support = sup?.Flags ?? PortSupport.None; p.VlanCount = sup?.VlanCount ?? 0;
-            if (i.Counters is { } c) UpdateRates(p, c, r.System?.UpTimeTicks ?? 0, now);
+            if (i.Counters is { } c && UpdateRates(p, c, r.System?.UpTimeTicks ?? 0, now)) portSamples.Add((p, now));
             p.LastSeen = now;
         }
         await db.SaveChangesAsync(ct);   // port ids needed below
+        AddSamples(db, sw, r.Health, portSamples, now);
+        await db.SaveChangesAsync(ct);
 
         // ---- observations (one row per switch+MAC) ----
         var fdb = r.Fdb.GroupBy(e => e.Mac).Select(g => g.First()).Where(e => ports.ContainsKey(e.IfIndex!.Value)).ToList();
@@ -158,8 +162,20 @@ public class ScanResultWriter(AppDbContext db, IHostnameResolver dns, Classifica
         catch { return null; }
     }
 
+    /// <summary>History rows for the trend reports: one switch health point and one traffic point per port that produced a rate.</summary>
+    public static void AddSamples(AppDbContext db, Switch sw, HealthReading? h, IEnumerable<(SwitchPort Port, DateTime At)> portSamples, DateTime now)
+    {
+        db.SwitchMetrics.Add(new SwitchMetricSample { SwitchId = sw.Id, At = now, Reachable = true, UptimeSeconds = sw.UptimeSeconds, CpuPct = h?.CpuPercent, MemPct = h?.MemoryPercent, LatencyMs = h?.LatencyMs });
+        foreach (var (p, at) in portSamples)
+        {
+            var t = PortQueryService.TrafficOf(p); if (t is null) continue;
+            db.PortMetrics.Add(new PortMetricSample { SwitchId = p.SwitchId, PortId = p.Id, At = at, InBps = t.InBps, OutBps = t.OutBps, UtilPct = t.UtilizationPct, DiscardsPerSec = t.DiscardsPerSec, ErrorsPerSec = t.ErrorsPerSec });
+        }
+    }
+
     private static void ApplySwitch(Switch sw, ScanResult r, DateTime now)
     {
+        if (r.Health is { Reachable: true } h) { sw.CpuPct = h.CpuPercent; sw.MemPct = h.MemoryPercent; sw.LatencyMs = h.LatencyMs; sw.HealthAt = now; }
         sw.Status = SwitchStatus.Reachable; sw.LastScanAt = now;
         if (r.System is { } s)
         {

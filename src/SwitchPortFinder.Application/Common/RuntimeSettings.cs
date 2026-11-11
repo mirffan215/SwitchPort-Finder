@@ -17,12 +17,17 @@ public class RuntimeSettings
     public int HostnameRefreshHours { get; set; } = 24;
     public int UplinkHeuristicMinMacs { get; set; } = 3;
     public double UplinkHeuristicRatio { get; set; } = 0.6;
+    /// <summary>How often every switch is polled for uptime, CPU, memory, latency and interface counters (0 = off). Feeds the trend reports and the alerts.</summary>
+    public int HealthPollMinutes { get; set; } = 5;
+    /// <summary>How long the health and traffic history is kept.</summary>
+    public int MetricsRetentionDays { get; set; } = 90;
 
     public static RuntimeSettings From(SnmpOptions s, DiscoveryOptions d) => new()
     {
         SnmpTimeoutMs = s.TimeoutMs, SnmpRetries = s.Retries, SnmpMaxRepetitions = s.MaxRepetitions, MaxParallelScans = d.MaxParallelScans, PerVlanTimeoutMs = d.PerVlanTimeoutMs,
         PerVlanParallelism = d.PerVlanParallelism, OfflineAfterMinutes = d.OfflineAfterMinutes, StaleAfterDays = d.StaleAfterDays, ScanIntervalMinutes = d.ScanIntervalMinutes,
-        DnsTimeoutMs = d.DnsTimeoutMs, HostnameRefreshHours = d.HostnameRefreshHours, UplinkHeuristicMinMacs = d.UplinkHeuristicMinMacs, UplinkHeuristicRatio = d.UplinkHeuristicRatio
+        DnsTimeoutMs = d.DnsTimeoutMs, HostnameRefreshHours = d.HostnameRefreshHours, UplinkHeuristicMinMacs = d.UplinkHeuristicMinMacs, UplinkHeuristicRatio = d.UplinkHeuristicRatio,
+        HealthPollMinutes = d.HealthPollMinutes, MetricsRetentionDays = d.MetricsRetentionDays
     };
 
     public void ApplyTo(SnmpOptions s, DiscoveryOptions d)
@@ -31,6 +36,7 @@ public class RuntimeSettings
         d.MaxParallelScans = MaxParallelScans; d.PerVlanTimeoutMs = PerVlanTimeoutMs; d.PerVlanParallelism = PerVlanParallelism; d.OfflineAfterMinutes = OfflineAfterMinutes;
         d.StaleAfterDays = StaleAfterDays; d.ScanIntervalMinutes = ScanIntervalMinutes; d.DnsTimeoutMs = DnsTimeoutMs; d.HostnameRefreshHours = HostnameRefreshHours;
         d.UplinkHeuristicMinMacs = UplinkHeuristicMinMacs; d.UplinkHeuristicRatio = UplinkHeuristicRatio;
+        d.HealthPollMinutes = HealthPollMinutes; d.MetricsRetentionDays = MetricsRetentionDays;
     }
 
     /// <summary>Range checks so a typo cannot stall discovery (e.g. a 0 ms timeout) or hammer the network (e.g. 500 parallel scans).</summary>
@@ -44,6 +50,8 @@ public class RuntimeSettings
         if (ScanIntervalMinutes != 0) Range("scanIntervalMinutes", ScanIntervalMinutes, 5, 10_080, " min");
         Range("dnsTimeoutMs", DnsTimeoutMs, 200, 30_000, " ms"); Range("hostnameRefreshHours", HostnameRefreshHours, 1, 720, " h");
         Range("uplinkHeuristicMinMacs", UplinkHeuristicMinMacs, 2, 100); Range("uplinkHeuristicRatio", UplinkHeuristicRatio, 0.3, 1.0);
+        if (HealthPollMinutes != 0) Range("healthPollMinutes", HealthPollMinutes, 1, 1440, " min");
+        Range("metricsRetentionDays", MetricsRetentionDays, 7, 1095, " days");
         if (!e.ContainsKey("offlineAfterMinutes") && !e.ContainsKey("staleAfterDays") && TimeSpan.FromMinutes(OfflineAfterMinutes) >= TimeSpan.FromDays(StaleAfterDays))
             e["staleAfterDays"] = ["Stale must be later than Offline (devices go Active → Offline → Stale)."];
         return e;

@@ -12,7 +12,7 @@ using SwitchPortFinder.Domain.Enums;
 
 namespace SwitchPortFinder.Discovery;
 
-public sealed class SnmpSwitchScanner(ISnmpClient snmp, IOptions<SnmpOptions> snmpOpt, IOptions<DiscoveryOptions> discOpt, ILogger<SnmpSwitchScanner> log) : ISwitchScanner
+public sealed class SnmpSwitchScanner(ISnmpClient snmp, IOptions<SnmpOptions> snmpOpt, IOptions<DiscoveryOptions> discOpt, ILogger<SnmpSwitchScanner> log, IHealthProbe? health = null) : ISwitchScanner
 {
     public async Task<ScanResult> ScanAsync(ScanRequest req, Func<StepResult, Task> onStep, CancellationToken ct)
     {
@@ -64,6 +64,9 @@ public sealed class SnmpSwitchScanner(ISnmpClient snmp, IOptions<SnmpOptions> sn
         var provider = ProviderRegistry.For(effective);
         var basePortMap = new Dictionary<int, int>();
         await FillVendorInfo(target, provider, res, ct);   // model/serial from vendor MIBs when ENTITY-MIB had none
+        try { if (health is not null) res.Health = await health.ProbeAsync(new HealthRequest(req.Ip, req.Credentials, effective, false), ct); }   // CPU / memory / latency; never fails the scan
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+        catch (Exception ex) { log.LogDebug(ex, "Health reading skipped for {Ip}", req.Ip); }
 
         // 2. Interfaces
         await Run(Steps.Interfaces, async () =>

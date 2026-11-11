@@ -42,6 +42,7 @@ public class DiscoveryJobRunner(
             if (!result.Reachable)
             {
                 sw.Status = SwitchStatus.Unreachable; sw.LastScanAt = DateTime.UtcNow;
+                db.SwitchMetrics.Add(new SwitchMetricSample { SwitchId = sw.Id, At = DateTime.UtcNow, Reachable = false });   // downtime is computed from these
                 for (var i = 0; i < steps.Count; i++) if (steps[i].State is StepState.Pending) steps[i] = steps[i] with { State = StepState.Skipped };
                 log.LogWarning("SwitchUnreachable: {Switch} ({Ip})", sw.Name, sw.ManagementIp);
                 job.ErrorCount = job.Errors.Count;

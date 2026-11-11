@@ -54,6 +54,11 @@ public class Switch
     public string? SysName { get; set; }
     /// <summary>sysUpTime at the last successful scan, in seconds (SNMP TimeTicks wrap after ~497 days, so very long uptimes read low), and when it was read.</summary>
     public long? UptimeSeconds { get; set; }
+    /// <summary>Latest CPU / memory / SNMP round-trip latency (null = the switch does not expose it).</summary>
+    public double? CpuPct { get; set; }
+    public double? MemPct { get; set; }
+    public int? LatencyMs { get; set; }
+    public DateTime? HealthAt { get; set; }
     public DateTime? UptimeAt { get; set; }
     public string? SysDescr { get; set; }
     public SwitchStatus Status { get; set; } = SwitchStatus.Unknown;

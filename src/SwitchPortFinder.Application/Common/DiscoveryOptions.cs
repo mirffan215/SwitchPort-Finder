@@ -11,6 +11,9 @@ public class DiscoveryOptions
     /// <summary>0 disables the scheduled scan of all switches.</summary>
     public int ScanIntervalMinutes { get; set; } = 0;
     /// <summary>How often the scheduler checks whether a scan-all is due (seconds). Tests lower this.</summary>
+    /// <summary>0 disables the background health poll (uptime, CPU, memory, latency, interface counters).</summary>
+    public int HealthPollMinutes { get; set; } = 5;
+    public int MetricsRetentionDays { get; set; } = 90;
     public int SchedulePollSeconds { get; set; } = 30;
     public int PerVlanTimeoutMs { get; set; } = 1500;
     public int PerVlanParallelism { get; set; } = 4;

@@ -12,6 +12,7 @@ public static class DependencyInjection
     {
         services.AddSingleton<ISnmpClient, SharpSnmpClient>();
         services.AddScoped<ISwitchScanner, SnmpSwitchScanner>();
+        services.AddSingleton<IHealthProbe, HealthProbe>();
         return services;
     }
 }

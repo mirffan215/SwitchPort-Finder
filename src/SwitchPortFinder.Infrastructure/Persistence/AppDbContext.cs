@@ -6,6 +6,9 @@ namespace SwitchPortFinder.Infrastructure.Persistence;
 public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(options)
 {
     public DbSet<Switch> Switches => Set<Switch>();
+    public DbSet<SwitchMetricSample> SwitchMetrics => Set<SwitchMetricSample>();
+    public DbSet<PortMetricSample> PortMetrics => Set<PortMetricSample>();
+    public DbSet<ReportDefinition> Reports => Set<ReportDefinition>();
     public DbSet<SwitchCredential> SwitchCredentials => Set<SwitchCredential>();
     public DbSet<CredentialProfile> CredentialProfiles => Set<CredentialProfile>();
     public DbSet<ImportBatch> ImportBatches => Set<ImportBatch>();
@@ -22,6 +25,10 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
     protected override void OnModelCreating(ModelBuilder b)
     {
+        b.Entity<SwitchMetricSample>(e => { e.HasOne(x => x.Switch).WithMany().HasForeignKey(x => x.SwitchId).OnDelete(DeleteBehavior.Cascade); e.HasIndex(x => new { x.SwitchId, x.At }); e.HasIndex(x => x.At); });
+        // No foreign key to the port: SQL Server forbids a second cascade path (switch -> port and switch -> sample). Samples are removed with the switch by the retention job.
+        b.Entity<PortMetricSample>(e => { e.HasIndex(x => new { x.PortId, x.At }); e.HasIndex(x => x.At); e.HasIndex(x => new { x.SwitchId, x.At }); e.Ignore(x => x.Port); });
+        b.Entity<ReportDefinition>(e => { e.Property(x => x.Name).HasMaxLength(150).IsRequired(); e.Property(x => x.Json).IsRequired(); e.Property(x => x.CreatedBy).HasMaxLength(100); e.HasIndex(x => x.Name); });
         b.Entity<Switch>(e =>
         {
             e.Property(x => x.Name).HasMaxLength(100).IsRequired();

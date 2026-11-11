@@ -24,6 +24,13 @@ public static class Oids
     public const string Dot1qVlanStaticEgressPorts = "1.3.6.1.2.1.17.7.1.4.3.1.2";
     public const string Dot1qVlanStaticUntaggedPorts = "1.3.6.1.2.1.17.7.1.4.3.1.4";
     public const string Dot1qPvid = "1.3.6.1.2.1.17.7.1.4.5.1.1";
+    // Health: HOST-RESOURCES-MIB (any vendor), CISCO-PROCESS-MIB / CISCO-MEMORY-POOL-MIB, JUNIPER-MIB
+    public const string HrProcessorEntry = "1.3.6.1.2.1.25.3.3.1";          // column 2 = hrProcessorLoad (%)
+    public const string HrStorageEntry = "1.3.6.1.2.1.25.2.3.1";            // 2 type, 4 allocation unit, 5 size, 6 used
+    public const string HrStorageRam = "1.3.6.1.2.1.25.2.1.2";
+    public const string CiscoCpuTotalEntry = "1.3.6.1.4.1.9.9.109.1.1.1.1"; // column 8 = cpmCPUTotal5minRev (%)
+    public const string CiscoMemoryPoolEntry = "1.3.6.1.4.1.9.9.48.1.1.1";  // column 5 = used, 6 = free (bytes)
+    public const string JuniperOperatingEntry = "1.3.6.1.4.1.2636.3.1.13.1"; // column 8 = jnxOperatingCPU (%), 11 = jnxOperatingBuffer (memory %)
     // ENTITY-MIB
     public const string EntPhysicalSerial = "1.3.6.1.2.1.47.1.1.1.1.11";
     public const string EntPhysicalModel = "1.3.6.1.2.1.47.1.1.1.1.13";

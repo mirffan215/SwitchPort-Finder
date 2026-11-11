@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { api, type DeviceRow, type ManualDevice } from '../api';
+import { api, CATEGORIES, categoryLabel, type DeviceRow, type ManualDevice } from '../api';
 import { ErrorBox, Field } from './Bits';
 
 /**
@@ -12,10 +12,11 @@ export default function DeviceForm({ device, onDone, onCancel }: { device?: Devi
   const [mac, setMac] = useState(''); const [name, setName] = useState(device?.pinned || device?.hostname !== 'Unknown Device' ? device?.hostname ?? '' : '');
   const [ip, setIp] = useState(device?.ip ?? ''); const [owner, setOwner] = useState(device?.owner ?? ''); const [notes, setNotes] = useState(device?.notes ?? '');
   const [sw, setSw] = useState<number | ''>(device?.pinned ? device.switchId ?? '' : ''); const [port, setPort] = useState<number | ''>(device?.pinned ? device.portId ?? '' : '');
+  const [category, setCategory] = useState<string>(device?.categoryManual ? device.category ?? '' : '');
   const [vlan, setVlan] = useState<string>(device?.pinned && device.vlan ? String(device.vlan) : '');
   const switches = useQuery({ queryKey: ['switches'], queryFn: api.listSwitches });
   const ports = useQuery({ queryKey: ['ports', sw], queryFn: () => api.ports(Number(sw)), enabled: sw !== '' });
-  const body = (): ManualDevice => ({ mac: device ? undefined : mac, name, ip: device ? undefined : ip || undefined, owner, notes, switchId: sw === '' ? null : sw, portId: port === '' ? null : port, vlan: vlan ? Number(vlan) : null });
+  const body = (): ManualDevice => ({ mac: device ? undefined : mac, name, ip: device ? undefined : ip || undefined, owner, notes, category: category || null, switchId: sw === '' ? null : sw, portId: port === '' ? null : port, vlan: vlan ? Number(vlan) : null });
   const save = useMutation({
     mutationFn: () => (device ? api.editDevice(device.id, body()) : api.addDevice(body())),
     onSuccess: (r) => { qc.invalidateQueries({ queryKey: ['devices'] }); qc.invalidateQueries({ queryKey: ['device'] }); qc.invalidateQueries({ queryKey: ['dashboard'] }); onDone(r.device.id); },
@@ -34,6 +35,9 @@ export default function DeviceForm({ device, onDone, onCancel }: { device?: Devi
         <Field label="Owner / department"><input value={owner} onChange={(e) => setOwner(e.target.value)} maxLength={100} /></Field>
         <Field label="Notes"><input value={notes} onChange={(e) => setNotes(e.target.value)} maxLength={1000} placeholder="asset tag, model, what it does…" /></Field>
       </div>
+      <Field label="Type of device" hint={device && !device.categoryManual && device.category ? `Currently detected automatically: ${categoryLabel(device.category)} (${device.categoryReason ?? 'rules'}).` : 'Automatic uses the rules under Settings → Device types.'}>
+        <select value={category} onChange={(e) => setCategory(e.target.value)}><option value="">Automatic (use the rules)</option>{CATEGORIES.map((c) => <option key={c} value={c}>{categoryLabel(c)}</option>)}</select>
+      </Field>
       <fieldset>
         <legend>Where it is plugged in (makes it traceable)</legend>
         <div className="row">

@@ -28,6 +28,8 @@ public class SearchService(AppDbContext db, IOptions<DiscoveryOptions> opt)
         var macLike = pq.MacKey is null ? null : "%" + pq.MacKey + "%";
         var macExact = MacAddress.Normalize(pq.Text);
         var ipExact = pq.IpExact; var text = pq.Text;
+        // "access point", "ap", "wifi", "phone"... find devices of that category
+        DeviceCategory? catWord = text.Trim().ToLowerInvariant() switch { "ap" or "aps" or "access point" or "access points" or "accesspoint" or "wifi" or "wireless" => DeviceCategory.AccessPoint, "phone" or "phones" or "ip phone" or "ip phones" or "telephone" => DeviceCategory.IpPhone, "printer" => DeviceCategory.Printer, "camera" => DeviceCategory.Camera, "server" => DeviceCategory.Server, _ => null };
         // "50" or "vlan 50" finds everything on VLAN 50
         int? vlan = int.TryParse(System.Text.RegularExpressions.Regex.Replace(text, @"^(?i:vlan)\s*", ""), out var vn) && vn is >= 1 and <= 4094 ? vn : null;
 
@@ -39,6 +41,7 @@ public class SearchService(AppDbContext db, IOptions<DiscoveryOptions> opt)
             || (d.Owner != null && EF.Functions.Like(d.Owner, pat, SqlText.Escape)) || (d.Notes != null && EF.Functions.Like(d.Notes, pat, SqlText.Escape))
             || (macLike != null && EF.Functions.Like(d.Mac, macLike))
             || (vlan != null && d.Vlan == vlan)
+            || (catWord != null && d.Category == catWord)
             || (d.Switch != null && (EF.Functions.Like(d.Switch.Name, pat, SqlText.Escape) || EF.Functions.Like(d.Switch.ManagementIp, pat, SqlText.Escape)))
             || (d.Port != null && EF.Functions.Like(d.Port.Name, pat, SqlText.Escape)));
         var rows = await dq
@@ -48,11 +51,11 @@ public class SearchService(AppDbContext db, IOptions<DiscoveryOptions> opt)
             .Select(d => new
             {
                 d.Id, d.Hostname, d.HostnameSource, d.IpAddress, d.Mac, d.SwitchId, SwitchName = d.Switch != null ? d.Switch.Name : null, d.PortId,
-                IfIndex = d.Port != null ? (int?)d.Port.IfIndex : null, PortName = d.Port != null ? d.Port.Name : null, d.Vlan, d.FirstSeen, d.LastSeen, d.LowConfidence, d.Vendor, d.IsManual, d.PinnedPortId, d.Owner, d.Notes, SwitchScan = d.Switch != null ? d.Switch.LastScanAt : null
+                IfIndex = d.Port != null ? (int?)d.Port.IfIndex : null, PortName = d.Port != null ? d.Port.Name : null, d.Vlan, d.FirstSeen, d.LastSeen, d.LowConfidence, d.Vendor, d.IsManual, d.PinnedPortId, d.Owner, d.Notes, d.Category, d.CategoryManual, d.CategoryReason, SwitchScan = d.Switch != null ? d.Switch.LastScanAt : null
             }).ToListAsync(ct);
         var truncated = rows.Count > DeviceLimit;
         var devices = rows.Take(DeviceLimit).Select(d => new DeviceDto(d.Id, d.Hostname, d.HostnameSource, d.IpAddress, MacAddress.Format(d.Mac), d.SwitchId, d.SwitchName, d.PortId, d.IfIndex,
-            d.PortName, d.Vlan, DeviceStates.Compute(d.LastSeen, DeviceStates.Reference(d.LastSeen, d.SwitchScan, latestScan), o), d.FirstSeen, d.LastSeen, d.LowConfidence, VendorText.Of(d.Vendor, d.Mac), d.IsManual, d.PinnedPortId != null, d.Owner, d.Notes)).ToList();
+            d.PortName, d.Vlan, DeviceStates.Compute(d.LastSeen, DeviceStates.Reference(d.LastSeen, d.SwitchScan, latestScan), o), d.FirstSeen, d.LastSeen, d.LowConfidence, VendorText.Of(d.Vendor, d.Mac), d.IsManual, d.PinnedPortId != null, d.Owner, d.Notes, VendorText.CategoryName(d.Category), d.CategoryManual, d.CategoryReason)).ToList();
 
         // ---- switches: name, management IP, sysName ----
         var switches = (await db.Switches.AsNoTracking().Where(s => EF.Functions.Like(s.Name, pat, SqlText.Escape) || EF.Functions.Like(s.ManagementIp, pat, SqlText.Escape)

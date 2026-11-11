@@ -44,9 +44,17 @@ public record PortsResponse(PortSummary Summary, IReadOnlyList<PortRowDto> Ports
 
 public record DeviceDto(
     int Id, string Hostname, HostnameSource HostnameSource, string? Ip, string Mac, int? SwitchId, string? SwitchName,
-    int? PortId, int? IfIndex, string? PortName, int? Vlan, DeviceState State, DateTime FirstSeen, DateTime LastSeen, bool LowConfidence, string? Vendor = null, bool Manual = false, bool Pinned = false, string? Owner = null, string? Notes = null);
+    int? PortId, int? IfIndex, string? PortName, int? Vlan, DeviceState State, DateTime FirstSeen, DateTime LastSeen, bool LowConfidence, string? Vendor = null, bool Manual = false, bool Pinned = false, string? Owner = null, string? Notes = null, string? Category = null, bool CategoryManual = false, string? CategoryReason = null);
 
-public record ManualDeviceRequest(string? Mac, string? Name, string? Ip, string? Owner, string? Notes, int? SwitchId, int? PortId, int? Vlan);
+/// <summary>Category: null/empty = let the rules decide, otherwise a DeviceCategory name chosen by the administrator.</summary>
+public record ManualDeviceRequest(string? Mac, string? Name, string? Ip, string? Owner, string? Notes, int? SwitchId, int? PortId, int? Vlan, string? Category = null);
+
+public record CategoryRuleDto(int Id, string Name, string Category, bool Enabled, int Priority, string? VendorContains, string? HostnameStartsWith, string? HostnameContains, string? PortDescriptionContains, string? NeighborContains, string? NeighborCapability, int? Vlan);
+public record CategoryRuleRequest(string Name, string Category, bool Enabled, int Priority, string? VendorContains, string? HostnameStartsWith, string? HostnameContains, string? PortDescriptionContains, string? NeighborContains, string? NeighborCapability, int? Vlan);
+
+public record AccessPointDto(DeviceDto Device, int ClientsBehind, string? NeighborInfo);
+public record AccessPointSummary(int Total, int Online, int Offline, IReadOnlyList<KeyValuePair<string, int>> BySwitch, IReadOnlyList<KeyValuePair<string, int>> ByManufacturer);
+public record AccessPointsResponse(AccessPointSummary Summary, IReadOnlyList<AccessPointDto> Items);
 
 public record Paged<T>(IReadOnlyList<T> Items, int Total, int Page, int PageSize);
 
@@ -75,6 +83,7 @@ public class DeviceQuery
     public string? Q { get; set; }
     public int? SwitchId { get; set; }
     public DeviceState? State { get; set; }
+    public DeviceCategory? Category { get; set; }
 }
 
 /// <summary>

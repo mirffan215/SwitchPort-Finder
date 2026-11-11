@@ -180,3 +180,13 @@ A device's status always reflects the **most recent scan of the switch it sits b
 So with scheduled scans off (the default) nothing changes between scans: devices found by your last *Scan Now* stay Online until you scan again. A device that is located nowhere yet (seen only behind uplinks) is compared with the newest scan of any switch.
 
 **Scheduled scans are optional** and set by an administrator under *Settings → General → Scheduled scans*: *Full discovery scan* (off by default; every 15/30/60 min, 2/6/12 h, daily) and *Health poll* (default every 5 min; needed for the reports, utilization gauges and e-mail alerts, off = no history and no alerts). The same page has **Scan all switches now**. Changes apply immediately.
+
+## Access points and device types
+
+Every device has a **type**: access point, IP phone, printer, camera, server, other, or none. Types come from editable rules (*Settings → Admin · Device types*) or are set by hand on a device (*Edit details → Type of device*; a manual type always wins).
+
+* A rule matches when **all** of its filled-in conditions match: manufacturer (from the MAC), host name (starts with / contains), switch port description, what the device announces on its port by LLDP/CDP (name, model, or the "wireless access point"/"telephone" capability) and VLAN. The lowest priority number that matches wins.
+* **Default rules** (edit them to fit your network): LLDP says access point or telephone; CDP/LLDP model contains `AIR-` (Cisco access points) or "Access Point" / "IP Phone"; Cisco host name `SEP…` = phone; host name starts with `AP-` or `WAP`; Grandstream = access point; Ruijie in **VLAN 50** = access point; and, last, anything in **VLAN 50** = access point. Cisco access points and phones share the Cisco manufacturer name with all other Cisco gear, so the neighbor information, host name and VLAN decide for them. If VLAN 50 also carries other devices, disable or narrow the last rule.
+* The **Access points** page lists them with switch, port, VLAN, Online/Offline (from the latest scan), and the number of MAC addresses learned on the AP's port. The Devices page and search (`access point`, `phone`) filter by type; Reports can group and filter by *Type*; the dashboard shows an access-point card.
+* **Alert**: the *Access point offline* rule (Settings → Notifications) e-mails when an access point was not found by the latest scan of its switch. It depends on scans being run (by you or scheduled).
+* **Wireless clients** that your Cisco controller tunnels never appear in the switch tables, so they are not listed. Showing them would need the controller to be read by SNMP (not built in yet).

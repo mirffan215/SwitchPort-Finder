@@ -30,6 +30,18 @@ public sealed class VendorBackfillService(IServiceScopeFactory scopes, ILogger<V
                 await db.SaveChangesAsync(ct); total += batch.Count;
             }
             if (total > 0) log.LogInformation("VendorBackfill: filled the manufacturer for {Count} existing devices", total);
+            using (var s0 = scopes.CreateScope()) await s0.ServiceProvider.GetRequiredService<DeviceCategoryService>().EnsureDefaultRulesAsync(ct);
+            var cats = 0;
+            while (!ct.IsCancellationRequested)   // devices that were never classified (existing installs after the upgrade)
+            {
+                using var scope = scopes.CreateScope(); var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                var batch = await db.Devices.Where(d => d.CategoryReason == null && !d.CategoryManual).OrderBy(d => d.Id).Take(1000).ToListAsync(ct);
+                if (batch.Count == 0) break;
+                await scope.ServiceProvider.GetRequiredService<DeviceCategoryService>().ApplyAsync(batch, ct); cats += batch.Count;
+                foreach (var d in batch) d.CategoryReason ??= "";   // never loop on a device the rules could not classify
+                await db.SaveChangesAsync(ct);
+            }
+            if (cats > 0) log.LogInformation("CategoryBackfill: classified {Count} existing devices", cats);
         }
         catch (OperationCanceledException) { }
         catch (Exception ex) { log.LogWarning(ex, "VendorBackfill skipped (database not ready or not migrated yet); it will run on the next start."); }

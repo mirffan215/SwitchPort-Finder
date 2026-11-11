@@ -58,7 +58,7 @@ const sfx = Math.random().toString(36).slice(2, 7);
   ok(await page.locator('.sidebar').isVisible(), 'valid login reaches the dashboard');
 
   // ---- every route renders without JS errors / blank page
-  const routes = ['/', '/reports', '/switches', '/ports', '/ports?status=up', '/ports?type=SwitchUplink', '/devices', '/topology', '/discovery', '/settings', '/switches/new', '/search?q=test', '/devices?state=Offline', '/switches/999999', '/devices/999999', '/devices/999999/trace', '/no/such/page'];
+  const routes = ['/', '/access-points', '/reports', '/switches', '/ports', '/ports?status=up', '/ports?type=SwitchUplink', '/devices', '/topology', '/discovery', '/settings', '/switches/new', '/search?q=test', '/devices?state=Offline', '/switches/999999', '/devices/999999', '/devices/999999/trace', '/no/such/page'];
   for (const r of routes) {
     problems.length = 0; await goto(r);
     const text = (await page.locator('body').innerText()).trim();

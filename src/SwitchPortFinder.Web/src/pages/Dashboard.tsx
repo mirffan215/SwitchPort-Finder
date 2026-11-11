@@ -13,6 +13,7 @@ export default function Dashboard() {
   const nav = useNavigate();
   const { data: d, error } = useQuery({ queryKey: ['dashboard'], queryFn: api.dashboard, refetchInterval: 15_000 });
   const alerts = useQuery({ queryKey: ['alerts'], queryFn: api.alerts, refetchInterval: 30_000 });
+  const aps = useQuery({ queryKey: ['access-points'], queryFn: api.accessPoints });
   const sws = useQuery({ queryKey: ['switches'], queryFn: api.listSwitches });
   const last = d?.lastDiscovery;
   return (
@@ -24,6 +25,7 @@ export default function Dashboard() {
         <Card n={d?.devices} label="Devices" to="/devices" />
         <Card n={d?.connectedPorts} label="Connected Ports" to="/ports?status=up" />
         <Card n={d?.switchUplinks} label="Switch Uplinks" to="/ports?type=SwitchUplink" />
+        {aps.data && aps.data.summary.total > 0 && <Card n={aps.data.summary.total} label={`Access Points · ${aps.data.summary.offline} offline`} to="/access-points" warn={aps.data.summary.offline > 0} />}
         <Card n={d?.offlineDevices} label="Offline Devices" to="/devices?state=Offline" warn={!!d?.offlineDevices} />
         <div className="card"><div className="num sm">{last ? ago(last.completedAt ?? last.queuedAt) : '—'}</div><div>Last Discovery</div>{last && <small className={`badge ${BADGE[last.status]}`}>{last.switchName}: {last.status === 'CompletedWithWarnings' ? 'warnings' : last.status}</small>}</div>
       </div>

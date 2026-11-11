@@ -20,6 +20,10 @@ public class DiscoveryController(ManualDeviceService manual, SwitchPortFinder.Ap
     [HttpGet("api/devices/{id:int}")]
     public async Task<IActionResult> Device(int id, CancellationToken ct) => Ok(await devices.GetAsync(id, ct));
 
+    /// <summary>Access points: location, status and the MACs learned on their ports.</summary>
+    [HttpGet("api/access-points")]
+    public async Task<IActionResult> AccessPoints(CancellationToken ct) => Ok(await devices.AccessPointsAsync(ct));
+
     /// <summary>Add a device by hand (administrator): MAC, name, owner, notes and optionally the switch port it is plugged into.</summary>
     [HttpPost("api/devices")]
     public async Task<IActionResult> AddDevice(ManualDeviceRequest r, CancellationToken ct) { var id = await manual.CreateAsync(r, who.CurrentUserName, ct); return CreatedAtAction(nameof(Device), new { id }, await devices.GetAsync(id, ct)); }

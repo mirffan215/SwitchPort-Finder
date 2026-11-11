@@ -14,7 +14,7 @@ namespace SwitchPortFinder.Infrastructure.Discovery;
 /// Persists a scan: ports, per-switch observations, devices (authoritative location), the global ARP IP→MAC join and hostnames.
 /// Incremental: unchanged rows are not rewritten (EF only issues UPDATEs for changed properties), LastSeen is refreshed.
 /// </summary>
-public class ScanResultWriter(AppDbContext db, IHostnameResolver dns, ClassificationService classification, IOptions<DiscoveryOptions> opt)
+public class ScanResultWriter(AppDbContext db, IHostnameResolver dns, ClassificationService classification, DeviceCategoryService categories, IOptions<DiscoveryOptions> opt)
 {
     public record Counts(int Ports, int Devices, int Neighbors);
 
@@ -150,6 +150,7 @@ public class ScanResultWriter(AppDbContext db, IHostnameResolver dns, Classifica
             else if (d.HostnameSource != HostnameSource.ReverseDns || ipChanged.Contains(d.Mac)) { d.Hostname = "Unknown Device"; d.HostnameSource = HostnameSource.None; }
         }
         await db.SaveChangesAsync(ct);
+        await categories.ApplyAsync(devices.Values.Where(d => d.Id != 0).ToList(), ct);   // access point / IP phone / ... from the rules (needs location, neighbors and names)
         var nbCount = await db.Neighbors.CountAsync(n => n.SwitchId == sw.Id && n.Protocol != NeighborProtocol.Inferred, ct);
         return new Counts(r.Interfaces.Count, scanMacs.Count, nbCount);
     }

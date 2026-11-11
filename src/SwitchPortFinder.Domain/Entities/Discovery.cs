@@ -64,6 +64,12 @@ public class Device
     public string Hostname { get; set; } = "Unknown Device";
     /// <summary>Manufacturer from the MAC's OUI ("" = looked up, not in the registry; null = not looked up yet). Searchable.</summary>
     public string? Vendor { get; set; }
+    // ---- category (access point, IP phone, ...) ----
+    public DeviceCategory Category { get; set; }
+    /// <summary>True when an administrator chose the category: rules never overwrite it.</summary>
+    public bool CategoryManual { get; set; }
+    /// <summary>Why the rules chose the category ("" = evaluated, nothing matched; null = not evaluated yet).</summary>
+    public string? CategoryReason { get; set; }
     // ---- manual details (administrator): make an unknown device identifiable and traceable ----
     /// <summary>Added by hand rather than discovered by a scan. Such a device can be deleted; a discovered one cannot (it would reappear).</summary>
     public bool IsManual { get; set; }

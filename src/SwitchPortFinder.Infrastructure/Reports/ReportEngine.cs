@@ -32,7 +32,7 @@ public class ReportEngine(AppDbContext db)
             [T("switch", "Switch"), T("port", "Port"), T("alias", "Description"), T("status", "Status"), T("type", "Type"), N("speedMbps", "Speed", "Mbps", false), N("vlan", "VLAN", null, false),
              N("inMbps", "Inbound", "Mbit/s"), N("outMbps", "Outbound", "Mbit/s"), N("utilPct", "Utilization", "%"), N("discardsPerSec", "Drops", "pkt/s"), N("errorsPerSec", "Errors", "pkt/s"), N("macs", "MACs learned")]),
         new("devices", "Devices", "One row per discovered or manually added device.", false,
-            [T("hostname", "Hostname"), T("ip", "IP"), T("mac", "MAC"), T("vendor", "Manufacturer"), T("switch", "Switch"), T("port", "Port"), N("vlan", "VLAN", null, false), T("state", "State"), T("owner", "Owner"), D("firstSeen", "First seen"), D("lastSeen", "Last seen")]),
+            [T("hostname", "Hostname"), T("ip", "IP"), T("mac", "MAC"), T("vendor", "Manufacturer"), T("switch", "Switch"), T("port", "Port"), N("vlan", "VLAN", null, false), T("state", "State"), T("owner", "Owner"), T("category", "Type"), D("firstSeen", "First seen"), D("lastSeen", "Last seen")]),
         new("switch_health", "Switch health history", "CPU, memory, latency and uptime over time (one point per scan or health poll).", true,
             [D("at", "Time"), T("switch", "Switch"), N("up", "Reachable (1/0)", null), N("uptimeDays", "Uptime", "days"), N("cpuPct", "CPU", "%"), N("memPct", "Memory", "%"), N("latencyMs", "SNMP latency", "ms")]),
         new("port_traffic", "Port traffic history", "Per-port traffic, utilization, drops and errors over time.", true,
@@ -200,7 +200,7 @@ public class ReportEngine(AppDbContext db)
                 return ds.Select(x => new Row
                 {
                     ["hostname"] = x.d.Hostname, ["ip"] = x.d.IpAddress, ["mac"] = MacAddress.Format(x.d.Mac), ["vendor"] = VendorText.Of(x.d.Vendor, x.d.Mac), ["switch"] = x.Sw, ["port"] = x.Pt, ["vlan"] = x.d.Vlan is { } v ? (double)v : null,
-                    ["state"] = DeviceStates.Compute(x.d.LastSeen, DeviceStates.Reference(x.d.LastSeen, x.SwScan, latest), o).ToString(), ["owner"] = x.d.Owner, ["firstSeen"] = x.d.FirstSeen, ["lastSeen"] = x.d.LastSeen,
+                    ["state"] = DeviceStates.Compute(x.d.LastSeen, DeviceStates.Reference(x.d.LastSeen, x.SwScan, latest), o).ToString(), ["owner"] = x.d.Owner, ["category"] = x.d.Category == DeviceCategory.Unclassified ? "Unclassified" : x.d.Category.ToString(), ["firstSeen"] = x.d.FirstSeen, ["lastSeen"] = x.d.LastSeen,
                 }).ToList();
             }
             case "switch_health":

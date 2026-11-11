@@ -3,7 +3,7 @@ namespace SwitchPortFinder.Domain.Entities;
 public enum SmtpSecurity { None = 0, StartTls = 1, SslOnConnect = 2 }
 
 /// <summary>What an alert rule watches. Port rules read the traffic history, switch rules the health history.</summary>
-public enum AlertRuleType { UplinkUtilization = 0, PortUtilization = 1, SwitchUnreachable = 2, HighCpu = 3, HighMemory = 4, HighLatency = 5, PacketDrops = 6, PortErrors = 7, SwitchRestarted = 8 }
+public enum AlertRuleType { UplinkUtilization = 0, PortUtilization = 1, SwitchUnreachable = 2, HighCpu = 3, HighMemory = 4, HighLatency = 5, PacketDrops = 6, PortErrors = 7, SwitchRestarted = 8, AccessPointOffline = 9 }
 
 public enum AlertState { Firing = 0, Resolved = 1 }
 

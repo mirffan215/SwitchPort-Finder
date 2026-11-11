@@ -12,6 +12,7 @@ const TYPES: { v: AlertRuleType; label: string; unit: string; hasLimit: boolean;
   { v: 'HighMemory', label: 'Switch memory', unit: '%', hasLimit: true, hint: 'Memory in use.' },
   { v: 'HighLatency', label: 'SNMP latency', unit: 'ms', hasLimit: true, hint: 'Round-trip time of the SNMP request.' },
   { v: 'SwitchUnreachable', label: 'Switch unreachable', unit: '', hasLimit: false, hint: 'No SNMP answer for the number of minutes given.' },
+  { v: 'AccessPointOffline', label: 'Access point offline', unit: '', hasLimit: false, hint: 'An access point was not found by the latest scan of its switch for the number of minutes given (needs scans: manual or scheduled).' },
   { v: 'SwitchRestarted', label: 'Switch restarted', unit: '', hasLimit: false, hint: 'Uptime dropped (reboot) within the last number of minutes given.' },
 ];
 const typeOf = (t: AlertRuleType) => TYPES.find((x) => x.v === t)!;

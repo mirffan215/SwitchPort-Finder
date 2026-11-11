@@ -14,7 +14,7 @@ namespace SwitchPortFinder.Infrastructure.Discovery;
 /// cannot name or place - an unknown device behind an unmanaged switch, a printer that never answers DNS - can still be found and traced to the core.
 /// A pinned location survives rescans; a typed name is never replaced by reverse DNS.
 /// </summary>
-public class ManualDeviceService(AppDbContext db, ILogger<ManualDeviceService> log)
+public class ManualDeviceService(AppDbContext db, DeviceCategoryService categories, ILogger<ManualDeviceService> log)
 {
     private static string? Clean(string? s, int max, string field)
     {
@@ -46,6 +46,12 @@ public class ManualDeviceService(AppDbContext db, ILogger<ManualDeviceService> l
             d.SwitchId = port.SwitchId; d.PortId = port.Id; d.Vlan = d.PinnedVlan; d.LowConfidence = false;
         }
         if (d.PinnedPortId is null && !d.IsManual) { /* discovered location (if any) stays as classification last set it */ }
+        if (!string.IsNullOrWhiteSpace(r.Category))
+        {
+            if (!Enum.TryParse<DeviceCategory>(r.Category, true, out var cat) || cat == DeviceCategory.Unclassified) throw new ValidationFailedException("category", "Unknown category.");
+            d.Category = cat; d.CategoryManual = true; d.CategoryReason = "Set manually";
+        }
+        else if (d.CategoryManual) { d.CategoryManual = false; d.CategoryReason = null; }   // back to the rules
         d.ManualUpdatedBy = actor; d.ManualUpdatedAt = DateTime.UtcNow;
     }
 
@@ -54,7 +60,7 @@ public class ManualDeviceService(AppDbContext db, ILogger<ManualDeviceService> l
         var d = await db.Devices.FirstOrDefaultAsync(x => x.Id == id, ct) ?? throw new NotFoundException($"Device {id} not found.");
         await ApplyAsync(d, r, actor, ct);
         if (d.PinnedPortId is null) await RestoreDiscoveredLocationAsync(d, ct);
-        await db.SaveChangesAsync(ct);
+        await db.SaveChangesAsync(ct); await categories.ApplyAsync([d], ct);
         log.LogInformation("DeviceEdited: device {DeviceId} by {Actor} (pinned: {Pinned})", d.Id, actor, d.PinnedPortId != null);
     }
 
@@ -74,7 +80,7 @@ public class ManualDeviceService(AppDbContext db, ILogger<ManualDeviceService> l
         var now = DateTime.UtcNow;
         var d = new Device { Mac = mac, IsManual = true, FirstSeen = now, LastSeen = now, Vendor = OuiLookup.Lookup(mac) ?? "" };
         await ApplyAsync(d, r, actor, ct);
-        db.Devices.Add(d); await db.SaveChangesAsync(ct);
+        db.Devices.Add(d); await db.SaveChangesAsync(ct); await categories.ApplyAsync([d], ct);
         log.LogInformation("DeviceAdded: manual device {DeviceId} by {Actor}", d.Id, actor);
         return d.Id;
     }

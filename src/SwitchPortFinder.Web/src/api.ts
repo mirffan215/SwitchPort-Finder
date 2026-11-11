@@ -63,7 +63,7 @@ export interface PortTraffic { inBps?: number | null; outBps?: number | null; ut
 export interface TopPort { switchId: number; switchName: string; portId: number; ifIndex: number; portName: string; alias?: string | null; speedMbps: number; traffic: PortTraffic }
 export interface SwitchUptime { switchId: number; name: string; managementIp: string; model?: string | null; isCore: boolean; status: string; uptimeSeconds?: number | null; sampledAt?: string | null }
 export interface SwitchUptimeResponse { items: SwitchUptime[]; switchesTotal: number; withData: number }
-export interface ManualDevice { mac?: string; name?: string; ip?: string; owner?: string; notes?: string; switchId?: number | null; portId?: number | null; vlan?: number | null }
+export interface ManualDevice { category?: string | null; mac?: string; name?: string; ip?: string; owner?: string; notes?: string; switchId?: number | null; portId?: number | null; vlan?: number | null }
 export interface PortListItem { switchId: number; switchName: string; portId: number; ifIndex: number; name: string; alias?: string | null; status: 'UP' | 'DOWN'; type: PortType; speedMbps: number; vlan?: number | null; macCount: number; device?: string | null; traffic?: PortTraffic | null }
 export interface ReportField { key: string; label: string; type: 'Text' | 'Number' | 'DateTime' | 'Bool'; unit?: string | null; measure: boolean }
 export interface ReportDataset { key: string; label: string; description: string; history: boolean; fields: ReportField[] }
@@ -76,15 +76,21 @@ export interface SavedReport { id: number; name: string; json: string; createdBy
 export type SmtpSecurity = 'None' | 'StartTls' | 'SslOnConnect';
 export interface NotificationConfig { enabled: boolean; host: string; port: number; security: SmtpSecurity; username?: string | null; hasPassword: boolean; fromAddress: string; fromName: string; recipients: string[]; trustServerCertificate: boolean; publicBaseUrl?: string | null }
 export interface NotificationConfigRequest { enabled: boolean; host: string; port: number; security: SmtpSecurity; username?: string | null; password?: string | null; fromAddress: string; fromName?: string; recipients: string[]; trustServerCertificate: boolean; publicBaseUrl?: string | null }
-export type AlertRuleType = 'UplinkUtilization' | 'PortUtilization' | 'SwitchUnreachable' | 'HighCpu' | 'HighMemory' | 'HighLatency' | 'PacketDrops' | 'PortErrors' | 'SwitchRestarted';
+export type AlertRuleType = 'AccessPointOffline' | 'UplinkUtilization' | 'PortUtilization' | 'SwitchUnreachable' | 'HighCpu' | 'HighMemory' | 'HighLatency' | 'PacketDrops' | 'PortErrors' | 'SwitchRestarted';
 export interface AlertRule { id: number; name: string; type: AlertRuleType; enabled: boolean; threshold: number; durationMinutes: number; switchId?: number | null; switchName?: string | null; cooldownMinutes: number; notifyOnResolve: boolean }
 export type AlertRuleRequest = Omit<AlertRule, 'id' | 'switchName'>;
 export interface AlertEvent { id: number; ruleId: number; ruleName: string; type: AlertRuleType; subject: string; title: string; detail: string; value?: number | null; state: 'Firing' | 'Resolved'; firstAt: string; lastAt: string; resolvedAt?: string | null; notifyCount: number }
 export interface AlertsResponse { activeCount: number; active: AlertEvent[]; recent: AlertEvent[] }
 export interface MailLogEntry { at: string; recipients: string; subject: string; success: boolean; error?: string | null }
+export const CATEGORIES = ['AccessPoint', 'IpPhone', 'Printer', 'Camera', 'Server', 'Other'] as const;
+export const categoryLabel = (c?: string | null) => (c ? ({ AccessPoint: 'Access point', IpPhone: 'IP phone', Printer: 'Printer', Camera: 'Camera', Server: 'Server', Other: 'Other' } as Record<string, string>)[c] ?? c : '');
+export interface CategoryRule { id: number; name: string; category: string; enabled: boolean; priority: number; vendorContains?: string | null; hostnameStartsWith?: string | null; hostnameContains?: string | null; portDescriptionContains?: string | null; neighborContains?: string | null; neighborCapability?: string | null; vlan?: number | null }
+export type CategoryRuleRequest = Omit<CategoryRule, 'id'>;
+export interface AccessPointItem { device: DeviceRow; clientsBehind: number; neighborInfo?: string | null }
+export interface AccessPointsResponse { summary: { total: number; online: number; offline: number; bySwitch: { key: string; value: number }[]; byManufacturer: { key: string; value: number }[] }; items: AccessPointItem[] }
 export interface TopPortsResponse { metric: 'utilization' | 'drops'; items: TopPort[]; portsWithData: number; portsTotal: number }
 export interface PortsResponse { summary: { total: number; connected: number; down: number; uplinks: number; lastScan?: string | null }; ports: PortRow[]; hasArpSource: boolean }
-export interface DeviceRow { manual?: boolean; pinned?: boolean; owner?: string | null; notes?: string | null; vendor?: string | null; id: number; hostname: string; hostnameSource: string; ip?: string | null; mac: string; switchId?: number | null; switchName?: string | null; portId?: number | null; ifIndex?: number | null; portName?: string | null; vlan?: number | null; state: 'Active' | 'Offline' | 'Stale'; firstSeen: string; lastSeen: string; lowConfidence: boolean }
+export interface DeviceRow { category?: string | null; categoryManual?: boolean; categoryReason?: string | null; manual?: boolean; pinned?: boolean; owner?: string | null; notes?: string | null; vendor?: string | null; id: number; hostname: string; hostnameSource: string; ip?: string | null; mac: string; switchId?: number | null; switchName?: string | null; portId?: number | null; ifIndex?: number | null; portName?: string | null; vlan?: number | null; state: 'Active' | 'Offline' | 'Stale'; firstSeen: string; lastSeen: string; lowConfidence: boolean }
 export interface Paged<T> { items: T[]; total: number; page: number; pageSize: number }
 
 export interface SwitchHit { id: number; name: string; managementIp: string; manufacturerName: string; status: string; model?: string | null }
@@ -196,6 +202,12 @@ export const api = {
   updateRule: (id: number, r: AlertRuleRequest) => request<AlertRule>(`/api/notifications/rules/${id}`, json('PUT', r)),
   deleteRule: (id: number) => request<void>(`/api/notifications/rules/${id}`, { method: 'DELETE' }),
   alerts: () => request<AlertsResponse>('/api/alerts'),
+  accessPoints: () => request<AccessPointsResponse>('/api/access-points'),
+  categoryRules: () => request<CategoryRule[]>('/api/categories/rules'),
+  createCategoryRule: (r: CategoryRuleRequest) => request<CategoryRule>('/api/categories/rules', json('POST', r)),
+  updateCategoryRule: (id: number, r: CategoryRuleRequest) => request<CategoryRule>(`/api/categories/rules/${id}`, json('PUT', r)),
+  deleteCategoryRule: (id: number) => request<void>(`/api/categories/rules/${id}`, { method: 'DELETE' }),
+  reapplyCategories: () => request<{ changed: number }>('/api/categories/reapply', { method: 'POST' }),
   switchUptime: () => request<SwitchUptimeResponse>('/api/metrics/switch-uptime?n=5'),
   topPorts: (metric: 'utilization' | 'drops', n = 5) => request<TopPortsResponse>(`/api/metrics/top-ports?metric=${metric}&n=${n}`),
   listProfiles: () => request<ProfileDto[]>('/api/credential-profiles'),

@@ -5,7 +5,9 @@ using Microsoft.Extensions.Logging;
 using MimeKit;
 using SwitchPortFinder.Application.Abstractions;
 using SwitchPortFinder.Application.Common;
+using SwitchPortFinder.Application.Discovery;
 using SwitchPortFinder.Application.Notifications;
+using SwitchPortFinder.Domain;
 using SwitchPortFinder.Domain.Entities;
 using SwitchPortFinder.Domain.Enums;
 using SwitchPortFinder.Infrastructure.Persistence;
@@ -78,10 +80,19 @@ public class AlertService(AppDbContext db, MailSender mail, ICredentialProtector
     // ------------------------------------------------------------------ rules
     public async Task EnsureDefaultRulesAsync(CancellationToken ct)
     {
-        if (await db.AlertRules.AnyAsync(ct)) return;
+        if (await db.AlertRules.AnyAsync(ct))
+        {   // upgrades: add the access-point rule once (not again if an administrator deletes it)
+            if (!await db.AlertRules.AnyAsync(r => r.Type == AlertRuleType.AccessPointOffline, ct) && !await db.AppSettings.AnyAsync(s => s.Key == "seed:ap-offline-rule", ct))
+            {
+                db.AlertRules.Add(new AlertRule { Name = "Access point offline", Type = AlertRuleType.AccessPointOffline, DurationMinutes = 10, CooldownMinutes = 240, CreatedAt = DateTime.UtcNow });
+                db.AppSettings.Add(new AppSetting { Key = "seed:ap-offline-rule", Value = "1", UpdatedAt = DateTime.UtcNow }); await db.SaveChangesAsync(ct);
+            }
+            return;
+        }
         AlertRule R(string n, AlertRuleType t, double th, int dur, int cool = 240) => new() { Name = n, Type = t, Threshold = th, DurationMinutes = dur, CooldownMinutes = cool, CreatedAt = DateTime.UtcNow };
         db.AlertRules.AddRange(R("Uplink utilization above 80%", AlertRuleType.UplinkUtilization, 80, 10), R("Switch unreachable", AlertRuleType.SwitchUnreachable, 0, 10, 60), R("CPU above 90%", AlertRuleType.HighCpu, 90, 10),
-            R("Memory above 90%", AlertRuleType.HighMemory, 90, 10), R("Packet drops above 5/s", AlertRuleType.PacketDrops, 5, 10), R("Switch restarted", AlertRuleType.SwitchRestarted, 0, 15, 0));
+            R("Memory above 90%", AlertRuleType.HighMemory, 90, 10), R("Packet drops above 5/s", AlertRuleType.PacketDrops, 5, 10), R("Switch restarted", AlertRuleType.SwitchRestarted, 0, 15, 0), R("Access point offline", AlertRuleType.AccessPointOffline, 0, 10, 240));
+        db.AppSettings.Add(new AppSetting { Key = "seed:ap-offline-rule", Value = "1", UpdatedAt = DateTime.UtcNow });
         await db.SaveChangesAsync(ct);
     }
 
@@ -104,7 +115,7 @@ public class AlertService(AppDbContext db, MailSender mail, ICredentialProtector
         if (r.DurationMinutes is < 0 or > 1440) throw new ValidationFailedException("durationMinutes", "Duration must be 0 to 1440 minutes.");
         if (r.CooldownMinutes is < 0 or > 10080) throw new ValidationFailedException("cooldownMinutes", "Reminder interval must be 0 to 10080 minutes.");
         if (r.SwitchId is { } sid && !await db.Switches.AnyAsync(x => x.Id == sid, ct)) throw new ValidationFailedException("switchId", "That switch does not exist.");
-        e.Name = name; e.Type = t; e.Enabled = r.Enabled; e.Threshold = t is AlertRuleType.SwitchUnreachable or AlertRuleType.SwitchRestarted ? 0 : r.Threshold; e.DurationMinutes = r.DurationMinutes; e.SwitchId = r.SwitchId; e.CooldownMinutes = r.CooldownMinutes; e.NotifyOnResolve = r.NotifyOnResolve;
+        e.Name = name; e.Type = t; e.Enabled = r.Enabled; e.Threshold = t is AlertRuleType.SwitchUnreachable or AlertRuleType.SwitchRestarted or AlertRuleType.AccessPointOffline ? 0 : r.Threshold; e.DurationMinutes = r.DurationMinutes; e.SwitchId = r.SwitchId; e.CooldownMinutes = r.CooldownMinutes; e.NotifyOnResolve = r.NotifyOnResolve;
     }
 
     public async Task<AlertRuleDto> CreateRuleAsync(AlertRuleRequest r, CancellationToken ct)
@@ -219,6 +230,21 @@ public class AlertService(AppDbContext db, MailSender mail, ICredentialProtector
                     if (latest.Reachable) { result.Add(new Finding($"switch:{g.Key}", "", "", null, false, true)); continue; }
                     var lastUp = ordered.LastOrDefault(x => x.Reachable)?.At ?? ordered[0].At; var down = (now - lastUp).TotalMinutes;
                     result.Add(new Finding($"switch:{g.Key}", $"Switch unreachable: {latest.Name}", $"{latest.Name} has not answered SNMP since {lastUp:yyyy-MM-dd HH:mm} UTC ({down:0} min).", down, down >= dur, false));
+                }
+                return result;
+            }
+            case AlertRuleType.AccessPointOffline:
+            {
+                var latestScan = await db.Switches.AsNoTracking().MaxAsync(s => s.LastScanAt, ct);
+                var aps = await db.Devices.AsNoTracking().Where(d => d.Category == DeviceCategory.AccessPoint).Select(d => new { d.Id, d.Hostname, d.Mac, d.LastSeen, d.SwitchId, SwitchName = d.Switch != null ? d.Switch.Name : null, SwitchScan = d.Switch != null ? d.Switch.LastScanAt : null, Port = d.Port != null ? d.Port.Name : null }).ToListAsync(ct);
+                var o = new DiscoveryOptions(); var result = new List<Finding>();
+                foreach (var d in aps)
+                {
+                    if (rule.SwitchId is { } sid && d.SwitchId != sid) continue;
+                    var reference = DeviceStates.Reference(d.LastSeen, d.SwitchScan, latestScan); var state = DeviceStates.Compute(d.LastSeen, reference, o);
+                    var name = d.Hostname == "Unknown Device" ? MacAddress.Format(d.Mac) : d.Hostname; var where = d.SwitchName is null ? "" : $" on {d.SwitchName} {d.Port}";
+                    var minutes = (reference - d.LastSeen).TotalMinutes;
+                    result.Add(new Finding($"device:{d.Id}", $"Access point offline: {name}{where}", $"{name}{where} was not found by the latest scan (last seen {d.LastSeen:yyyy-MM-dd HH:mm} UTC).", minutes, state == DeviceState.Offline && (now - d.LastSeen).TotalMinutes >= dur, state != DeviceState.Offline));
                 }
                 return result;
             }

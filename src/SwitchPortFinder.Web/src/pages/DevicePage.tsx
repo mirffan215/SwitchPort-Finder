@@ -4,7 +4,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import DeviceForm from '../components/DeviceForm';
 import { useAuth } from '../components/Auth';
 import { api } from '../api';
-import { ErrorBox, StateBadge, ago, fmtDate } from '../components/Bits';
+import { CategoryBadge, ErrorBox, StateBadge, ago, fmtDate } from '../components/Bits';
 
 export default function DevicePage() {
   const id = Number(useParams().id);
@@ -31,6 +31,7 @@ export default function DevicePage() {
         <dt>MAC address</dt><dd className="mono">{d.mac}</dd>
         <dt>Product / manufacturer</dt><dd>{d.vendor ?? <span className="muted">Unknown (not in the IEEE registry)</span>} <span className="muted small">— from the MAC address; it names the maker of the network adapter, not the model</span></dd>
         {(d.owner || d.notes) && <><dt>Owner</dt><dd>{d.owner ?? '—'}</dd><dt>Notes</dt><dd>{d.notes ?? '—'}</dd></>}
+        <dt>Type</dt><dd><CategoryBadge c={d.category} manual={d.categoryManual} /> {d.category && <span className="muted small">— {d.categoryReason || 'rules'}</span>}</dd>
         <dt>Switch</dt><dd>{d.switchId ? <Link to={`/switches/${d.switchId}`}>{d.switchName}</Link> : '—'}</dd>
         <dt>Port</dt><dd>{d.portName ?? '—'}</dd>
         <dt>VLAN</dt><dd>{d.vlan ?? '—'}</dd>

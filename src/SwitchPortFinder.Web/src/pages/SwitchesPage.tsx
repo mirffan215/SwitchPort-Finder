@@ -1,9 +1,39 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { api, MANUFACTURERS } from '../api';
-import { ErrorBox, StatusBadge, fmtDate } from '../components/Bits';
+import { ErrorBox, ago, fmtDate } from '../components/Bits';
 import { useAuth } from '../components/Auth';
+
+/** The "⋯" menu of a row: closes on Escape, on an outside click and after a choice. */
+function RowMenu({ label, children }: { label: string; children: (close: () => void) => React.ReactNode }) {
+  const [open, setOpen] = useState(false); const box = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const away = (e: MouseEvent) => { if (!box.current?.contains(e.target as Node)) setOpen(false); };
+    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
+    document.addEventListener('mousedown', away); document.addEventListener('keydown', esc);
+    return () => { document.removeEventListener('mousedown', away); document.removeEventListener('keydown', esc); };
+  }, [open]);
+  return (
+    <div className="rowmenu" ref={box}>
+      <button type="button" className="iconbtn" aria-haspopup="menu" aria-expanded={open} aria-label={label} onClick={() => setOpen(!open)}>⋯</button>
+      {open && <div className="rowmenu-list" role="menu">{children(() => setOpen(false))}</div>}
+    </div>
+  );
+}
+
+const STALE_MS = 24 * 3600 * 1000;
+function StatusDot({ status, lastScanAt }: { status: string; lastScanAt?: string | null }) {
+  const stale = !!lastScanAt && Date.now() - new Date(lastScanAt).getTime() > STALE_MS;
+  const cls = status === 'Unreachable' ? 'bad' : status === 'Reachable' ? (stale ? 'warn' : 'ok') : 'muted';
+  return (
+    <div className="statuscell">
+      <div className="statusline"><span className={`stdot ${cls}`} aria-hidden="true" /><span>{status}</span></div>
+      <div className="muted small" title={fmtDate(lastScanAt)}>{lastScanAt ? `scanned ${ago(lastScanAt)}${stale ? ' · stale' : ''}` : 'never scanned'}</div>
+    </div>
+  );
+}
 
 export default function SwitchesPage() {
   const qc = useQueryClient();
@@ -38,31 +68,33 @@ export default function SwitchesPage() {
       <ErrorBox error={error ?? del.error ?? test.error ?? scan.error ?? scanAll.error} />
       {note && <div className="alert success">{note} <Link to="/discovery">Open Discovery</Link></div>}
       {isLoading ? <p>Loading…</p> : (
-        <div className="tablewrap">
+        <div className="tablewrap swtable">
           <table>
-            <thead><tr><th>Name</th><th>Management IP</th><th>Manufacturer</th><th>Model</th><th>Ports</th><th>Status</th><th>Last Scan</th><th>Actions</th></tr></thead>
+            <thead><tr><th>Switch</th><th>Management IP</th><th>Manufacturer</th><th className="num">Ports</th><th>Status</th><th><span className="sr-only">Actions</span></th></tr></thead>
             <tbody>
               {rows.map((s) => (
                 <tr key={s.id}>
-                  <td><Link to={`/switches/${s.id}`}>{s.name}</Link>{s.useAsArpSource && <span className="tag" title="ARP source">ARP</span>}{s.isWirelessController && <span className="tag" title="Wireless controller">WLC</span>}</td>
-                  <td>{s.managementIp}</td>
-                  <td>{s.manufacturerName}{s.vendorMismatch && <span title="Selected manufacturer differs from detected vendor"> ⚠</span>}</td>
-                  <td>{s.model ?? '—'}</td>
-                  <td>{s.portCount || '—'}</td>
-                  <td><StatusBadge status={s.status} /></td>
-                  <td>{fmtDate(s.lastScanAt)}</td>
-                  <td className="actions">
-                    <Link to={`/switches/${s.id}`}>Open</Link>
-                    {canWrite && <>
-                      <button className="link" disabled={scan.isPending} onClick={() => scan.mutate(s.id)}>Scan</button>
-                      <button className="link" disabled={test.isPending} onClick={() => test.mutate(s.id)} title="Test SNMP connectivity only">Test</button>
-                      <Link to={`/switches/${s.id}/edit`}>Edit</Link>
-                      <button className="link danger" onClick={() => confirm(`Delete ${s.name}?`) && del.mutate(s.id)}>Delete</button>
-                    </>}
+                  <td>
+                    <div className="swname"><Link to={`/switches/${s.id}`}>{s.name}</Link>
+                      {s.useAsArpSource && <span className="tag" title="Provides the IP-to-MAC (ARP) table">ARP</span>}{s.isWirelessController && <span className="tag" title="Wireless controller">WLC</span>}</div>
+                    <div className="muted small">{s.model ?? 'Model not read yet'}</div>
+                  </td>
+                  <td className="nowrap mono">{s.managementIp}</td>
+                  <td><span className="vendorchip" title={s.manufacturerName}>{s.manufacturerName.replace(/\s*\(detected\)/i, '')}</span>{s.manufacturerName.toLowerCase().includes('detected') && <span className="muted small" title="Detected from the switch"> auto</span>}{s.vendorMismatch && <span title="Selected manufacturer differs from detected vendor"> ⚠</span>}</td>
+                  <td className="num">{s.portCount || '—'}</td>
+                  <td><StatusDot status={s.status} lastScanAt={s.lastScanAt} /></td>
+                  <td className="rowactions">
+                    {canWrite && <button type="button" className="btn small" disabled={scan.isPending} onClick={() => scan.mutate(s.id)} title={`Scan ${s.name} now`}>Scan</button>}
+                    <Link className="btn small" to={`/switches/${s.id}`}>Open</Link>
+                    {canWrite && <RowMenu label={`More actions for ${s.name}`}>{(close) => <>
+                      <button type="button" role="menuitem" disabled={test.isPending} onClick={() => { close(); test.mutate(s.id); }}>Test SNMP connection</button>
+                      <Link role="menuitem" to={`/switches/${s.id}/edit`} onClick={close}>Edit</Link>
+                      <button type="button" role="menuitem" className="danger" onClick={() => { close(); if (confirm(`Delete ${s.name}? Its ports and discovered data are removed.`)) del.mutate(s.id); }}>Delete…</button>
+                    </>}</RowMenu>}
                   </td>
                 </tr>
               ))}
-              {rows.length === 0 && <tr><td colSpan={8} className="muted">No switches.</td></tr>}
+              {rows.length === 0 && <tr><td colSpan={6} className="muted">No switches.</td></tr>}
             </tbody>
           </table>
         </div>

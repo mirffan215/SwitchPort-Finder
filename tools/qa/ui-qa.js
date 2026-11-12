@@ -84,11 +84,11 @@ const sfx = Math.random().toString(36).slice(2, 7);
   const pd = await dl('Export PDF'); ok(pd.suggestedFilename().endsWith('.pdf'), 'report exports to PDF (works under the strict CSP)');
 
   // ---- settings: notifications tab and security-relevant controls
-  await goto('/settings'); await page.getByRole('button', { name: 'Admin · Notifications' }).click(); await page.waitForTimeout(900);
+  await goto('/settings'); await page.getByRole('button', { name: 'E-mail & alerts' }).click(); await page.waitForTimeout(900);
   ok(await page.getByRole('heading', { name: 'E-mail server' }).isVisible() && await page.getByRole('heading', { name: 'Alert rules' }).isVisible(), 'Settings has the Notifications tab with the mail server form and alert rules');
   ok(await page.getByLabel('Password').first().getAttribute('type') === 'password', 'the mail password field is masked');
   await page.getByLabel('Connection security').selectOption('None'); ok(await page.getByText('travel in clear text').isVisible(), 'choosing no TLS shows a clear warning');
-  await page.getByRole('button', { name: 'Admin · Import Switches' }).click(); ok(await page.getByRole('button', { name: /Export switches with credentials/ }).isVisible(), 'encrypted credential export is offered to administrators');
+  await page.getByRole('button', { name: 'Import switches' }).click(); ok(await page.getByRole('button', { name: /Export switches with credentials/ }).isVisible(), 'encrypted credential export is offered to administrators');
 
   // ---- theme
   await goto('/');

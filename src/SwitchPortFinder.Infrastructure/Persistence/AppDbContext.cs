@@ -26,6 +26,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<DiscoveryError> DiscoveryErrors => Set<DiscoveryError>();
     public DbSet<SwitchNeighbor> Neighbors => Set<SwitchNeighbor>();
     public DbSet<SwitchMac> SwitchMacs => Set<SwitchMac>();
+    public DbSet<MfaDevice> MfaDevices => Set<MfaDevice>();
     public DbSet<Integration> Integrations => Set<Integration>();
     public DbSet<Branding> Brandings => Set<Branding>();
     public DbSet<AppSetting> AppSettings => Set<AppSetting>();
@@ -37,6 +38,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         // No foreign key to the port: SQL Server forbids a second cascade path (switch -> port and switch -> sample). Samples are removed with the switch by the retention job.
         b.Entity<PortMetricSample>(e => { e.HasIndex(x => new { x.PortId, x.At }); e.HasIndex(x => x.At); e.HasIndex(x => new { x.SwitchId, x.At }); e.Ignore(x => x.Port); });
         b.Entity<NotificationConfig>(e => { e.HasKey(x => x.Id); e.Property(x => x.Id).ValueGeneratedNever(); e.Property(x => x.Host).HasMaxLength(255); e.Property(x => x.Username).HasMaxLength(255); e.Property(x => x.FromAddress).HasMaxLength(255); e.Property(x => x.FromName).HasMaxLength(100); e.Property(x => x.Recipients).HasMaxLength(2000); e.Property(x => x.PublicBaseUrl).HasMaxLength(255); });
+        b.Entity<MfaDevice>(e => { e.HasOne(x => x.User).WithMany(u => u.MfaDevices).HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade); e.Property(x => x.Name).HasMaxLength(60).IsRequired(); e.Property(x => x.SecretProtected).IsRequired(); e.HasIndex(x => x.UserId); });
+        b.Entity<AppUser>(e => e.Property(x => x.MfaPendingName).HasMaxLength(60));
         b.Entity<Integration>(e => { e.Property(x => x.Kind).HasMaxLength(20).IsRequired(); e.HasIndex(x => x.Kind).IsUnique(); e.Property(x => x.ConfigJson).IsRequired(); e.Property(x => x.LastMessage).HasMaxLength(500); });
         b.Entity<Branding>(e => { e.HasKey(x => x.Id); e.Property(x => x.Id).ValueGeneratedNever(); e.Property(x => x.CompanyName).HasMaxLength(100); e.Property(x => x.LinkUrl).HasMaxLength(300); e.Property(x => x.LogoContentType).HasMaxLength(40); });
         b.Entity<Device>(e => { e.Property(x => x.ExtOs).HasMaxLength(100); e.Property(x => x.ExtUser).HasMaxLength(150); e.Property(x => x.ExtDetail).HasMaxLength(300); e.Property(x => x.ExtSource).HasMaxLength(30); e.Property(x => x.DhcpDetail).HasMaxLength(300); });

@@ -148,5 +148,38 @@ public class MfaTests(MfaApiFixture fx) : IClassFixture<MfaApiFixture>
         var code = e.Codes[Interlocked.Increment(ref _rc)]; var r = await c.PostAsJsonAsync("/api/auth/login/mfa", new MfaLoginRequest(ch, code), Json); r.StatusCode.Should().Be(HttpStatusCode.OK, await r.Content.ReadAsStringAsync());
         return (c, e.Secret, e.Codes, "admin");
     }
+    [Fact]
+    public async Task One_account_can_have_several_authenticator_apps_and_any_of_them_signs_in()
+    {
+        var boss = await EnrolledAdminOrLogin();
+        var name = Uniq("shared-admin"); (await boss.C.PostAsJsonAsync("/api/users", new CreateUserRequest(name, Pw, UserRole.Admin), Json)).StatusCode.Should().Be(HttpStatusCode.Created);
+        var c = fx.CreateClient(); await Login(c, name, Pw);
+        var first = await Enrol(c, name, Pw);                                         // device 1 (the first admin's phone)
+
+        // a second phone is refused without a code from an existing one
+        (await c.PostAsJsonAsync("/api/auth/mfa/setup", new MfaStartRequest(Pw, "Second admin phone"), Json)).StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        var setup = await c.PostAsJsonAsync("/api/auth/mfa/setup", new MfaStartRequest(Pw, "Second admin phone", Next(first.Secret)), Json);
+        setup.StatusCode.Should().Be(HttpStatusCode.OK, await setup.Content.ReadAsStringAsync());
+        var secondSecret = Totp.FromBase32((await setup.Content.ReadFromJsonAsync<MfaSetupDto>(Json))!.Secret)!;
+        var enable = await c.PostAsJsonAsync("/api/auth/mfa/enable", new MfaCodeRequest(Totp.Code(secondSecret, Totp.StepOf(DateTimeOffset.UtcNow))), Json);
+        enable.StatusCode.Should().Be(HttpStatusCode.OK, await enable.Content.ReadAsStringAsync());
+        (await enable.Content.ReadFromJsonAsync<MfaEnabledDto>(Json))!.RecoveryCodes.Should().BeEmpty("recovery codes are issued only with the first authenticator");
+
+        var list = (await c.GetFromJsonAsync<List<MfaDeviceDto>>("/api/auth/mfa/devices", Json))!;
+        list.Select(d => d.Name).Should().BeEquivalentTo(["Authenticator 1", "Second admin phone"]);
+        (await c.GetStringAsync("/api/auth/mfa/devices")).Should().NotContain(Convert.ToBase64String(secondSecret)).And.NotContain("secret", "secrets are never returned");
+
+        // the second phone signs in on its own
+        var c2 = fx.CreateClient(); var step1 = await Login(c2, name, Pw);
+        var ok = await c2.PostAsJsonAsync("/api/auth/login/mfa", new MfaLoginRequest(step1.Me!.MfaChallenge!, Totp.Code(secondSecret, Totp.StepOf(DateTimeOffset.UtcNow) + 1)), Json);
+        ok.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        // remove it again (needs password + a current code; a recovery code is used here so the test need not wait for the next 30-second step); the last one cannot be removed
+        var second = list.Single(d => d.Name == "Second admin phone");
+        (await c.PostAsJsonAsync($"/api/auth/mfa/devices/{second.Id}/remove", new MfaDisableRequest(Pw, first.Codes[0]), Json)).StatusCode.Should().Be(HttpStatusCode.NoContent);
+        var left = (await c.GetFromJsonAsync<List<MfaDeviceDto>>("/api/auth/mfa/devices", Json))!; left.Should().ContainSingle();
+        (await c.PostAsJsonAsync($"/api/auth/mfa/devices/{left[0].Id}/remove", new MfaDisableRequest(Pw, first.Codes[1]), Json)).StatusCode.Should().Be(HttpStatusCode.Conflict);
+    }
+
     private static readonly object Shared = new(); private static Task<(HttpClient C, byte[] Secret, List<string> Codes, string User)>? _shared; private static int _rc;
 }

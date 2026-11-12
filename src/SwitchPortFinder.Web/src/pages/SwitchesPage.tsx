@@ -1,27 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { api, MANUFACTURERS } from '../api';
-import { ErrorBox, ago, fmtDate } from '../components/Bits';
+import { ErrorBox, RowMenu, ago, fmtDate } from '../components/Bits';
 import { useAuth } from '../components/Auth';
-
-/** The "⋯" menu of a row: closes on Escape, on an outside click and after a choice. */
-function RowMenu({ label, children }: { label: string; children: (close: () => void) => React.ReactNode }) {
-  const [open, setOpen] = useState(false); const box = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!open) return;
-    const away = (e: MouseEvent) => { if (!box.current?.contains(e.target as Node)) setOpen(false); };
-    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
-    document.addEventListener('mousedown', away); document.addEventListener('keydown', esc);
-    return () => { document.removeEventListener('mousedown', away); document.removeEventListener('keydown', esc); };
-  }, [open]);
-  return (
-    <div className="rowmenu" ref={box}>
-      <button type="button" className="iconbtn" aria-haspopup="menu" aria-expanded={open} aria-label={label} onClick={() => setOpen(!open)}>⋯</button>
-      {open && <div className="rowmenu-list" role="menu">{children(() => setOpen(false))}</div>}
-    </div>
-  );
-}
 
 function PortsBar({ total, up }: { total: number; up: number }) {
   if (!total) return <span>—</span>;

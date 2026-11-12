@@ -100,7 +100,7 @@ public class UserService(AppDbContext db, IMemoryCache cache, IOptions<AuthOptio
             throw new ConflictException("This is the last active administrator; it cannot be demoted or disabled.");
         if (r.Role is { } role) { if (!Enum.IsDefined(role)) throw new ValidationFailedException("role", "Unknown role."); if (role != u.Role) u.SessionVersion++; u.Role = role; }
         if (r.Disabled is { } d) u.Disabled = d;
-        if (r.ResetMfa == true) { MfaService.Clear(u); u.SessionVersion++; log.LogWarning("MfaReset: {User} by {Actor}", u.Username, actor); }
+        if (r.ResetMfa == true) { MfaService.Clear(u); db.MfaDevices.RemoveRange(db.MfaDevices.Where(d => d.UserId == id)); u.SessionVersion++; log.LogWarning("MfaReset: {User} by {Actor}", u.Username, actor); }
         if (r.NewPassword is not null)
         {
             if (PasswordHasher.Policy(r.NewPassword, u.Username) is { } bad) throw new ValidationFailedException("newPassword", bad);

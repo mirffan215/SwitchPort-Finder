@@ -65,7 +65,7 @@ public class AuthController(UserService users, MfaService mfa, IOptions<AuthOpti
 
     /// <summary>Start enrolling an authenticator app (needs the current password). Returns the secret and the otpauth:// URI for the QR code.</summary>
     [HttpPost("mfa/setup")]
-    public async Task<IActionResult> MfaSetup(MfaStartRequest req, CancellationToken ct) => !Auth.IsLocal ? Problem(statusCode: 400, title: "Authentication is not enabled.") : Ok(await mfa.StartSetupAsync(CurrentId, req.Password, ct));
+    public async Task<IActionResult> MfaSetup(MfaStartRequest req, CancellationToken ct) => !Auth.IsLocal ? Problem(statusCode: 400, title: "Authentication is not enabled.") : Ok(await mfa.StartSetupAsync(CurrentId, req.Password, req.Name, req.Code, ct));
 
     /// <summary>Confirm enrolment with a current code. The one-time recovery codes are returned ONLY here.</summary>
     [HttpPost("mfa/enable")]
@@ -75,6 +75,18 @@ public class AuthController(UserService users, MfaService mfa, IOptions<AuthOpti
         var (codes, version) = await mfa.EnableAsync(CurrentId, req.Code, ct);
         await SignIn(CurrentId, User.Identity!.Name!, Enum.Parse<UserRole>(User.FindFirstValue(ClaimTypes.Role)!), version, true);   // keeps this browser signed in
         return Ok(new MfaEnabledDto(codes));
+    }
+
+    /// <summary>The caller's authenticator apps (names and last use; never the secrets).</summary>
+    [HttpGet("mfa/devices")]
+    public async Task<IActionResult> MfaDevices(CancellationToken ct) => Ok(await mfa.DevicesAsync(CurrentId, ct));
+
+    [HttpPost("mfa/devices/{deviceId:int}/remove")]
+    public async Task<IActionResult> MfaRemoveDevice(int deviceId, MfaDisableRequest req, CancellationToken ct)
+    {
+        if (!Auth.IsLocal) return Problem(statusCode: 400, title: "Authentication is not enabled.");
+        await mfa.RemoveDeviceAsync(CurrentId, deviceId, req.Password, req.Code, ct);
+        return NoContent();
     }
 
     [HttpPost("mfa/disable")]

@@ -46,45 +46,79 @@ public class MfaService(AppDbContext db, IDataProtectionProvider dp, IMemoryCach
 
     private void Evict(int id) => cache.Remove("user-state:" + id);
 
-    /// <summary>Step 1 of enrolment: needs the current password again, creates a pending secret.</summary>
-    public async Task<MfaSetupDto> StartSetupAsync(int id, string password, CancellationToken ct)
+    public const int MaxDevices = 5;
+
+    public async Task<List<MfaDeviceDto>> DevicesAsync(int id, CancellationToken ct) =>
+        await db.MfaDevices.AsNoTracking().Where(d => d.UserId == id).OrderBy(d => d.CreatedAt).Select(d => new MfaDeviceDto(d.Id, d.Name, d.CreatedAt, d.LastUsedAt)).ToListAsync(ct);
+
+    /// <summary>Step 1 of enrolment: needs the current password (and, when two-factor is already on, a current code from an existing device), creates a pending secret for a new authenticator.</summary>
+    public async Task<MfaSetupDto> StartSetupAsync(int id, string password, string? name, string? code, CancellationToken ct)
     {
         var u = await Get(id, ct);
         if (u.LockedUntil > DateTime.UtcNow) throw new ConflictException("Account is temporarily locked.");
         if (!PasswordHasher.Verify(password ?? "", u.PasswordHash)) { await RegisterFailure(u, ct); throw new ValidationFailedException("password", "Password is incorrect."); }
-        if (u.MfaEnabled) throw new ConflictException("Two-factor authentication is already enabled. Disable it first to enrol a new device.");
+        var existing = await db.MfaDevices.Where(d => d.UserId == id).Select(d => d.Name).ToListAsync(ct);
+        if (u.MfaEnabled)
+        {
+            if (existing.Count >= MaxDevices) throw new ConflictException($"An account can have up to {MaxDevices} authenticator apps. Remove one first.");
+            if (string.IsNullOrWhiteSpace(code) || !await VerifyLoginAsync(id, code, ct)) throw new ValidationFailedException("code", "Enter a current code from one of your existing authenticator apps.");
+        }
+        var label = string.IsNullOrWhiteSpace(name) ? $"Authenticator {existing.Count + 1}" : name.Trim();
+        if (label.Length > 60 || label.Any(char.IsControl)) throw new ValidationFailedException("name", "The name can be up to 60 characters.");
+        if (existing.Any(n => string.Equals(n, label, StringComparison.OrdinalIgnoreCase))) throw new ValidationFailedException("name", "You already have an authenticator with that name.");
         var secret = Totp.NewSecret();
-        u.MfaPendingSecretProtected = _secrets.Protect(Totp.Base32(secret)); await db.SaveChangesAsync(ct);
+        u = await Get(id, ct);
+        u.MfaPendingSecretProtected = _secrets.Protect(Totp.Base32(secret)); u.MfaPendingName = label; await db.SaveChangesAsync(ct);
         return new MfaSetupDto(Totp.Base32(secret), Totp.Uri(Opt.MfaIssuer, u.Username, secret));
     }
 
-    /// <summary>Step 2: the user proves the app works by entering a current code. Returns the one-time recovery codes and the new session version.</summary>
+    /// <summary>Step 2: the user proves the app works by entering a current code. The first device also returns the one-time recovery codes; later devices just join the account.</summary>
     public async Task<(List<string> Codes, int Version)> EnableAsync(int id, string code, CancellationToken ct)
     {
         var u = await Get(id, ct);
         if (u.MfaPendingSecretProtected is null) throw new ValidationFailedException("code", "Start the set-up first.");
         var secret = Totp.FromBase32(_secrets.Unprotect(u.MfaPendingSecretProtected))!;
         if (Totp.Verify(secret, code, DateTimeOffset.UtcNow) is not { } step) { await RegisterFailure(u, ct); throw new ValidationFailedException("code", "That code is not valid. Check the time on your phone and try the next code."); }
-        var codes = Totp.NewRecoveryCodes();
-        u.MfaEnabled = true; u.MfaSecretProtected = u.MfaPendingSecretProtected; u.MfaPendingSecretProtected = null; u.MfaLastStep = step;
-        u.MfaRecoveryHashes = JsonSerializer.Serialize(codes.Select(Totp.HashRecovery)); u.FailedLogins = 0;
-        u.SessionVersion++;    // other sessions of this user end; the caller re-issues the current one
+        var first = !u.MfaEnabled; var codes = new List<string>();
+        db.MfaDevices.Add(new Domain.Entities.MfaDevice { UserId = id, Name = u.MfaPendingName ?? "Authenticator", SecretProtected = u.MfaPendingSecretProtected, LastStep = step, CreatedAt = DateTime.UtcNow, LastUsedAt = DateTime.UtcNow });
+        u.MfaPendingSecretProtected = null; u.MfaPendingName = null; u.FailedLogins = 0;
+        if (first)
+        {
+            codes = Totp.NewRecoveryCodes();
+            u.MfaEnabled = true; u.MfaRecoveryHashes = JsonSerializer.Serialize(codes.Select(Totp.HashRecovery));
+            u.SessionVersion++;    // other sessions of this user end; the caller re-issues the current one
+        }
         await db.SaveChangesAsync(ct); Evict(id);
-        log.LogInformation("MfaEnabled: {User}", u.Username);
+        log.LogInformation(first ? "MfaEnabled: {User}" : "MfaDeviceAdded: {User}", u.Username);
         return (codes, u.SessionVersion);
+    }
+
+    /// <summary>Removes one authenticator (needs password + a current code). The last one cannot be removed: turn two-factor off instead (not allowed for administrators).</summary>
+    public async Task RemoveDeviceAsync(int id, int deviceId, string password, string code, CancellationToken ct)
+    {
+        await Reauth(id, password, code, ct);
+        var dev = await db.MfaDevices.FirstOrDefaultAsync(d => d.Id == deviceId && d.UserId == id, ct) ?? throw new NotFoundException("Authenticator not found.");
+        if (await db.MfaDevices.CountAsync(d => d.UserId == id, ct) <= 1) throw new ConflictException("This is your only authenticator app. Add another one first, or turn two-factor authentication off.");
+        db.MfaDevices.Remove(dev); await db.SaveChangesAsync(ct);
+        log.LogWarning("MfaDeviceRemoved: {User} removed '{Name}'", (await Get(id, ct)).Username, dev.Name);
     }
 
     /// <summary>Login step 2: a 6-digit code, or one unused recovery code. Failures count toward the lockout.</summary>
     public async Task<bool> VerifyLoginAsync(int id, string input, CancellationToken ct)
     {
         var u = await Get(id, ct);
-        if (u.Disabled || !u.MfaEnabled || u.MfaSecretProtected is null) return false;
+        if (u.Disabled || !u.MfaEnabled) return false;
         if (u.LockedUntil > DateTime.UtcNow) return false;
-        var secret = Totp.FromBase32(_secrets.Unprotect(u.MfaSecretProtected))!;
+        var devices = await db.MfaDevices.Where(d => d.UserId == id).ToListAsync(ct);
+        if (devices.Count == 0) return false;
         var digits = new string((input ?? "").Where(char.IsDigit).ToArray());
         if (digits.Length == Totp.Digits && !(input ?? "").Any(char.IsLetter))
         {
-            if (Totp.Verify(secret, digits, DateTimeOffset.UtcNow, u.MfaLastStep) is { } step) { u.MfaLastStep = step; u.FailedLogins = 0; await db.SaveChangesAsync(ct); return true; }
+            foreach (var dev in devices)
+            {
+                var secret = Totp.FromBase32(_secrets.Unprotect(dev.SecretProtected))!;
+                if (Totp.Verify(secret, digits, DateTimeOffset.UtcNow, dev.LastStep) is { } step) { dev.LastStep = step; dev.LastUsedAt = DateTime.UtcNow; u.FailedLogins = 0; await db.SaveChangesAsync(ct); return true; }
+            }
             log.LogWarning("LoginFailed: wrong two-factor code for {User}", u.Username); return await RegisterFailure(u, ct);
         }
         var hashes = JsonSerializer.Deserialize<List<string>>(u.MfaRecoveryHashes ?? "[]") ?? [];
@@ -108,7 +142,7 @@ public class MfaService(AppDbContext db, IDataProtectionProvider dp, IMemoryCach
     /// <summary>Turns MFA off for the caller (needs password + a current code). The controller blocks this for administrators when policy requires MFA.</summary>
     public async Task<int> DisableAsync(int id, string password, string code, CancellationToken ct)
     {
-        var u = await Reauth(id, password, code, ct); Clear(u); u.SessionVersion++; await db.SaveChangesAsync(ct); Evict(id);
+        var u = await Reauth(id, password, code, ct); Clear(u); db.MfaDevices.RemoveRange(db.MfaDevices.Where(d => d.UserId == id)); u.SessionVersion++; await db.SaveChangesAsync(ct); Evict(id);
         log.LogWarning("MfaDisabled: {User}", u.Username); return u.SessionVersion;
     }
 
@@ -120,7 +154,7 @@ public class MfaService(AppDbContext db, IDataProtectionProvider dp, IMemoryCach
     }
 
     /// <summary>Administrator reset for a user who lost their device. The user must enrol again (administrators are forced to by policy).</summary>
-    public static void Clear(Domain.Entities.AppUser u) { u.MfaEnabled = false; u.MfaSecretProtected = null; u.MfaPendingSecretProtected = null; u.MfaRecoveryHashes = null; u.MfaLastStep = 0; }
+    public static void Clear(Domain.Entities.AppUser u) { u.MfaEnabled = false; u.MfaSecretProtected = null; u.MfaPendingSecretProtected = null; u.MfaPendingName = null; u.MfaRecoveryHashes = null; u.MfaLastStep = 0; }
 
     public int RecoveryCodesLeft(Domain.Entities.AppUser u) => JsonSerializer.Deserialize<List<string>>(u.MfaRecoveryHashes ?? "[]")?.Count ?? 0;
 }

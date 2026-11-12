@@ -29,13 +29,13 @@ export function RecoveryCodes({ codes, onDone }: { codes: string[]; onDone: () =
 }
 
 /** Three steps: confirm password, scan the QR code and enter a code, save the recovery codes. */
-export default function MfaSetup({ forced, onFinished }: { forced?: boolean; onFinished: () => void }) {
+export default function MfaSetup({ forced, adding, onFinished, onCancel }: { forced?: boolean; adding?: boolean; onFinished: () => void; onCancel?: () => void }) {
   const qc = useQueryClient();
-  const [pw, setPw] = useState(''); const [code, setCode] = useState('');
+  const [pw, setPw] = useState(''); const [code, setCode] = useState(''); const [name, setName] = useState(''); const [cur, setCur] = useState('');
   const [setup, setSetup] = useState<Setup | null>(null); const [codes, setCodes] = useState<string[] | null>(null);
-  const start = useMutation({ mutationFn: () => api.mfaSetup(pw), onSuccess: (s) => { setSetup(s); setPw(''); } });
-  const enable = useMutation({ mutationFn: () => api.mfaEnable(code), onSuccess: (r) => { setCodes(r.recoveryCodes); setSetup(null); setCode(''); } });
-  const finish = () => { qc.invalidateQueries({ queryKey: ['me'] }); qc.invalidateQueries({ queryKey: ['users'] }); onFinished(); };
+  const start = useMutation({ mutationFn: () => api.mfaSetup(pw, name.trim(), cur), onSuccess: (s) => { setSetup(s); setPw(''); setCur(''); } });
+  const enable = useMutation({ mutationFn: () => api.mfaEnable(code), onSuccess: (r) => { setSetup(null); setCode(''); if (r.recoveryCodes.length > 0) setCodes(r.recoveryCodes); else finish(); } });
+  const finish = () => { qc.invalidateQueries({ queryKey: ['me'] }); qc.invalidateQueries({ queryKey: ['mfa-devices'] }); qc.invalidateQueries({ queryKey: ['users'] }); onFinished(); };
   if (codes) return <RecoveryCodes codes={codes} onDone={finish} />;
   if (setup) return (
     <form className="form" onSubmit={(e: FormEvent) => { e.preventDefault(); enable.mutate(); }}>
@@ -51,10 +51,12 @@ export default function MfaSetup({ forced, onFinished }: { forced?: boolean; onF
   return (
     <form className="form" onSubmit={(e: FormEvent) => { e.preventDefault(); start.mutate(); }}>
       {forced && <div className="alert warn">Administrators must use two-factor authentication. Set up an authenticator app to continue.</div>}
-      <p className="muted">Two-factor authentication asks for a code from your phone each time you sign in, so a stolen password alone is not enough.</p>
+      {!adding && <p className="muted">Two-factor authentication asks for a code from your phone each time you sign in, so a stolen password alone is not enough.</p>}
+      {adding && <Field label="Name for this phone or app" hint="For example “Waqar's phone”. It helps you tell the apps apart when you remove one later."><input value={name} maxLength={60} onChange={(e) => setName(e.target.value)} placeholder="Authenticator" /></Field>}
       <Field label="Confirm your password"><input type="password" autoComplete="current-password" value={pw} onChange={(e) => setPw(e.target.value)} required autoFocus /></Field>
+      {adding && <Field label="Current code from an app you already use" hint="Proves you are allowed to add another phone."><input inputMode="numeric" autoComplete="one-time-code" value={cur} onChange={(e) => setCur(e.target.value)} required /></Field>}
       <ErrorBox error={start.error} />
-      <div className="buttons"><button className="btn primary" disabled={start.isPending || !pw}>Set up authenticator app</button></div>
+      <div className="buttons"><button className="btn primary" disabled={start.isPending || !pw || (adding && !cur)}>{adding ? 'Add this phone' : 'Set up authenticator app'}</button>{onCancel && <button type="button" className="btn" onClick={onCancel}>Cancel</button>}</div>
     </form>
   );
 }

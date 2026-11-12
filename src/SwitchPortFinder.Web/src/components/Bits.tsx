@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { ApiError, type TestResult } from '../api';
 
 export function StatusBadge({ status }: { status: string }) {
@@ -85,3 +85,23 @@ export function ConfidenceBadge({ c }: { c: string }) {
   const label = c === 'ConfirmedSwitch' ? 'Confirmed' : c === 'LikelySwitch' ? 'Likely' : c === 'Endpoint' ? 'Endpoint' : 'Unknown';
   return <span className={`badge ${c === 'ConfirmedSwitch' ? 'ok' : c === 'LikelySwitch' ? 'warnb' : 'muted'}`} title="How strongly the evidence supports this classification">{label}</span>;
 }
+
+/** The "⋯" menu of a row: closes on Escape, on an outside click and after a choice. */
+export function RowMenu({ label, children }: { label: string; children: (close: () => void) => ReactNode }) {
+  const [open, setOpen] = useState(false); const box = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const away = (e: MouseEvent) => { if (!box.current?.contains(e.target as Node)) setOpen(false); };
+    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
+    document.addEventListener('mousedown', away); document.addEventListener('keydown', esc);
+    return () => { document.removeEventListener('mousedown', away); document.removeEventListener('keydown', esc); };
+  }, [open]);
+  return (
+    <div className="rowmenu" ref={box}>
+      <button type="button" className="iconbtn" aria-haspopup="menu" aria-expanded={open} aria-label={label} onClick={() => setOpen(!open)}>⋯</button>
+      {open && <div className="rowmenu-list" role="menu">{children(() => setOpen(false))}</div>}
+    </div>
+  );
+}
+
+

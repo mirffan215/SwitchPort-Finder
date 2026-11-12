@@ -8,7 +8,7 @@ import CategoriesTab from '../components/CategoriesTab';
 import CompanyTab from '../components/CompanyTab';
 import IntegrationsTab from '../components/IntegrationsTab';
 import { useAuth } from '../components/Auth';
-import { ErrorBox, Field } from '../components/Bits';
+import { Dot, ErrorBox, Field, RowMenu, ago } from '../components/Bits';
 import CredentialFields, { emptyCredential } from '../components/CredentialFields';
 
 type Tab = 'profiles' | 'import' | 'general' | 'notifications' | 'company' | 'integrations' | 'types' | 'users' | 'account';
@@ -70,7 +70,10 @@ export default function SettingsPage() {
 
 function TwoFactor() {
   const { me } = useAuth(); const qc = useQueryClient();
-  const [mode, setMode] = useState<'idle' | 'enrol' | 'disable' | 'codes'>('idle');
+  const [mode, setMode] = useState<'idle' | 'enrol' | 'add' | 'disable' | 'codes'>('idle');
+  const devices = useQuery({ queryKey: ['mfa-devices'], queryFn: api.mfaDevices, enabled: !!me.mfaEnabled });
+  const [rm, setRm] = useState<number | null>(null);
+  const remove = useMutation({ mutationFn: () => api.mfaRemoveDevice(rm!, pw, code), onSuccess: () => { setRm(null); setPw(''); setCode(''); qc.invalidateQueries({ queryKey: ['mfa-devices'] }); } });
   const [pw, setPw] = useState(''); const [code, setCode] = useState(''); const [codes, setCodes] = useState<string[] | null>(null);
   const off = useMutation({ mutationFn: () => api.mfaDisable(pw, code), onSuccess: () => { setMode('idle'); setPw(''); setCode(''); qc.invalidateQueries({ queryKey: ['me'] }); } });
   const regen = useMutation({ mutationFn: () => api.mfaRecoveryCodes(pw, code), onSuccess: (r) => { setCodes(r.recoveryCodes); setPw(''); setCode(''); } });
@@ -78,11 +81,31 @@ function TwoFactor() {
   return (
     <div className="form" style={{ marginTop: 24 }}>
       <h3>Two-factor authentication {me.mfaEnabled ? <span className="badge ok">On</span> : <span className="badge warnb">Off</span>}</h3>
-      {codes ? <RecoveryCodes codes={codes} onDone={() => { setCodes(null); setMode('idle'); }} /> : mode === 'enrol' ? <MfaSetup onFinished={() => setMode('idle')} /> : mode === 'idle' ? (
+      {codes ? <RecoveryCodes codes={codes} onDone={() => { setCodes(null); setMode('idle'); }} /> : mode === 'enrol' ? <MfaSetup onFinished={() => setMode('idle')} /> : mode === 'add' ? <MfaSetup adding onFinished={() => setMode('idle')} onCancel={() => setMode('idle')} /> : mode === 'idle' ? (
         <>
-          <p className="muted">{me.mfaEnabled ? 'Your account asks for a code from your authenticator app at every sign-in.' : 'Add a second step to your sign-in with an authenticator app.'}{required && ' Required for administrators.'}</p>
+          <p className="muted">{me.mfaEnabled ? 'Your account asks for a code from an authenticator app at every sign-in. You can add up to 5 phones.' : 'Add a second step to your sign-in with an authenticator app.'}{required && ' Required for administrators.'}</p>
+          {me.mfaEnabled && (
+            <div className="tablewrap"><table>
+              <thead><tr><th>Authenticator app</th><th>Added</th><th>Last used</th><th /></tr></thead>
+              <tbody>{devices.data?.map((dv) => (
+                <tr key={dv.id}><td><strong>{dv.name}</strong></td><td>{new Date(dv.createdAt).toLocaleDateString()}</td><td>{dv.lastUsedAt ? new Date(dv.lastUsedAt).toLocaleString() : '—'}</td>
+                  <td className="rowactions">{(devices.data?.length ?? 0) > 1 && <button type="button" className="link danger" onClick={() => { setRm(dv.id); setPw(''); setCode(''); }}>Remove</button>}</td></tr>
+              ))}</tbody>
+            </table></div>
+          )}
+          {rm !== null && (
+            <form className="form" onSubmit={(e) => { e.preventDefault(); remove.mutate(); }}>
+              <p className="muted">Confirm with your password and a current code to remove “{devices.data?.find((x) => x.id === rm)?.name}”. That phone can no longer sign in.</p>
+              <Field label="Password"><input type="password" autoComplete="current-password" value={pw} onChange={(e) => setPw(e.target.value)} required /></Field>
+              <Field label="6-digit code"><input inputMode="numeric" autoComplete="one-time-code" value={code} onChange={(e) => setCode(e.target.value)} required /></Field>
+              <ErrorBox error={remove.error} />
+              <div className="buttons"><button className="btn primary" disabled={remove.isPending}>Remove</button><button type="button" className="btn" onClick={() => setRm(null)}>Cancel</button></div>
+            </form>
+          )}
+          <p className="hint">Several people can share one administrator account by each adding their own phone. For a clear audit trail, separate accounts per person are still the better practice.</p>
           <div className="buttons">
             {!me.mfaEnabled && <button className="btn primary" onClick={() => setMode('enrol')}>Set up authenticator app</button>}
+            {me.mfaEnabled && <button className="btn" onClick={() => setMode('add')}>+ Add another phone</button>}
             {me.mfaEnabled && <button className="btn" onClick={() => setMode('codes')}>New recovery codes</button>}
             {me.mfaEnabled && !required && <button className="btn" onClick={() => setMode('disable')}>Turn off</button>}
           </div>
@@ -133,20 +156,19 @@ function UsersTab() {
       <p className="muted"><strong>Admin</strong> can change anything. <strong>Viewer</strong> can search, browse, trace and export, but cannot add, edit, scan or delete. Passwords are stored only as salted hashes. An account is locked for a while after repeated wrong passwords.</p>
       <ErrorBox error={error ?? update.error ?? del.error} />
       <div className="tablewrap"><table>
-        <thead><tr><th>User</th><th>Role</th><th>Status</th><th>2FA</th><th>Last sign-in</th><th /></tr></thead>
+        <thead><tr><th>User</th><th>Role</th><th>Status</th><th>Two-factor</th><th><span className="sr-only">Actions</span></th></tr></thead>
         <tbody>{data?.map((u) => (
           <tr key={u.id}>
-            <td>{u.username}{u.username.toLowerCase() === me.username?.toLowerCase() && <span className="tag">you</span>}</td>
-            <td><select value={u.role} onChange={(e) => update.mutate({ id: u.id, body: { role: e.target.value as UserRole } })}><option>Viewer</option><option>Admin</option></select></td>
-            <td>{u.disabled ? <span className="badge bad">Disabled</span> : u.locked ? <span className="badge warnb">Locked</span> : <span className="badge ok">Active</span>}</td>
-            <td>{u.mfaEnabled ? <span className="badge ok">On</span> : <span className="badge warnb">Off</span>}</td>
-            <td>{u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleString() : '—'}</td>
-            <td className="actions">
-              {u.mfaEnabled && <button className="link" onClick={() => confirm(`Reset two-factor for ${u.username}? They will have to set up an authenticator app again.`) && update.mutate({ id: u.id, body: { resetMfa: true } })}>Reset 2FA</button>}
-              <button className="link" onClick={() => update.mutate({ id: u.id, body: { disabled: !u.disabled } })}>{u.disabled ? 'Enable' : 'Disable'}</button>
-              <button className="link" onClick={() => { const p = prompt(`New password for ${u.username} (12+ characters):`); if (p) update.mutate({ id: u.id, body: { newPassword: p } }); }}>Reset password</button>
-              <button className="link danger" onClick={() => confirm(`Delete ${u.username}?`) && del.mutate(u.id)}>Delete</button>
-            </td>
+            <td><div className="swname"><strong>{u.username}</strong>{u.username.toLowerCase() === me.username?.toLowerCase() && <span className="tag">you</span>}</div><div className="muted small">{u.lastLoginAt ? `Last sign-in ${ago(u.lastLoginAt)}` : 'Never signed in'}</div></td>
+            <td><select aria-label={`Role of ${u.username}`} value={u.role} onChange={(e) => update.mutate({ id: u.id, body: { role: e.target.value as UserRole } })}><option>Viewer</option><option>Admin</option></select></td>
+            <td><Dot kind={u.disabled ? 'bad' : u.locked ? 'warn' : 'ok'} label={u.disabled ? 'Disabled' : u.locked ? 'Locked' : 'Active'} /></td>
+            <td><Dot kind={u.mfaEnabled ? 'ok' : 'warn'} label={u.mfaEnabled ? 'On' : 'Off'} /></td>
+            <td className="rowactions"><RowMenu label={`More actions for ${u.username}`}>{(close) => <>
+              {u.mfaEnabled && <button type="button" role="menuitem" onClick={() => { close(); if (confirm(`Reset two-factor for ${u.username}? All their authenticator apps are removed and they must set up again.`)) update.mutate({ id: u.id, body: { resetMfa: true } }); }}>Reset two-factor</button>}
+              <button type="button" role="menuitem" onClick={() => { close(); update.mutate({ id: u.id, body: { disabled: !u.disabled } }); }}>{u.disabled ? 'Enable account' : 'Disable account'}</button>
+              <button type="button" role="menuitem" onClick={() => { close(); const p = prompt(`New password for ${u.username} (12+ characters):`); if (p) update.mutate({ id: u.id, body: { newPassword: p } }); }}>Reset password…</button>
+              <button type="button" role="menuitem" className="danger" onClick={() => { close(); if (confirm(`Delete ${u.username}?`)) del.mutate(u.id); }}>Delete…</button>
+            </>}</RowMenu></td>
           </tr>))}</tbody>
       </table></div>
       <form className="form modal" onSubmit={(e) => { e.preventDefault(); create.mutate(); }}>
@@ -261,19 +283,16 @@ function ProfilesTab() {
       <ErrorBox error={error ?? del.error} />
       <div className="tablewrap">
         <table>
-          <thead><tr><th>Name</th><th>SNMP</th><th>Description</th><th>Switches</th><th /></tr></thead>
+          <thead><tr><th>Profile</th><th>SNMP</th><th className="num">Used by</th><th><span className="sr-only">Actions</span></th></tr></thead>
           <tbody>
             {data?.map((p) => (
               <tr key={p.id}>
-                <td>{p.name}</td>
-                <td>{p.credential.version}{p.credential.version === 'V3' ? ` · ${p.credential.authProtocol}/${p.credential.privProtocol}` : ''}</td>
-                <td>{p.description ?? ''}</td><td>{p.switchCount}</td>
-                <td className="actions">
-                  <button className="link" onClick={() => setEditing(p)}>Edit</button>
-                  <button className="link danger" onClick={() => confirm(`Delete profile ${p.name}?`) && del.mutate(p.id)}>Delete</button>
-                </td>
+                <td><div className="swname"><strong>{p.name}</strong></div><div className="muted small">{p.description || 'No description'}</div></td>
+                <td><span className="vendorchip">{p.credential.version === 'V3' ? 'SNMPv3' : `SNMP ${p.credential.version.toLowerCase()}`}</span>{p.credential.version === 'V3' && <span className="muted small"> {p.credential.authProtocol}/{p.credential.privProtocol}</span>}</td>
+                <td className="num">{p.switchCount} switch{p.switchCount === 1 ? '' : 'es'}</td>
+                <td className="rowactions"><button type="button" className="btn small" onClick={() => setEditing(p)}>Edit</button><RowMenu label={`More actions for ${p.name}`}>{(close) => <button type="button" role="menuitem" className="danger" onClick={() => { close(); if (confirm(`Delete profile ${p.name}?`)) del.mutate(p.id); }}>Delete…</button>}</RowMenu></td>
               </tr>))}
-            {data?.length === 0 && <tr><td colSpan={5} className="muted">No profiles yet.</td></tr>}
+            {data?.length === 0 && <tr><td colSpan={4} className="muted">No profiles yet.</td></tr>}
           </tbody>
         </table>
       </div>

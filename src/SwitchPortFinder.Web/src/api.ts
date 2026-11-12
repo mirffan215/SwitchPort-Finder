@@ -123,6 +123,7 @@ export interface RuntimeSettings {
 }
 
 export type UserRole = 'Viewer' | 'Admin';
+export interface MfaDevice { id: number; name: string; createdAt: string; lastUsedAt?: string | null }
 export interface Me { authRequired: boolean; authenticated: boolean; username?: string | null; role?: UserRole | null; mfaEnabled?: boolean; mfaSetupRequired?: boolean; mfaRequired?: boolean; mfaChallenge?: string | null }
 export interface MfaSetup { secret: string; otpauthUri: string }
 export interface UserDto { id: number; username: string; role: UserRole; disabled: boolean; locked: boolean; createdAt: string; lastLoginAt?: string | null; mfaEnabled?: boolean }
@@ -173,7 +174,9 @@ export const api = {
   login: (username: string, password: string) => request<Me>('/api/auth/login', json('POST', { username, password })),
   logout: () => request<void>('/api/auth/logout', { method: 'POST' }),
   loginMfa: (challenge: string, code: string) => request<Me>('/api/auth/login/mfa', json('POST', { challenge, code })),
-  mfaSetup: (password: string) => request<MfaSetup>('/api/auth/mfa/setup', json('POST', { password })),
+  mfaSetup: (password: string, name?: string, code?: string) => request<MfaSetup>('/api/auth/mfa/setup', json('POST', { password, name: name || null, code: code || null })),
+  mfaDevices: () => request<MfaDevice[]>('/api/auth/mfa/devices'),
+  mfaRemoveDevice: (id: number, password: string, code: string) => request<void>(`/api/auth/mfa/devices/${id}/remove`, json('POST', { password, code })),
   mfaEnable: (code: string) => request<{ recoveryCodes: string[] }>('/api/auth/mfa/enable', json('POST', { code })),
   mfaDisable: (password: string, code: string) => request<void>('/api/auth/mfa/disable', json('POST', { password, code })),
   mfaRecoveryCodes: (password: string, code: string) => request<{ recoveryCodes: string[] }>('/api/auth/mfa/recovery-codes', json('POST', { password, code })),

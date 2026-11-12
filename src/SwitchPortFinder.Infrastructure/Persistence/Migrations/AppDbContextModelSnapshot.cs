@@ -172,6 +172,10 @@ namespace SwitchPortFinder.Infrastructure.Persistence.Migrations
                     b.Property<long>("MfaLastStep")
                         .HasColumnType("bigint");
 
+                    b.Property<string>("MfaPendingName")
+                        .HasMaxLength(60)
+                        .HasColumnType("nvarchar(60)");
+
                     b.Property<string>("MfaPendingSecretProtected")
                         .HasColumnType("nvarchar(max)");
 
@@ -743,6 +747,42 @@ namespace SwitchPortFinder.Infrastructure.Persistence.Migrations
                         .IsUnique();
 
                     b.ToTable("Integrations");
+                });
+
+            modelBuilder.Entity("SwitchPortFinder.Domain.Entities.MfaDevice", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<long>("LastStep")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime?>("LastUsedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("nvarchar(60)");
+
+                    b.Property<string>("SecretProtected")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("MfaDevices");
                 });
 
             modelBuilder.Entity("SwitchPortFinder.Domain.Entities.NotificationConfig", b =>
@@ -1473,6 +1513,17 @@ namespace SwitchPortFinder.Infrastructure.Persistence.Migrations
                     b.Navigation("Switch");
                 });
 
+            modelBuilder.Entity("SwitchPortFinder.Domain.Entities.MfaDevice", b =>
+                {
+                    b.HasOne("SwitchPortFinder.Domain.Entities.AppUser", "User")
+                        .WithMany("MfaDevices")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("SwitchPortFinder.Domain.Entities.Switch", b =>
                 {
                     b.HasOne("SwitchPortFinder.Domain.Entities.CredentialProfile", "CredentialProfile")
@@ -1556,6 +1607,11 @@ namespace SwitchPortFinder.Infrastructure.Persistence.Migrations
                         .IsRequired();
 
                     b.Navigation("Controller");
+                });
+
+            modelBuilder.Entity("SwitchPortFinder.Domain.Entities.AppUser", b =>
+                {
+                    b.Navigation("MfaDevices");
                 });
 
             modelBuilder.Entity("SwitchPortFinder.Domain.Entities.DiscoveryJob", b =>

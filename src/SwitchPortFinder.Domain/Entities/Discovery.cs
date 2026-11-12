@@ -210,4 +210,21 @@ public class AppUser
     public string? MfaRecoveryHashes { get; set; }
     /// <summary>Last accepted TOTP time step: a code can be used once.</summary>
     public long MfaLastStep { get; set; }
+    /// <summary>Name chosen for the authenticator that is being enrolled (kept until the first code is confirmed).</summary>
+    public string? MfaPendingName { get; set; }
+    public List<MfaDevice> MfaDevices { get; set; } = [];
+}
+
+/// <summary>One authenticator app (phone) of a user. An account can have several, so more than one person or phone can use the same account.</summary>
+public class MfaDevice
+{
+    public int Id { get; set; }
+    public int UserId { get; set; }
+    public AppUser? User { get; set; }
+    public string Name { get; set; } = "";
+    public string SecretProtected { get; set; } = "";
+    /// <summary>Last time step accepted for this device (a code can be used only once).</summary>
+    public long LastStep { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public DateTime? LastUsedAt { get; set; }
 }

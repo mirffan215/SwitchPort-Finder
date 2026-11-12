@@ -227,3 +227,13 @@ Passwords and secrets are stored encrypted and are never shown again. Intune mat
 ### Wireless controllers are recognised automatically
 
 Add the controller like any switch (**Switches → + Add Wireless Controller**: IP and SNMP read community). When a scan finds that a device identifies itself as a Cisco wireless controller (AireOS, Catalyst 9800, virtual WLC), the portal flags it as one and reads its access points, even if the box was not ticked. Other vendors' controllers are not read: only the Cisco wireless MIBs are supported.
+
+## Several authenticator apps on one account
+
+Settings → **My account → Two-factor authentication → + Add another phone**. Each phone gets its own name and its own secret; any of them can complete the sign-in code step. Adding a phone needs your password and a current code from a phone you already use. Up to 5 phones per account. Remove a phone from the same list (password + a current code; the last one cannot be removed). An administrator's "Reset two-factor" on the Users tab removes all of that user's phones. Recovery codes belong to the account and are issued once, with the first phone.
+
+Sharing one administrator account is possible but gives a weaker audit trail than one account per person.
+
+## Management reports
+
+**Reports → Management reports** has four ready-made graphical reports (Executive summary, Network performance, Availability and reliability, Inventory and growth). Pick the period (7, 30 or 90 days) and one, several or all switches, then use **Print or save as PDF** (the browser print dialog; the page switches to a light, A4-landscape layout). **Report builder** keeps the custom reports with Excel, CSV and PDF export.

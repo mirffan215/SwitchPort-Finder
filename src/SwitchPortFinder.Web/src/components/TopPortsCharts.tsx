@@ -24,16 +24,16 @@ function Detail({ p }: { p: TopPort }) {
   );
 }
 
-export function TopUtilization() {
-  const { data } = useQuery({ queryKey: ['top-util'], queryFn: () => api.topPorts('utilization', 5), refetchInterval: 30_000 });
+export function TopUtilization({ n = 5, title, wide }: { n?: number; title?: string; wide?: boolean }) {
+  const { data } = useQuery({ queryKey: ['top-util', n], queryFn: () => api.topPorts('utilization', n), refetchInterval: 30_000 });
   const [sel, setSel] = useState<number | null>(null);
   const items = data?.items ?? []; const cur = items.find((i) => i.portId === sel) ?? null;
   return (
     <div className="panelx">
-      <h2>Top 5 port utilization</h2>
+      <h2>{title ?? 'Top 5 port utilization'}</h2>
       <p className="hint">Busier direction as % of link speed, averaged between the last two scans. Click a gauge for details.</p>
       {items.length === 0 ? <div className="empty">{data && data.portsWithData > 0 ? 'No ports with a known link speed yet.' : WAIT}</div> : (
-        <div className="gauges">
+        <div className={`gauges ${wide ? 'wide' : ''}`}>
           {items.map((p) => <Gauge key={p.portId} pct={p.traffic.utilizationPct ?? 0} label={p.portName} sub={p.switchName} selected={sel === p.portId}
             onSelect={() => setSel(sel === p.portId ? null : p.portId)} title={`${p.switchName} ${p.portName}: in ${fmtBps(p.traffic.inBps)}, out ${fmtBps(p.traffic.outBps)}`} />)}
         </div>

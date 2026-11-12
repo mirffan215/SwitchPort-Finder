@@ -67,7 +67,7 @@ public class AuthTests(AuthApiFixture fx) : IClassFixture<AuthApiFixture>
     [Fact] public async Task Everything_except_health_login_and_the_ui_shell_requires_a_login()
     {
         var c = Anon();
-        foreach (var url in new[] { "/api/switches", "/api/devices", "/api/search?q=abc", "/api/settings", "/api/topology", "/api/dashboard", "/api/users", "/api/export/devices", "/api/credential-profiles", "/api/discovery/jobs" })
+        foreach (var url in new[] { "/api/switches", "/api/devices", "/api/search?q=abc", "/api/settings", "/api/topology", "/api/dashboard", "/api/users", "/api/export/devices", "/api/credential-profiles", "/api/discovery/jobs", "/api/integrations" })
             (await c.GetAsync(url)).StatusCode.Should().Be(HttpStatusCode.Unauthorized, url);
         (await c.PostAsync("/api/switches/scan-all", null)).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
         (await c.GetAsync("/api/health")).StatusCode.Should().Be(HttpStatusCode.OK);
@@ -115,7 +115,7 @@ public class AuthTests(AuthApiFixture fx) : IClassFixture<AuthApiFixture>
         (await viewer.DeleteAsync("/api/switches/1")).StatusCode.Should().Be(HttpStatusCode.Forbidden);
         (await viewer.PostAsync("/api/switches/scan-all", null)).StatusCode.Should().Be(HttpStatusCode.Forbidden);
         (await viewer.PostAsJsonAsync("/api/switches/test", new TestConnectionRequest { ManagementIp = "192.0.2.201", Credential = sw.Credential }, Json)).StatusCode.Should().Be(HttpStatusCode.Forbidden);
-        foreach (var url in new[] { "/api/users", "/api/settings", "/api/credential-profiles", "/api/admin/export/switches", "/api/admin/import/template" })
+        foreach (var url in new[] { "/api/users", "/api/settings", "/api/credential-profiles", "/api/admin/export/switches", "/api/admin/import/template", "/api/integrations" })
             (await viewer.GetAsync(url)).StatusCode.Should().Be(HttpStatusCode.Forbidden, url + " is admin-only");
         (await viewer.PostAsJsonAsync("/api/users", new CreateUserRequest(Uniq("u"), "Another-Passphrase-1", UserRole.Admin), Json)).StatusCode.Should().Be(HttpStatusCode.Forbidden, "no privilege escalation");
         // admin can

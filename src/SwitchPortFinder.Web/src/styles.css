@@ -172,3 +172,6 @@ p a, li a, small a, .muted a, .alert a, .hint a, label a, td:not(.actions) > a:n
 .kpis { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:10px; } .kpi { background:var(--panel2); border:1px solid var(--line); border-radius:12px; padding:14px 16px; } .kpi b { display:block; font-size:28px; } .kpi span { color:var(--muted); font-size:12px; text-transform:uppercase; letter-spacing:.05em; }
 .fchips { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:8px; } .fchips .chipbtn::after { content:' ✕'; opacity:.7; }
 .presets { display:grid; gap:4px; } .presets button { text-align:left; } 
+.companyrow { padding: 10px 18px 0; } .companyrow:empty { display: none; }
+.companymark { display: inline-flex; align-items: center; color: var(--text); text-decoration: none; }
+a.companymark { text-decoration: underline; text-underline-offset: 3px; }

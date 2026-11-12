@@ -5,11 +5,13 @@ import { api, type CredentialInput, type ImportCommit, type ImportPreview, type 
 import MfaSetup, { RecoveryCodes } from '../components/MfaSetup';
 import NotificationsTab from '../components/NotificationsTab';
 import CategoriesTab from '../components/CategoriesTab';
+import CompanyTab from '../components/CompanyTab';
+import IntegrationsTab from '../components/IntegrationsTab';
 import { useAuth } from '../components/Auth';
 import { ErrorBox, Field } from '../components/Bits';
 import CredentialFields, { emptyCredential } from '../components/CredentialFields';
 
-type Tab = 'profiles' | 'import' | 'general' | 'notifications' | 'types' | 'users' | 'account';
+type Tab = 'profiles' | 'import' | 'general' | 'notifications' | 'company' | 'integrations' | 'types' | 'users' | 'account';
 
 export default function SettingsPage() {
   const { me, canWrite } = useAuth();
@@ -23,6 +25,8 @@ export default function SettingsPage() {
         {canWrite && <button className={tab === 'general' ? 'active' : ''} onClick={() => setTab('general')}>General</button>}
         {canWrite && <button className={tab === 'types' ? 'active' : ''} onClick={() => setTab('types')}>Admin · Device types</button>}
         {canWrite && <button className={tab === 'notifications' ? 'active' : ''} onClick={() => setTab('notifications')}>Admin · Notifications</button>}
+        {canWrite && <button className={tab === 'integrations' ? 'active' : ''} onClick={() => setTab('integrations')}>Admin · Integrations</button>}
+        {canWrite && <button className={tab === 'company' ? 'active' : ''} onClick={() => setTab('company')}>Admin · Company</button>}
         {canWrite && me.authRequired && <button className={tab === 'users' ? 'active' : ''} onClick={() => setTab('users')}>Admin · Users</button>}
         {me.authRequired && <button className={tab === 'account' ? 'active' : ''} onClick={() => setTab('account')}>My account</button>}
       </div>
@@ -31,6 +35,8 @@ export default function SettingsPage() {
       {canWrite && tab === 'profiles' && <ProfilesTab />}
       {canWrite && tab === 'general' && <GeneralTab />}
       {canWrite && tab === 'notifications' && <NotificationsTab />}
+      {canWrite && tab === 'integrations' && <IntegrationsTab />}
+      {canWrite && tab === 'company' && <CompanyTab />}
       {canWrite && tab === 'types' && <CategoriesTab />}
       {canWrite && tab === 'users' && <UsersTab />}
       {tab === 'account' && <AccountTab />}

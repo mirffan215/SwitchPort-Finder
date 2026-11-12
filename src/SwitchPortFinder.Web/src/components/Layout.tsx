@@ -3,6 +3,7 @@ import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import SearchBox from './SearchBox';
 import ThemeSwitch from './ThemeSwitch';
+import { CompanyMark } from './Brand';
 import { useAuth } from './Auth';
 import { api } from '../api';
 import { ago } from './Bits';
@@ -39,6 +40,7 @@ export default function Layout() {
           <div className="logo">{I('M12 3v6M5 21v-6h14v6M12 9v6M3 21h4M17 21h4M10 21h4')}</div>
           <div><div className="brandname">SwitchPort Finder</div><div className="brandsub">Port Finder &amp; SNMP Suite</div></div>
         </div>
+        <div className="companyrow"><CompanyMark /></div>
         <div className="navgroup">Operations</div>
         <nav className="sidenav" aria-label="Main">
           {NAV.map((n) => <NavLink key={n.to} to={n.to} end={n.end} className={({ isActive }) => (isActive ? 'active' : '')}>{n.icon}{n.label}</NavLink>)}

@@ -131,6 +131,11 @@ public class ApiFixture : WebApplicationFactory<Program>, IDisposable
             s.RemoveAll<SwitchPortFinder.Application.Abstractions.IHostnameResolver>();
             s.AddSingleton<FakeResolver>();
             s.AddSingleton<SwitchPortFinder.Application.Abstractions.IHostnameResolver>(sp => sp.GetRequiredService<FakeResolver>());
+            s.RemoveAll<SwitchPortFinder.Infrastructure.Integrations.IDhcpLeaseSource>(); s.RemoveAll<SwitchPortFinder.Infrastructure.Integrations.IDirectorySource>(); s.RemoveAll<SwitchPortFinder.Infrastructure.Integrations.IIntuneSource>();
+            s.AddSingleton<FakeIntegrationSources>();
+            s.AddSingleton<SwitchPortFinder.Infrastructure.Integrations.IDhcpLeaseSource>(sp => sp.GetRequiredService<FakeIntegrationSources>());
+            s.AddSingleton<SwitchPortFinder.Infrastructure.Integrations.IDirectorySource>(sp => sp.GetRequiredService<FakeIntegrationSources>());
+            s.AddSingleton<SwitchPortFinder.Infrastructure.Integrations.IIntuneSource>(sp => sp.GetRequiredService<FakeIntegrationSources>());
         });
     }
 
@@ -204,4 +209,17 @@ public sealed class MfaApiFixture : ApiFixture
         builder.UseSetting("Authentication:LoginsPerMinute", "200");
         builder.UseSetting("Authentication:RequireMfaForAdmins", "true");
     }
+}
+
+/// <summary>In-memory DHCP / directory / Intune data for the integration tests.</summary>
+public sealed class FakeIntegrationSources : SwitchPortFinder.Infrastructure.Integrations.IDhcpLeaseSource, SwitchPortFinder.Infrastructure.Integrations.IDirectorySource, SwitchPortFinder.Infrastructure.Integrations.IIntuneSource
+{
+    public List<SwitchPortFinder.Infrastructure.Integrations.DhcpLease> Leases { get; } = [];
+    public List<SwitchPortFinder.Infrastructure.Integrations.DirectoryComputer> Computers { get; } = [];
+    public List<SwitchPortFinder.Infrastructure.Integrations.IntuneDevice> Intune { get; } = [];
+    public bool Fail { get; set; }
+    public string? LastSecret { get; private set; }
+    Task<IReadOnlyList<SwitchPortFinder.Infrastructure.Integrations.DhcpLease>> SwitchPortFinder.Infrastructure.Integrations.IDhcpLeaseSource.ReadAsync(string server, CancellationToken ct) { if (Fail) throw new InvalidOperationException("DHCP server not reachable"); return Task.FromResult<IReadOnlyList<SwitchPortFinder.Infrastructure.Integrations.DhcpLease>>(Leases.ToList()); }
+    Task<IReadOnlyList<SwitchPortFinder.Infrastructure.Integrations.DirectoryComputer>> SwitchPortFinder.Infrastructure.Integrations.IDirectorySource.ReadAsync(SwitchPortFinder.Infrastructure.Integrations.DirectoryConfig c, string password, CancellationToken ct) { LastSecret = password; return Task.FromResult<IReadOnlyList<SwitchPortFinder.Infrastructure.Integrations.DirectoryComputer>>(Computers.ToList()); }
+    Task<IReadOnlyList<SwitchPortFinder.Infrastructure.Integrations.IntuneDevice>> SwitchPortFinder.Infrastructure.Integrations.IIntuneSource.ReadAsync(SwitchPortFinder.Infrastructure.Integrations.IntuneConfig c, string secret, CancellationToken ct) { LastSecret = secret; return Task.FromResult<IReadOnlyList<SwitchPortFinder.Infrastructure.Integrations.IntuneDevice>>(Intune.ToList()); }
 }

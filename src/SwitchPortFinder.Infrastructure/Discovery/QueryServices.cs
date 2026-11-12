@@ -234,6 +234,6 @@ public class DeviceQueryService(AppDbContext db, IOptions<DiscoveryOptions> opt)
             DeviceStates.Compute(d.LastSeen, DeviceStates.Reference(d.LastSeen, d.Switch?.LastScanAt, await LatestScanAsync(ct)), o), d.FirstSeen, d.LastSeen, d.LowConfidence, VendorText.Of(d.Vendor, d.Mac), d.IsManual, d.PinnedPortId != null, d.Owner, d.Notes, VendorText.CategoryName(d.Category), d.CategoryManual, d.CategoryReason);
         var note = d.PinnedPortId != null ? "Location set manually by an administrator (kept across scans)." : d.SwitchId is null ? "Not seen on an edge port yet: it has only been learned behind switch uplinks. Scan the switch it connects to."
             : d.LowConfidence ? "Seen on more than one edge port; the port with the fewest MAC addresses was chosen." : "Learned on an edge port (not a switch uplink).";
-        return new DeviceDetailDto(dto, ipSource, d.IpObservedAt, note, sightings);
+        return new DeviceDetailDto(dto, ipSource, d.IpObservedAt, note, sightings, d.ExtSource is null ? null : new ExternalInfoDto(d.ExtSource, d.ExtOs, d.ExtUser, d.ExtDetail, d.ExtAt));
     }
 }

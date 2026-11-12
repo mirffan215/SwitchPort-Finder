@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, type Me } from '../api';
 import { ErrorBox, Field } from './Bits';
 import MfaSetup from './MfaSetup';
+import { CompanyMark } from './Brand';
 
 interface AuthState { me: Me; canWrite: boolean; logout: () => void }
 const Ctx = createContext<AuthState | null>(null);
@@ -47,6 +48,7 @@ function LoginPage() {
   return (
     <div className="login">
       <form className="form" onSubmit={submit}>
+        <div style={{ textAlign: 'center', marginBottom: 8 }}><CompanyMark height={56} /></div>
         <h1>SwitchPort Finder</h1>
         <p className="muted">Sign in to continue.</p>
         <Field label="Username"><input autoFocus autoComplete="username" value={u} onChange={(e) => setU(e.target.value)} required /></Field>

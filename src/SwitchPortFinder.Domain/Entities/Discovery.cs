@@ -81,6 +81,12 @@ public class Device
     public int? PinnedVlan { get; set; }
     public string? ManualUpdatedBy { get; set; }
     public DateTime? ManualUpdatedAt { get; set; }
+    // ---- facts from optional integrations (DHCP, Active Directory, Intune); never overwrite manual values ----
+    public string? ExtOs { get; set; }
+    public string? ExtUser { get; set; }
+    public string? ExtDetail { get; set; }
+    public string? ExtSource { get; set; }
+    public DateTime? ExtAt { get; set; }
     public HostnameSource HostnameSource { get; set; }
     public DateTime? HostnameCheckedAt { get; set; }
     public string? IpAddress { get; set; }

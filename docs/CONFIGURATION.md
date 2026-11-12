@@ -207,3 +207,19 @@ Access points that join a Cisco wireless controller are not seen by a switch sca
 5. If the scan reports "No access points were returned", the controller's SNMP view probably blocks the wireless tables: allow `1.3.6.1.4.1.9.9.513` (and `1.3.6.1.4.1.14179` on older AireOS).
 
 The switch import/export CSV does not carry the wireless-controller flag; tick it after importing.
+
+## Company name, logo and link (Admin · Company)
+
+Settings → **Admin · Company**: set the company name, an optional website, and upload a logo (PNG, JPEG, GIF or WebP up to 512 KB; SVG is refused because it can carry script). They appear at the top of the menu and on the sign-in page; a click opens the website in a new tab. The logo is stored in the portal's database and served from the portal itself, so nothing is loaded from the internet.
+
+## Optional integrations (Admin · Integrations) — all OFF by default
+
+Each one is switched on by an administrator, is **read-only**, and runs only when you press **Run now** (no scheduled traffic). They fill in what is unknown; a name, type or location set by hand is never overwritten.
+
+| Integration | What it reads | What you need |
+|---|---|---|
+| **Windows DHCP** | Leases (IP, MAC, host name) → names devices that show as "Unknown Device", fills a missing IP | Windows PowerShell + the DHCP management tools (RSAT) on the portal server; the service account needs read access to the DHCP server (member of *DHCP Users*) |
+| **Local domain (Active Directory)** | Computer accounts over **LDAPS** → adds OS and OU to devices whose name matches | Domain controller name, LDAPS port (636), base DN (e.g. `DC=corp,DC=local`), a read-only account (`user@domain`) and its password. Install your domain CA on the server, or tick "trust certificate" |
+| **Intune** | Managed devices via Microsoft Graph → matches by MAC; adds name, user, OS, compliance | Entra app registration with the application permission `DeviceManagementManagedDevices.Read.All` (admin consent), tenant ID, client ID and secret; the portal server must reach `login.microsoftonline.com` and `graph.microsoft.com` |
+
+Passwords and secrets are stored encrypted and are never shown again. Intune matches only devices whose Wi-Fi/Ethernet MAC Intune reports; devices that use a randomised (private) Wi-Fi MAC cannot be matched. Run **DHCP first**, then **Active Directory**: the directory match uses the host name.

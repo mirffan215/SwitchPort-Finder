@@ -246,6 +246,34 @@ namespace SwitchPortFinder.Infrastructure.Persistence.Migrations
                     b.ToTable("ArpEntries");
                 });
 
+            modelBuilder.Entity("SwitchPortFinder.Domain.Entities.Branding", b =>
+                {
+                    b.Property<int>("Id")
+                        .HasColumnType("int");
+
+                    b.Property<string>("CompanyName")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("LinkUrl")
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<byte[]>("LogoBytes")
+                        .HasColumnType("varbinary(max)");
+
+                    b.Property<string>("LogoContentType")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Brandings");
+                });
+
             modelBuilder.Entity("SwitchPortFinder.Domain.Entities.CategoryRule", b =>
                 {
                     b.Property<int>("Id")
@@ -369,6 +397,25 @@ namespace SwitchPortFinder.Infrastructure.Persistence.Migrations
                     b.Property<string>("CategoryReason")
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTime?>("ExtAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ExtDetail")
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<string>("ExtOs")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("ExtSource")
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<string>("ExtUser")
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
 
                     b.Property<DateTime>("FirstSeen")
                         .HasColumnType("datetime2");
@@ -645,6 +692,53 @@ namespace SwitchPortFinder.Infrastructure.Persistence.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("ImportBatches");
+                });
+
+            modelBuilder.Entity("SwitchPortFinder.Domain.Entities.Integration", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("ConfigJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("Enabled")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("EncryptedSecret")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<int>("LastMatched")
+                        .HasColumnType("int");
+
+                    b.Property<string>("LastMessage")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<bool?>("LastOk")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("LastRunAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Kind")
+                        .IsUnique();
+
+                    b.ToTable("Integrations");
                 });
 
             modelBuilder.Entity("SwitchPortFinder.Domain.Entities.NotificationConfig", b =>

@@ -55,6 +55,12 @@ public static class DependencyInjection
         services.AddScoped<ManualDeviceService>();
         services.AddScoped<DeviceCategoryService>();
         services.AddScoped<AccessPointService>();
+        services.AddHttpClient("intune");
+        services.AddSingleton<SwitchPortFinder.Infrastructure.Integrations.IDhcpLeaseSource, SwitchPortFinder.Infrastructure.Integrations.PowerShellDhcpSource>();
+        services.AddSingleton<SwitchPortFinder.Infrastructure.Integrations.IDirectorySource, SwitchPortFinder.Infrastructure.Integrations.LdapDirectorySource>();
+        services.AddSingleton<SwitchPortFinder.Infrastructure.Integrations.IIntuneSource, SwitchPortFinder.Infrastructure.Integrations.GraphIntuneSource>();
+        services.AddScoped<SwitchPortFinder.Infrastructure.Integrations.IntegrationService>();
+        services.AddScoped<SwitchPortFinder.Infrastructure.Integrations.BrandingService>();
         services.AddScoped<ScanResultWriter>();
         services.AddScoped<DiscoveryJobRunner>();
         services.AddScoped<DiscoveryService>();

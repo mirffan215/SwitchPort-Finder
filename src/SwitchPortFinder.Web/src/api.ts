@@ -102,7 +102,10 @@ export interface SwitchHit { id: number; name: string; managementIp: string; man
 export interface PortHit { switchId: number; switchName: string; switchIp: string; portId: number; ifIndex: number; portName: string; alias?: string | null; status: string; type: PortType }
 export interface SearchResponse { query: string; devices: DeviceRow[]; switches: SwitchHit[]; ports: PortHit[]; truncated: boolean }
 export interface Sighting { switchId: number; switchName: string; portId: number; ifIndex: number; portName: string; isUplink: boolean; macsOnPort: number; vlan?: number | null; lastSeen: string }
-export interface DeviceDetail { device: DeviceRow; ipSourceSwitch?: string | null; ipObservedAt?: string | null; locationNote: string; sightings: Sighting[] }
+export interface Branding { companyName?: string | null; linkUrl?: string | null; hasLogo: boolean; version: number }
+export interface Integration { kind: 'dhcp' | 'ad' | 'intune'; enabled: boolean; config: Record<string, unknown>; hasSecret: boolean; lastRunAt?: string | null; lastOk?: boolean | null; lastMessage?: string | null; lastMatched: number }
+export interface ExternalInfo { source: string; os?: string | null; user?: string | null; detail?: string | null; at?: string | null }
+export interface DeviceDetail { external?: ExternalInfo | null; device: DeviceRow; ipSourceSwitch?: string | null; ipObservedAt?: string | null; locationNote: string; sightings: Sighting[] }
 export interface TraceHop { switchId: number; switchName: string; switchIp: string; portId?: number | null; portName?: string | null; ifIndex?: number | null; linkConfidence?: NeighborConfidence | null; isFinal: boolean }
 export interface TraceResult {
   hops: TraceHop[]; partial: boolean; message?: string | null;
@@ -198,6 +201,13 @@ export const api = {
   saveReport: (name: string, jsonText: string) => request<SavedReport>('/api/reports', json('POST', { name, json: jsonText })),
   updateReport: (id: number, name: string, jsonText: string) => request<SavedReport>(`/api/reports/${id}`, json('PUT', { name, json: jsonText })),
   deleteReport: (id: number) => request<void>(`/api/reports/${id}`, { method: 'DELETE' }),
+  branding: () => request<Branding>('/api/branding'),
+  saveBranding: (r: { companyName: string | null; linkUrl: string | null }) => request<Branding>('/api/branding', json('PUT', r)),
+  uploadLogo: (f: File) => { const fd = new FormData(); fd.append('file', f); return request<Branding>('/api/branding/logo', { method: 'POST', body: fd }); },
+  removeLogo: () => request<Branding>('/api/branding/logo', { method: 'DELETE' }),
+  integrations: () => request<Integration[]>('/api/integrations'),
+  saveIntegration: (kind: string, r: { enabled: boolean; config: Record<string, unknown>; secret?: string | null }) => request<Integration>(`/api/integrations/${kind}`, json('PUT', r)),
+  runIntegration: (kind: string) => request<Integration>(`/api/integrations/${kind}/run`, { method: 'POST' }),
   notifConfig: () => request<NotificationConfig>('/api/notifications/config'),
   saveNotifConfig: (r: NotificationConfigRequest) => request<NotificationConfig>('/api/notifications/config', json('PUT', r)),
   testMail: (to?: string) => request<{ success: boolean; message: string }>('/api/notifications/test', json('POST', { to: to || null })),

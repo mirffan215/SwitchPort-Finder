@@ -11,7 +11,7 @@ public record JobErrorDto(string Step, string Code, string Message, DateTime Cre
 
 public record JobDetailDto(JobSummaryDto Job, IReadOnlyList<StepResult> Steps, IReadOnlyList<JobErrorDto> Errors);
 
-public record PortDeviceDto(int DeviceId, string Hostname, string? Ip, string Mac, int? Vlan, DateTime LastSeen, DeviceState State, bool LowConfidence);
+public record PortDeviceDto(int DeviceId, string Hostname, string? Ip, string Mac, int? Vlan, DateTime LastSeen, DeviceState State, bool LowConfidence, string? Category = null);
 
 public record NeighborDto(
     long NeighborId, NeighborProtocol Protocol, int? ConnectedSwitchId, string? ConnectedSwitchName, string? ConnectedSwitchIp,

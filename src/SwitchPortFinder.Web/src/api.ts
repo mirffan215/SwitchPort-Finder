@@ -51,7 +51,7 @@ export type JobStatus = 'Queued' | 'Running' | 'Completed' | 'CompletedWithWarni
 export interface StepResult { name: string; state: 'Pending' | 'Running' | 'Ok' | 'Warning' | 'Failed' | 'Skipped'; message?: string | null }
 export interface JobSummary { id: number; switchId: number; switchName: string; status: JobStatus; queuedAt: string; startedAt?: string | null; completedAt?: string | null; durationSeconds?: number | null; portsFound: number; devicesFound: number; neighborsFound: number; errorCount: number; summary?: string | null }
 export interface JobDetail { job: JobSummary; steps: StepResult[]; errors: { step: string; code: string; message: string; createdAt: string }[] }
-export interface PortDevice { deviceId: number; hostname: string; ip?: string | null; mac: string; vlan?: number | null; lastSeen: string; state: 'Active' | 'Offline' | 'Stale'; lowConfidence: boolean }
+export interface PortDevice { deviceId: number; hostname: string; ip?: string | null; mac: string; vlan?: number | null; lastSeen: string; state: 'Active' | 'Offline' | 'Stale'; lowConfidence: boolean; category?: string | null }
 export type NeighborConfidence = 'Unknown' | 'Endpoint' | 'LikelySwitch' | 'ConfirmedSwitch';
 export interface Neighbor {
   neighborId: number; protocol: 'Lldp' | 'Cdp' | 'Inferred'; connectedSwitchId?: number | null; connectedSwitchName?: string | null; connectedSwitchIp?: string | null;

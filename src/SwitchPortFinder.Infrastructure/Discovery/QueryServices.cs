@@ -23,8 +23,8 @@ public class PortQueryService(AppDbContext db, IOptions<DiscoveryOptions> opt)
         var rows = ports.OrderBy(p => NaturalKey(p.Name), StringComparer.Ordinal).Select(p => new PortRowDto(
             p.Id, p.IfIndex, p.Name, p.Alias, p.OperUp ? "UP" : "DOWN", p.PortType, p.SpeedMbps, p.Vlan, macCounts.GetValueOrDefault(p.Id), p.PhysAddress is null ? null : MacAddress.Format(p.PhysAddress),
             // Spec 5.8: an uplink never lists downstream devices (and a down port has none).
-            (p.PortType is PortType.Down or PortType.SwitchUplink) ? new List<PortDeviceDto>() : devs[p.Id].OrderBy(d => d.Mac).Take(10).Select(d => new PortDeviceDto(
-                d.Id, d.Hostname, d.IpAddress, MacAddress.Format(d.Mac), d.Vlan, d.LastSeen, DeviceStates.Compute(d.LastSeen, DeviceStates.Reference(d.LastSeen, sw.LastScanAt, null), opt.Value), d.LowConfidence)).ToList(),
+            (p.PortType is PortType.Down or PortType.SwitchUplink) ? new List<PortDeviceDto>() : devs[p.Id].OrderBy(d => d.Category == DeviceCategory.AccessPoint ? 0 : 1).ThenBy(d => d.Mac).Take(10).Select(d => new PortDeviceDto(
+                d.Id, d.Hostname, d.IpAddress, MacAddress.Format(d.Mac), d.Vlan, d.LastSeen, DeviceStates.Compute(d.LastSeen, DeviceStates.Reference(d.LastSeen, sw.LastScanAt, null), opt.Value), d.LowConfidence, VendorText.CategoryName(d.Category))).ToList(),
             p.NeighborId is { } nid && neighbors.TryGetValue(nid, out var nb) ? nb with { Confidence = p.Confidence } : null,
             SupportList(p), TrafficOf(p))).ToList();
         var summary = new PortSummary(rows.Count, rows.Count(r => r.Status == "UP"), rows.Count(r => r.Status == "DOWN"), rows.Count(r => r.Type == PortType.SwitchUplink), sw.LastScanAt);
@@ -64,7 +64,7 @@ public class PortQueryService(AppDbContext db, IOptions<DiscoveryOptions> opt)
         var devs = await db.Devices.AsNoTracking().Where(d => d.PortId != null && ids.Contains(d.PortId!.Value)).OrderBy(d => d.Mac).Select(d => new { PortId = d.PortId!.Value, d.Hostname, d.IpAddress, d.Mac }).ToListAsync(ct);
         var first = devs.GroupBy(d => d.PortId).ToDictionary(g => g.Key, g => g.First());
         var items = rows.Select(r => new PortListItem(r.p.SwitchId, r.SwitchName, r.p.Id, r.p.IfIndex, r.p.Name, r.p.Alias, r.p.OperUp ? "UP" : "DOWN", r.p.PortType, r.p.SpeedMbps, r.p.Vlan,
-            macCounts.GetValueOrDefault(r.p.Id), r.p.PortType is PortType.Down or PortType.SwitchUplink ? null : first.TryGetValue(r.p.Id, out var d) ? (d.Hostname == "Unknown Device" ? (d.IpAddress ?? MacAddress.Format(d.Mac)) : d.Hostname) : null,
+            macCounts.GetValueOrDefault(r.p.Id), r.p.PortType is PortType.Down or PortType.SwitchUplink ? null : macCounts.GetValueOrDefault(r.p.Id) >= 5 ? $"{macCounts.GetValueOrDefault(r.p.Id)} devices on this port" : first.TryGetValue(r.p.Id, out var d) ? (d.Hostname == "Unknown Device" ? (d.IpAddress ?? MacAddress.Format(d.Mac)) : d.Hostname) : null,
             TrafficOf(r.p))).ToList();
         return new Paged<PortListItem>(items, total, page, size);
     }

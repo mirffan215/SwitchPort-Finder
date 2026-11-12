@@ -75,19 +75,25 @@ export default function SwitchPage() {
               <tbody>
                 {ports.data?.ports.map((p) => {
                   const d = p.devices[0]; const more = p.macCount - (d ? 1 : 0);
+                  const shared = p.type === 'Endpoint' && p.macCount >= 5;   // many MACs on one edge port: an access point / controller / hub, not one endpoint
+                  const ap = shared && d?.category === 'AccessPoint' ? d : undefined;
                   const up = p.type === 'SwitchUplink' && p.neighbor;
                   return (
                     <tr key={p.portId} id={`port-${p.ifIndex}`} className={`clickable ${selected === p.ifIndex ? 'highlight' : ''} ${p.type === 'Down' ? 'dim' : ''}`}
                         onClick={() => { setSelected(p.ifIndex); setSp({}, { replace: true }); }}>
                       <td>{p.name}</td>
                       <td><span className={p.status === 'UP' ? 'up' : 'down'}>{p.status}</span></td>
-                      <td><PortTypeBadge type={p.type} /></td>
+                      <td>{shared ? <span className="badge info" title="Many devices were learned on this port (an access point, wireless controller or unmanaged switch).">⇅ {ap ? 'Access point' : 'Shared'}</span> : <PortTypeBadge type={p.type} />}</td>
                       {up ? (
                         <td colSpan={3}><UplinkCell n={p.neighbor!} /></td>
                       ) : (<>
+                        {shared ? <>
+                          <td onClick={(e) => e.stopPropagation()}>{ap ? <>{ap.hostname === 'Unknown Device' ? 'Access point' : ap.hostname} · </> : null}<Link to={`/devices?portId=${p.portId}${ap ? `&excludeId=${ap.deviceId}` : ''}&behind=${encodeURIComponent(ap && ap.hostname !== 'Unknown Device' ? ap.hostname : p.name)}`} title="List the devices found on this port">{ap ? more : p.macCount} device{(ap ? more : p.macCount) === 1 ? '' : 's'} {ap ? 'behind' : 'on this port'}</Link></td>
+                          <td>{ap?.ip ?? '—'}</td><td className="mono">{ap?.mac ?? '—'}</td>
+                        </> : <>
                         <td>{p.type === 'Down' ? '—' : d ? <>{d.hostname}{more > 0 && <span className="muted"> (+{more} more)</span>}</> : '—'}</td>
                         <td>{p.type === 'Down' ? '—' : d?.ip ?? (d ? <span className="muted">Unknown</span> : '—')}</td>
-                        <td className="mono">{p.type === 'Down' ? '—' : d?.mac ?? '—'}</td>
+                        <td className="mono">{p.type === 'Down' ? '—' : d?.mac ?? '—'}</td></>}
                       </>)}
                       <td>{p.vlan ?? d?.vlan ?? '—'}</td>
                     </tr>

@@ -60,7 +60,7 @@ export function PortTypeBadge({ type }: { type: string }) {
 
 export function CategoryBadge({ c, manual }: { c?: string | null; manual?: boolean }) {
   if (!c) return <span className="muted">—</span>;
-  const label = ({ AccessPoint: 'Access point', IpPhone: 'IP phone', Printer: 'Printer', Camera: 'Camera', Server: 'Server', Other: 'Other' } as Record<string, string>)[c] ?? c;
+  const label = ({ AccessPoint: 'Access point', IpPhone: 'IP phone', Printer: 'Printer', Camera: 'Camera', Server: 'Server', NetworkSwitch: 'Network switch', Other: 'Other' } as Record<string, string>)[c] ?? c;
   return <span className={`badge ${c === 'AccessPoint' ? 'info' : c === 'IpPhone' ? 'ok' : 'muted'}`} title={manual ? 'Set manually' : 'Detected by the category rules'}>{label}{manual ? ' ✎' : ''}</span>;
 }
 

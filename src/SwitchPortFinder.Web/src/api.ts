@@ -82,8 +82,8 @@ export type AlertRuleRequest = Omit<AlertRule, 'id' | 'switchName'>;
 export interface AlertEvent { id: number; ruleId: number; ruleName: string; type: AlertRuleType; subject: string; title: string; detail: string; value?: number | null; state: 'Firing' | 'Resolved'; firstAt: string; lastAt: string; resolvedAt?: string | null; notifyCount: number }
 export interface AlertsResponse { activeCount: number; active: AlertEvent[]; recent: AlertEvent[] }
 export interface MailLogEntry { at: string; recipients: string; subject: string; success: boolean; error?: string | null }
-export const CATEGORIES = ['AccessPoint', 'IpPhone', 'Printer', 'Camera', 'Server', 'Other'] as const;
-export const categoryLabel = (c?: string | null) => (c ? ({ AccessPoint: 'Access point', IpPhone: 'IP phone', Printer: 'Printer', Camera: 'Camera', Server: 'Server', Other: 'Other' } as Record<string, string>)[c] ?? c : '');
+export const CATEGORIES = ['AccessPoint', 'IpPhone', 'Printer', 'Camera', 'Server', 'NetworkSwitch', 'Other'] as const;
+export const categoryLabel = (c?: string | null) => (c ? ({ AccessPoint: 'Access point', IpPhone: 'IP phone', Printer: 'Printer', Camera: 'Camera', Server: 'Server', NetworkSwitch: 'Network switch', Other: 'Other' } as Record<string, string>)[c] ?? c : '');
 export interface CategoryRule { id: number; name: string; category: string; enabled: boolean; priority: number; vendorContains?: string | null; hostnameStartsWith?: string | null; hostnameContains?: string | null; portDescriptionContains?: string | null; neighborContains?: string | null; neighborCapability?: string | null; vlan?: number | null }
 export type CategoryRuleRequest = Omit<CategoryRule, 'id'>;
 export interface AccessPointItem {

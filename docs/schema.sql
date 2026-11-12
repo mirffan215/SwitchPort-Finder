@@ -821,3 +821,1028 @@ GO
 COMMIT;
 GO
 
+BEGIN TRANSACTION;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261110074929_Phase8PortCounters'
+)
+BEGIN
+    ALTER TABLE [SwitchPorts] ADD [CtrAt] datetime2 NULL;
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261110074929_Phase8PortCounters'
+)
+BEGIN
+    ALTER TABLE [SwitchPorts] ADD [CtrInDiscards] bigint NULL;
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261110074929_Phase8PortCounters'
+)
+BEGIN
+    ALTER TABLE [SwitchPorts] ADD [CtrInErrors] bigint NULL;
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261110074929_Phase8PortCounters'
+)
+BEGIN
+    ALTER TABLE [SwitchPorts] ADD [CtrInOctets] bigint NULL;
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261110074929_Phase8PortCounters'
+)
+BEGIN
+    ALTER TABLE [SwitchPorts] ADD [CtrOutDiscards] bigint NULL;
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261110074929_Phase8PortCounters'
+)
+BEGIN
+    ALTER TABLE [SwitchPorts] ADD [CtrOutErrors] bigint NULL;
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261110074929_Phase8PortCounters'
+)
+BEGIN
+    ALTER TABLE [SwitchPorts] ADD [CtrOutOctets] bigint NULL;
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261110074929_Phase8PortCounters'
+)
+BEGIN
+    ALTER TABLE [SwitchPorts] ADD [CtrUpTicks] bigint NOT NULL DEFAULT CAST(0 AS bigint);
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261110074929_Phase8PortCounters'
+)
+BEGIN
+    ALTER TABLE [SwitchPorts] ADD [CtrWide] bit NOT NULL DEFAULT CAST(0 AS bit);
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261110074929_Phase8PortCounters'
+)
+BEGIN
+    ALTER TABLE [SwitchPorts] ADD [RateAt] datetime2 NULL;
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261110074929_Phase8PortCounters'
+)
+BEGIN
+    ALTER TABLE [SwitchPorts] ADD [RateDiscardsPerSec] float NULL;
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261110074929_Phase8PortCounters'
+)
+BEGIN
+    ALTER TABLE [SwitchPorts] ADD [RateErrorsPerSec] float NULL;
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261110074929_Phase8PortCounters'
+)
+BEGIN
+    ALTER TABLE [SwitchPorts] ADD [RateInBps] float NULL;
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261110074929_Phase8PortCounters'
+)
+BEGIN
+    ALTER TABLE [SwitchPorts] ADD [RateOutBps] float NULL;
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261110074929_Phase8PortCounters'
+)
+BEGIN
+    ALTER TABLE [SwitchPorts] ADD [RateSeconds] int NULL;
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261110074929_Phase8PortCounters'
+)
+BEGIN
+    INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
+    VALUES (N'20261110074929_Phase8PortCounters', N'8.0.11');
+END;
+GO
+
+COMMIT;
+GO
+
+BEGIN TRANSACTION;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261110090742_Phase9SessionVersion'
+)
+BEGIN
+    ALTER TABLE [Users] ADD [SessionVersion] int NOT NULL DEFAULT 0;
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261110090742_Phase9SessionVersion'
+)
+BEGIN
+    INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
+    VALUES (N'20261110090742_Phase9SessionVersion', N'8.0.11');
+END;
+GO
+
+COMMIT;
+GO
+
+BEGIN TRANSACTION;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261110102736_Phase10DeviceVendor'
+)
+BEGIN
+    ALTER TABLE [Devices] ADD [Vendor] nvarchar(100) NULL;
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261110102736_Phase10DeviceVendor'
+)
+BEGIN
+    INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
+    VALUES (N'20261110102736_Phase10DeviceVendor', N'8.0.11');
+END;
+GO
+
+COMMIT;
+GO
+
+BEGIN TRANSACTION;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261110104143_Phase11SwitchUptime'
+)
+BEGIN
+    ALTER TABLE [Switches] ADD [UptimeAt] datetime2 NULL;
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261110104143_Phase11SwitchUptime'
+)
+BEGIN
+    ALTER TABLE [Switches] ADD [UptimeSeconds] bigint NULL;
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261110104143_Phase11SwitchUptime'
+)
+BEGIN
+    INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
+    VALUES (N'20261110104143_Phase11SwitchUptime', N'8.0.11');
+END;
+GO
+
+COMMIT;
+GO
+
+BEGIN TRANSACTION;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261111064115_Phase12Mfa'
+)
+BEGIN
+    ALTER TABLE [Users] ADD [MfaEnabled] bit NOT NULL DEFAULT CAST(0 AS bit);
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261111064115_Phase12Mfa'
+)
+BEGIN
+    ALTER TABLE [Users] ADD [MfaLastStep] bigint NOT NULL DEFAULT CAST(0 AS bigint);
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261111064115_Phase12Mfa'
+)
+BEGIN
+    ALTER TABLE [Users] ADD [MfaPendingSecretProtected] nvarchar(max) NULL;
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261111064115_Phase12Mfa'
+)
+BEGIN
+    ALTER TABLE [Users] ADD [MfaRecoveryHashes] nvarchar(max) NULL;
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261111064115_Phase12Mfa'
+)
+BEGIN
+    ALTER TABLE [Users] ADD [MfaSecretProtected] nvarchar(max) NULL;
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261111064115_Phase12Mfa'
+)
+BEGIN
+    INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
+    VALUES (N'20261111064115_Phase12Mfa', N'8.0.11');
+END;
+GO
+
+COMMIT;
+GO
+
+BEGIN TRANSACTION;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261111065241_Phase13DeviceManual'
+)
+BEGIN
+    ALTER TABLE [Devices] ADD [IsManual] bit NOT NULL DEFAULT CAST(0 AS bit);
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261111065241_Phase13DeviceManual'
+)
+BEGIN
+    ALTER TABLE [Devices] ADD [ManualUpdatedAt] datetime2 NULL;
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261111065241_Phase13DeviceManual'
+)
+BEGIN
+    ALTER TABLE [Devices] ADD [ManualUpdatedBy] nvarchar(100) NULL;
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261111065241_Phase13DeviceManual'
+)
+BEGIN
+    ALTER TABLE [Devices] ADD [Notes] nvarchar(1000) NULL;
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261111065241_Phase13DeviceManual'
+)
+BEGIN
+    ALTER TABLE [Devices] ADD [Owner] nvarchar(100) NULL;
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261111065241_Phase13DeviceManual'
+)
+BEGIN
+    ALTER TABLE [Devices] ADD [PinnedPortId] int NULL;
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261111065241_Phase13DeviceManual'
+)
+BEGIN
+    ALTER TABLE [Devices] ADD [PinnedSwitchId] int NULL;
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261111065241_Phase13DeviceManual'
+)
+BEGIN
+    ALTER TABLE [Devices] ADD [PinnedVlan] int NULL;
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261111065241_Phase13DeviceManual'
+)
+BEGIN
+    INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
+    VALUES (N'20261111065241_Phase13DeviceManual', N'8.0.11');
+END;
+GO
+
+COMMIT;
+GO
+
+BEGIN TRANSACTION;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261111070509_Phase14Metrics'
+)
+BEGIN
+    ALTER TABLE [Switches] ADD [CpuPct] float NULL;
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261111070509_Phase14Metrics'
+)
+BEGIN
+    ALTER TABLE [Switches] ADD [HealthAt] datetime2 NULL;
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261111070509_Phase14Metrics'
+)
+BEGIN
+    ALTER TABLE [Switches] ADD [LatencyMs] int NULL;
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261111070509_Phase14Metrics'
+)
+BEGIN
+    ALTER TABLE [Switches] ADD [MemPct] float NULL;
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261111070509_Phase14Metrics'
+)
+BEGIN
+    CREATE TABLE [PortMetrics] (
+        [Id] bigint NOT NULL IDENTITY,
+        [SwitchId] int NOT NULL,
+        [PortId] int NOT NULL,
+        [At] datetime2 NOT NULL,
+        [InBps] float NULL,
+        [OutBps] float NULL,
+        [UtilPct] float NULL,
+        [DiscardsPerSec] float NOT NULL,
+        [ErrorsPerSec] float NOT NULL,
+        CONSTRAINT [PK_PortMetrics] PRIMARY KEY ([Id])
+    );
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261111070509_Phase14Metrics'
+)
+BEGIN
+    CREATE TABLE [Reports] (
+        [Id] int NOT NULL IDENTITY,
+        [Name] nvarchar(150) NOT NULL,
+        [Json] nvarchar(max) NOT NULL,
+        [CreatedBy] nvarchar(100) NULL,
+        [CreatedAt] datetime2 NOT NULL,
+        [UpdatedAt] datetime2 NOT NULL,
+        CONSTRAINT [PK_Reports] PRIMARY KEY ([Id])
+    );
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261111070509_Phase14Metrics'
+)
+BEGIN
+    CREATE TABLE [SwitchMetrics] (
+        [Id] bigint NOT NULL IDENTITY,
+        [SwitchId] int NOT NULL,
+        [At] datetime2 NOT NULL,
+        [Reachable] bit NOT NULL,
+        [UptimeSeconds] bigint NULL,
+        [CpuPct] float NULL,
+        [MemPct] float NULL,
+        [LatencyMs] int NULL,
+        CONSTRAINT [PK_SwitchMetrics] PRIMARY KEY ([Id]),
+        CONSTRAINT [FK_SwitchMetrics_Switches_SwitchId] FOREIGN KEY ([SwitchId]) REFERENCES [Switches] ([Id]) ON DELETE CASCADE
+    );
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261111070509_Phase14Metrics'
+)
+BEGIN
+    CREATE INDEX [IX_PortMetrics_At] ON [PortMetrics] ([At]);
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261111070509_Phase14Metrics'
+)
+BEGIN
+    CREATE INDEX [IX_PortMetrics_PortId_At] ON [PortMetrics] ([PortId], [At]);
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261111070509_Phase14Metrics'
+)
+BEGIN
+    CREATE INDEX [IX_PortMetrics_SwitchId_At] ON [PortMetrics] ([SwitchId], [At]);
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261111070509_Phase14Metrics'
+)
+BEGIN
+    CREATE INDEX [IX_Reports_Name] ON [Reports] ([Name]);
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261111070509_Phase14Metrics'
+)
+BEGIN
+    CREATE INDEX [IX_SwitchMetrics_At] ON [SwitchMetrics] ([At]);
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261111070509_Phase14Metrics'
+)
+BEGIN
+    CREATE INDEX [IX_SwitchMetrics_SwitchId_At] ON [SwitchMetrics] ([SwitchId], [At]);
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261111070509_Phase14Metrics'
+)
+BEGIN
+    INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
+    VALUES (N'20261111070509_Phase14Metrics', N'8.0.11');
+END;
+GO
+
+COMMIT;
+GO
+
+BEGIN TRANSACTION;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261111071803_Phase15Notifications'
+)
+BEGIN
+    CREATE TABLE [AlertRules] (
+        [Id] int NOT NULL IDENTITY,
+        [Name] nvarchar(150) NOT NULL,
+        [Type] int NOT NULL,
+        [Enabled] bit NOT NULL,
+        [Threshold] float NOT NULL,
+        [DurationMinutes] int NOT NULL,
+        [SwitchId] int NULL,
+        [CooldownMinutes] int NOT NULL,
+        [NotifyOnResolve] bit NOT NULL,
+        [CreatedAt] datetime2 NOT NULL,
+        CONSTRAINT [PK_AlertRules] PRIMARY KEY ([Id])
+    );
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261111071803_Phase15Notifications'
+)
+BEGIN
+    CREATE TABLE [NotificationConfigs] (
+        [Id] int NOT NULL,
+        [Enabled] bit NOT NULL,
+        [Host] nvarchar(255) NOT NULL,
+        [Port] int NOT NULL,
+        [Security] int NOT NULL,
+        [Username] nvarchar(255) NULL,
+        [EncryptedPassword] nvarchar(max) NULL,
+        [FromAddress] nvarchar(255) NOT NULL,
+        [FromName] nvarchar(100) NOT NULL,
+        [Recipients] nvarchar(2000) NOT NULL,
+        [TrustServerCertificate] bit NOT NULL,
+        [PublicBaseUrl] nvarchar(255) NULL,
+        [UpdatedAt] datetime2 NOT NULL,
+        CONSTRAINT [PK_NotificationConfigs] PRIMARY KEY ([Id])
+    );
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261111071803_Phase15Notifications'
+)
+BEGIN
+    CREATE TABLE [NotificationLog] (
+        [Id] bigint NOT NULL IDENTITY,
+        [At] datetime2 NOT NULL,
+        [Recipients] nvarchar(2000) NOT NULL,
+        [Subject] nvarchar(300) NOT NULL,
+        [Success] bit NOT NULL,
+        [Error] nvarchar(500) NULL,
+        CONSTRAINT [PK_NotificationLog] PRIMARY KEY ([Id])
+    );
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261111071803_Phase15Notifications'
+)
+BEGIN
+    CREATE TABLE [AlertEvents] (
+        [Id] bigint NOT NULL IDENTITY,
+        [RuleId] int NOT NULL,
+        [Subject] nvarchar(60) NOT NULL,
+        [Title] nvarchar(300) NOT NULL,
+        [Detail] nvarchar(1000) NOT NULL,
+        [Value] float NULL,
+        [State] int NOT NULL,
+        [FirstAt] datetime2 NOT NULL,
+        [LastAt] datetime2 NOT NULL,
+        [ResolvedAt] datetime2 NULL,
+        [LastNotifiedAt] datetime2 NULL,
+        [NotifyCount] int NOT NULL,
+        [ResolveNotified] bit NOT NULL,
+        CONSTRAINT [PK_AlertEvents] PRIMARY KEY ([Id]),
+        CONSTRAINT [FK_AlertEvents_AlertRules_RuleId] FOREIGN KEY ([RuleId]) REFERENCES [AlertRules] ([Id]) ON DELETE CASCADE
+    );
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261111071803_Phase15Notifications'
+)
+BEGIN
+    CREATE INDEX [IX_AlertEvents_RuleId_Subject_State] ON [AlertEvents] ([RuleId], [Subject], [State]);
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261111071803_Phase15Notifications'
+)
+BEGIN
+    CREATE INDEX [IX_AlertEvents_State] ON [AlertEvents] ([State]);
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261111071803_Phase15Notifications'
+)
+BEGIN
+    CREATE INDEX [IX_AlertRules_Type] ON [AlertRules] ([Type]);
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261111071803_Phase15Notifications'
+)
+BEGIN
+    CREATE INDEX [IX_NotificationLog_At] ON [NotificationLog] ([At]);
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261111071803_Phase15Notifications'
+)
+BEGIN
+    INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
+    VALUES (N'20261111071803_Phase15Notifications', N'8.0.11');
+END;
+GO
+
+COMMIT;
+GO
+
+BEGIN TRANSACTION;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261111105804_Phase16Categories'
+)
+BEGIN
+    ALTER TABLE [Devices] ADD [Category] nvarchar(20) NOT NULL DEFAULT N'Unclassified';
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261111105804_Phase16Categories'
+)
+BEGIN
+    ALTER TABLE [Devices] ADD [CategoryManual] bit NOT NULL DEFAULT CAST(0 AS bit);
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261111105804_Phase16Categories'
+)
+BEGIN
+    ALTER TABLE [Devices] ADD [CategoryReason] nvarchar(200) NULL;
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261111105804_Phase16Categories'
+)
+BEGIN
+    CREATE TABLE [CategoryRules] (
+        [Id] int NOT NULL IDENTITY,
+        [Name] nvarchar(150) NOT NULL,
+        [Category] nvarchar(20) NOT NULL,
+        [Enabled] bit NOT NULL,
+        [Priority] int NOT NULL,
+        [VendorContains] nvarchar(100) NULL,
+        [HostnameStartsWith] nvarchar(100) NULL,
+        [HostnameContains] nvarchar(100) NULL,
+        [PortDescriptionContains] nvarchar(100) NULL,
+        [NeighborContains] nvarchar(100) NULL,
+        [NeighborCapability] nvarchar(20) NULL,
+        [Vlan] int NULL,
+        CONSTRAINT [PK_CategoryRules] PRIMARY KEY ([Id])
+    );
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261111105804_Phase16Categories'
+)
+BEGIN
+    CREATE INDEX [IX_Devices_Category] ON [Devices] ([Category]);
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261111105804_Phase16Categories'
+)
+BEGIN
+    INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
+    VALUES (N'20261111105804_Phase16Categories', N'8.0.11');
+END;
+GO
+
+COMMIT;
+GO
+
+BEGIN TRANSACTION;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261111134716_Phase17WirelessAps'
+)
+BEGIN
+    ALTER TABLE [Switches] ADD [IsWirelessController] bit NOT NULL DEFAULT CAST(0 AS bit);
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261111134716_Phase17WirelessAps'
+)
+BEGIN
+    CREATE TABLE [WirelessAps] (
+        [Id] int NOT NULL IDENTITY,
+        [ControllerId] int NOT NULL,
+        [SysMac] nvarchar(12) NOT NULL,
+        [EthMac] nvarchar(12) NULL,
+        [Name] nvarchar(100) NULL,
+        [Model] nvarchar(100) NULL,
+        [Serial] nvarchar(60) NULL,
+        [Ip] nvarchar(45) NULL,
+        [UptimeSeconds] bigint NULL,
+        [Clients] int NULL,
+        [AdminEnabled] bit NULL,
+        [Associated] bit NULL,
+        [FirstSeen] datetime2 NOT NULL,
+        [LastSeen] datetime2 NOT NULL,
+        CONSTRAINT [PK_WirelessAps] PRIMARY KEY ([Id]),
+        CONSTRAINT [FK_WirelessAps_Switches_ControllerId] FOREIGN KEY ([ControllerId]) REFERENCES [Switches] ([Id]) ON DELETE CASCADE
+    );
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261111134716_Phase17WirelessAps'
+)
+BEGIN
+    CREATE UNIQUE INDEX [IX_WirelessAps_ControllerId_SysMac] ON [WirelessAps] ([ControllerId], [SysMac]);
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261111134716_Phase17WirelessAps'
+)
+BEGIN
+    CREATE INDEX [IX_WirelessAps_EthMac] ON [WirelessAps] ([EthMac]);
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261111134716_Phase17WirelessAps'
+)
+BEGIN
+    INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
+    VALUES (N'20261111134716_Phase17WirelessAps', N'8.0.11');
+END;
+GO
+
+COMMIT;
+GO
+
+BEGIN TRANSACTION;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261112082535_Phase18IntegrationsBranding'
+)
+BEGIN
+    ALTER TABLE [Devices] ADD [ExtAt] datetime2 NULL;
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261112082535_Phase18IntegrationsBranding'
+)
+BEGIN
+    ALTER TABLE [Devices] ADD [ExtDetail] nvarchar(300) NULL;
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261112082535_Phase18IntegrationsBranding'
+)
+BEGIN
+    ALTER TABLE [Devices] ADD [ExtOs] nvarchar(100) NULL;
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261112082535_Phase18IntegrationsBranding'
+)
+BEGIN
+    ALTER TABLE [Devices] ADD [ExtSource] nvarchar(30) NULL;
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261112082535_Phase18IntegrationsBranding'
+)
+BEGIN
+    ALTER TABLE [Devices] ADD [ExtUser] nvarchar(150) NULL;
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261112082535_Phase18IntegrationsBranding'
+)
+BEGIN
+    CREATE TABLE [Brandings] (
+        [Id] int NOT NULL,
+        [CompanyName] nvarchar(100) NULL,
+        [LinkUrl] nvarchar(300) NULL,
+        [LogoBytes] varbinary(max) NULL,
+        [LogoContentType] nvarchar(40) NULL,
+        [UpdatedAt] datetime2 NOT NULL,
+        CONSTRAINT [PK_Brandings] PRIMARY KEY ([Id])
+    );
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261112082535_Phase18IntegrationsBranding'
+)
+BEGIN
+    CREATE TABLE [Integrations] (
+        [Id] int NOT NULL IDENTITY,
+        [Kind] nvarchar(20) NOT NULL,
+        [Enabled] bit NOT NULL,
+        [ConfigJson] nvarchar(max) NOT NULL,
+        [EncryptedSecret] nvarchar(max) NULL,
+        [LastRunAt] datetime2 NULL,
+        [LastOk] bit NULL,
+        [LastMessage] nvarchar(500) NULL,
+        [LastMatched] int NOT NULL,
+        [UpdatedAt] datetime2 NOT NULL,
+        CONSTRAINT [PK_Integrations] PRIMARY KEY ([Id])
+    );
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261112082535_Phase18IntegrationsBranding'
+)
+BEGIN
+    CREATE UNIQUE INDEX [IX_Integrations_Kind] ON [Integrations] ([Kind]);
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261112082535_Phase18IntegrationsBranding'
+)
+BEGIN
+    INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
+    VALUES (N'20261112082535_Phase18IntegrationsBranding', N'8.0.11');
+END;
+GO
+
+COMMIT;
+GO
+
+BEGIN TRANSACTION;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261112083730_Phase19DhcpDetail'
+)
+BEGIN
+    ALTER TABLE [Devices] ADD [DhcpDetail] nvarchar(300) NULL;
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261112083730_Phase19DhcpDetail'
+)
+BEGIN
+    INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
+    VALUES (N'20261112083730_Phase19DhcpDetail', N'8.0.11');
+END;
+GO
+
+COMMIT;
+GO
+
+BEGIN TRANSACTION;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261112111528_Phase20MfaDevices'
+)
+BEGIN
+    ALTER TABLE [Users] ADD [MfaPendingName] nvarchar(60) NULL;
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261112111528_Phase20MfaDevices'
+)
+BEGIN
+    CREATE TABLE [MfaDevices] (
+        [Id] int NOT NULL IDENTITY,
+        [UserId] int NOT NULL,
+        [Name] nvarchar(60) NOT NULL,
+        [SecretProtected] nvarchar(max) NOT NULL,
+        [LastStep] bigint NOT NULL,
+        [CreatedAt] datetime2 NOT NULL,
+        [LastUsedAt] datetime2 NULL,
+        CONSTRAINT [PK_MfaDevices] PRIMARY KEY ([Id]),
+        CONSTRAINT [FK_MfaDevices_Users_UserId] FOREIGN KEY ([UserId]) REFERENCES [Users] ([Id]) ON DELETE CASCADE
+    );
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261112111528_Phase20MfaDevices'
+)
+BEGIN
+    CREATE INDEX [IX_MfaDevices_UserId] ON [MfaDevices] ([UserId]);
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261112111528_Phase20MfaDevices'
+)
+BEGIN
+    INSERT INTO MfaDevices (UserId, Name, SecretProtected, LastStep, CreatedAt) SELECT Id, 'Authenticator 1', MfaSecretProtected, MfaLastStep, CURRENT_TIMESTAMP FROM Users WHERE MfaEnabled = 1 AND MfaSecretProtected IS NOT NULL
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261112111528_Phase20MfaDevices'
+)
+BEGIN
+    INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
+    VALUES (N'20261112111528_Phase20MfaDevices', N'8.0.11');
+END;
+GO
+
+COMMIT;
+GO
+

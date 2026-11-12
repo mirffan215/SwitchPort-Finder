@@ -27,7 +27,7 @@ export interface SwitchSummary {
   id: number; name: string; managementIp: string; manufacturer: Manufacturer; manufacturerName: string;
   detectedManufacturer?: Manufacturer | null; vendorMismatch: boolean; model?: string | null;
   status: 'Unknown' | 'Reachable' | 'Unreachable'; lastScanAt?: string | null; useAsArpSource: boolean;
-  location?: string | null; credentialProfileId?: number | null; credentialProfileName?: string | null; portCount: number; isWirelessController?: boolean;
+  location?: string | null; credentialProfileId?: number | null; credentialProfileName?: string | null; portCount: number; portsUp?: number; isWirelessController?: boolean;
 }
 export interface SwitchDetail extends Omit<SwitchSummary, 'portCount'> {
   manufacturerOther?: string | null; notes?: string | null; sysName?: string | null; sysDescr?: string | null;

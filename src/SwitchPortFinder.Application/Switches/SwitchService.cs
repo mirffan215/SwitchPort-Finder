@@ -21,8 +21,8 @@ public class SwitchService(
 
     public async Task<List<SwitchSummaryDto>> ListAsync(CancellationToken ct)
     {
-        var counts = await switches.PortCountsAsync(ct);
-        return (await switches.ListAsync(ct)).Select(s => ToSummary(s) with { PortCount = counts.GetValueOrDefault(s.Id) }).ToList();
+        var counts = await switches.PortCountsAsync(ct); var up = await switches.PortUpCountsAsync(ct);
+        return (await switches.ListAsync(ct)).Select(s => ToSummary(s) with { PortCount = counts.GetValueOrDefault(s.Id), PortsUp = up.GetValueOrDefault(s.Id) }).ToList();
     }
 
     public async Task<SwitchDetailDto> GetAsync(int id, CancellationToken ct) =>

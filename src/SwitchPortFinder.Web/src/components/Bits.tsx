@@ -64,6 +64,17 @@ export function CategoryBadge({ c, manual }: { c?: string | null; manual?: boole
   return <span className={`badge ${c === 'AccessPoint' ? 'info' : c === 'IpPhone' ? 'ok' : 'muted'}`} title={manual ? 'Set manually' : 'Detected by the category rules'}>{label}{manual ? ' ✎' : ''}</span>;
 }
 
+/** A coloured status dot with a label (used for device, port and job status in every table). */
+export function Dot({ kind, label, title }: { kind: 'ok' | 'warn' | 'bad' | 'muted'; label: string; title?: string }) {
+  return <span className="statusline" title={title}><span className={`stdot ${kind}`} aria-hidden="true" /><span>{label}</span></span>;
+}
+
+export function StateDot({ state, lastSeen }: { state: string; lastSeen?: string | null }) {
+  const label = state === 'Active' ? 'Online' : state;
+  const why = state === 'Active' ? 'Found by the latest scan of its switch' : state === 'Offline' ? 'Not found by the latest scan of its switch' : 'Not found by the scans of its switch for a long time';
+  return <div className="statuscell"><Dot kind={state === 'Active' ? 'ok' : state === 'Offline' ? 'warn' : 'muted'} label={label} title={why} />{lastSeen !== undefined && <div className="muted small" title={fmtDate(lastSeen)}>{ago(lastSeen)}</div>}</div>;
+}
+
 export function StateBadge({ state }: { state: string }) {
   const label = state === 'Active' ? 'Online' : state;
   const why = state === 'Active' ? 'Found by the latest scan of its switch' : state === 'Offline' ? 'Not found by the latest scan of its switch' : 'Not found by the scans of its switch for a long time';

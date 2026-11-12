@@ -2,10 +2,10 @@ import { useEffect, useState } from 'react';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { Link, useSearchParams } from 'react-router-dom';
 import { api, CATEGORIES, categoryLabel } from '../api';
-import { CategoryBadge, ErrorBox, StateBadge, ago } from '../components/Bits';
+import { CategoryBadge, ErrorBox, StateDot } from '../components/Bits';
 import { useAuth } from '../components/Auth';
 
-const COLS: [string, string][] = [['hostname', 'Hostname'], ['ip', 'IP'], ['mac', 'MAC'], ['vendor', 'Product / Manufacturer'], ['category', 'Type'], ['switch', 'Switch'], ['', 'Port'], ['vlan', 'VLAN'], ['', 'Status'], ['lastseen', 'Last Seen']];
+const COLS: [string, string][] = [['hostname', 'Device'], ['ip', 'Address'], ['category', 'Type'], ['switch', 'Location'], ['lastseen', 'Status']];
 
 export default function DevicesPage() {
   const { canWrite } = useAuth();
@@ -44,14 +44,20 @@ export default function DevicesPage() {
           <tbody>
             {data?.items.map((d) => (
               <tr key={d.id}>
-                <td><Link to={`/devices/${d.id}`}>{d.hostname}</Link>{d.manual && <span className="tag" title="Added by hand">manual</span>}</td><td>{d.ip ?? <span className="muted">Unknown</span>}</td><td className="mono">{d.mac}</td><td>{d.vendor ? <span title={d.vendor === 'Private (randomized MAC)' ? 'Phones and laptops use a random MAC address for Wi-Fi privacy, so the manufacturer cannot be known from it.' : 'Manufacturer of the network adapter, from the MAC address (IEEE registry).'}>{d.vendor}</span> : <span className="muted" title="This MAC address prefix is not in the IEEE registry.">Unknown</span>}</td>
+                <td>
+                  <div className="swname"><Link to={`/devices/${d.id}`}>{d.hostname}</Link>{d.manual && <span className="tag" title="Added by hand">manual</span>}</div>
+                  <div className="muted small" title={d.vendor === 'Private (randomized MAC)' ? 'Phones and laptops use a random MAC address for Wi-Fi privacy, so the manufacturer cannot be known from it.' : 'The maker of the network adapter, from the MAC address'}>{d.vendor ?? 'Manufacturer not looked up yet'}</div>
+                </td>
+                <td><div>{d.ip ?? <span className="muted">Unknown IP</span>}</div><div className="mono muted small">{d.mac}</div></td>
                 <td><CategoryBadge c={d.category} manual={d.categoryManual} /></td>
-                <td>{d.switchId ? <><Link to={`/switches/${d.switchId}`}>{d.switchName}</Link>{d.pinned && <span title="Location set manually"> 📌</span>}</> : <span title="Only seen behind switch uplinks so far: open the device and use Edit details to set where it is plugged in.">—</span>}</td>
-                <td>{d.switchId && d.ifIndex ? <Link to={`/switches/${d.switchId}?port=${d.ifIndex}`}>{d.portName}</Link> : '—'}</td>
-                <td>{d.vlan ?? '—'}</td><td><StateBadge state={d.state} /></td><td>{ago(d.lastSeen)}</td>
+                <td>{d.switchId ? <>
+                  <div><Link to={`/switches/${d.switchId}`}>{d.switchName}</Link>{d.pinned && <span title="Location set manually"> 📌</span>}</div>
+                  <div className="muted small">{d.ifIndex ? <Link to={`/switches/${d.switchId}?port=${d.ifIndex}`}>{d.portName}</Link> : '—'}{d.vlan != null && <span className="vlanchip">VLAN {d.vlan}</span>}</div></>
+                  : <span className="muted" title="Only seen behind switch uplinks so far: open the device and use Edit details to set where it is plugged in.">Not located yet</span>}</td>
+                <td><StateDot state={d.state} lastSeen={d.lastSeen} /></td>
               </tr>
             ))}
-            {data?.items.length === 0 && <tr><td colSpan={10} className="muted">No devices. Scan a switch to discover devices.</td></tr>}
+            {data?.items.length === 0 && <tr><td colSpan={5} className="muted">No devices. Scan a switch to discover devices.</td></tr>}
           </tbody>
         </table>
       </div>

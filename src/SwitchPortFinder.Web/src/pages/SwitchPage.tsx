@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { api, type Neighbor, type PortRow } from '../api';
-import { ConfidenceBadge, ErrorBox, PortTypeBadge, StateBadge, StatusBadge, TestResultBox, ago, fmtDate } from '../components/Bits';
+import { ConfidenceBadge, Dot, ErrorBox, PortTypeBadge, StateBadge, StatusBadge, TestResultBox, ago, fmtDate } from '../components/Bits';
 import ScanProgress from '../components/ScanProgress';
 import { useAuth } from '../components/Auth';
 import { Donut, fmtBps, fmtRate } from '../components/Charts';
@@ -82,7 +82,7 @@ export default function SwitchPage() {
                     <tr key={p.portId} id={`port-${p.ifIndex}`} className={`clickable ${selected === p.ifIndex ? 'highlight' : ''} ${p.type === 'Down' ? 'dim' : ''}`}
                         onClick={() => { setSelected(p.ifIndex); setSp({}, { replace: true }); }}>
                       <td>{p.name}</td>
-                      <td><span className={p.status === 'UP' ? 'up' : 'down'}>{p.status}</span></td>
+                      <td><Dot kind={p.status === 'UP' ? 'ok' : 'muted'} label={p.status === 'UP' ? 'Up' : 'Down'} /></td>
                       <td>{shared ? <span className="badge info" title="Many devices were learned on this port (an access point, wireless controller or unmanaged switch).">⇅ {ap ? 'Access point' : 'Shared'}</span> : <PortTypeBadge type={p.type} />}</td>
                       {up ? (
                         <td colSpan={3}><UplinkCell n={p.neighbor!} /></td>

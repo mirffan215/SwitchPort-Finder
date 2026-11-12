@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { api } from '../api';
-import { ErrorBox, ago } from '../components/Bits';
+import { Dot, ErrorBox, ago } from '../components/Bits';
 import { Donut } from '../components/Charts';
 
 /** Wireless access points: the devices the category rules (or an administrator) marked as access points. */
@@ -33,21 +33,24 @@ export default function AccessPointsPage() {
       )}
       <div className="tablewrap">
         <table>
-          <thead><tr><th>Access point</th><th>IP</th><th>MAC</th><th>Model</th><th>Controller</th><th>Switch</th><th>Port</th><th>VLAN</th><th>Status</th><th title="Wi-Fi clients reported by the wireless controller">Wi-Fi clients</th><th title="Devices found on the AP's switch port, not counting the AP itself. Click a number to see them.">Devices behind</th><th>Uptime</th><th>Last seen</th></tr></thead>
+          <thead><tr><th>Access point</th><th>Address</th><th>Controller</th><th>Location</th><th title="Wi-Fi clients reported by the wireless controller, and devices found on the AP's switch port (not counting the AP). Click the number to list them.">Clients</th><th>Status</th></tr></thead>
           <tbody>
             {rows.map((i) => (
               <tr key={`${i.mac}-${i.deviceId ?? ''}`}>
-                <td>{i.deviceId ? <Link to={`/devices/${i.deviceId}`}>{i.name}</Link> : i.name}{i.note && <div className="muted small">{i.note}</div>}</td>
-                <td>{i.ip ?? <span className="muted">Unknown</span>}</td><td className="mono">{i.mac}</td><td>{i.model ?? i.vendor ?? '—'}</td><td>{i.controller ?? '—'}</td>
-                <td>{i.switchId ? <Link to={`/switches/${i.switchId}`}>{i.switchName}</Link> : '—'}</td>
-                <td>{i.switchId && i.ifIndex ? <Link to={`/switches/${i.switchId}?port=${i.ifIndex}`}>{i.portName}</Link> : '—'}</td>
-                <td>{i.vlan ?? '—'}</td><td><span className={`badge ${i.online ? 'ok' : 'warnb'}`}>{i.status}</span></td>
-                <td>{i.wifiClients ?? '—'}</td>
-                <td>{i.devicesBehind > 0 && i.portId ? <Link to={`/devices?portId=${i.portId}${i.deviceId ? `&excludeId=${i.deviceId}` : ''}&behind=${encodeURIComponent(i.name)}`} title="Show the devices behind this access point">{i.devicesBehind} device{i.devicesBehind === 1 ? '' : 's'}</Link> : <span className="muted">0</span>}</td>
-                <td>{i.uptimeSeconds != null ? `${Math.floor(i.uptimeSeconds / 86400)}d ${Math.floor((i.uptimeSeconds % 86400) / 3600)}h` : '—'}</td><td>{ago(i.lastSeen)}</td>
+                <td><div className="swname">{i.deviceId ? <Link to={`/devices/${i.deviceId}`}>{i.name}</Link> : <strong>{i.name}</strong>}</div><div className="muted small">{i.model ?? i.vendor ?? '—'}{i.note ? ` · ${i.note}` : ''}</div></td>
+                <td><div>{i.ip ?? <span className="muted">Unknown IP</span>}</div><div className="mono muted small">{i.mac}</div></td>
+                <td>{i.controller ?? <span className="muted">—</span>}</td>
+                <td>{i.switchId ? <>
+                  <div><Link to={`/switches/${i.switchId}`}>{i.switchName}</Link></div>
+                  <div className="muted small">{i.ifIndex ? <Link to={`/switches/${i.switchId}?port=${i.ifIndex}`}>{i.portName}</Link> : '—'}{i.vlan != null && <span className="vlanchip">VLAN {i.vlan}</span>}</div></> : <span className="muted">Not located yet</span>}</td>
+                <td>
+                  <div>{i.wifiClients != null ? <><strong>{i.wifiClients}</strong> Wi-Fi</> : <span className="muted">—</span>}</div>
+                  <div className="small">{i.devicesBehind > 0 && i.portId ? <Link to={`/devices?portId=${i.portId}${i.deviceId ? `&excludeId=${i.deviceId}` : ''}&behind=${encodeURIComponent(i.name)}`} title="Show the devices behind this access point">{i.devicesBehind} device{i.devicesBehind === 1 ? '' : 's'} behind</Link> : <span className="muted">0 behind</span>}</div>
+                </td>
+                <td><div className="statuscell"><Dot kind={i.online ? 'ok' : i.status === 'Disabled' ? 'muted' : 'warn'} label={i.status} /><div className="muted small">{i.uptimeSeconds != null ? `up ${Math.floor(i.uptimeSeconds / 86400)}d ${Math.floor((i.uptimeSeconds % 86400) / 3600)}h` : ago(i.lastSeen)}</div></div></td>
               </tr>
             ))}
-            {!isLoading && rows.length === 0 && <tr><td colSpan={13} className="muted">{s && s.total > 0 ? 'No access point matches the filters.' : 'No access points yet. Use “+ Add Wireless Controller” above (enter its IP and SNMP read community), then scan it, or they are detected from LLDP/CDP, host names and manufacturer rules.'}</td></tr>}
+            {!isLoading && rows.length === 0 && <tr><td colSpan={6} className="muted">{s && s.total > 0 ? 'No access point matches the filters.' : 'No access points yet. Use “+ Add Wireless Controller” above (enter its IP and SNMP read community), then scan it, or they are detected from LLDP/CDP, host names and manufacturer rules.'}</td></tr>}
           </tbody>
         </table>
       </div>

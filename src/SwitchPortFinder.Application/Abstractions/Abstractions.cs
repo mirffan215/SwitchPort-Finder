@@ -25,6 +25,7 @@ public interface ISwitchRepository
     Task<Switch?> GetAsync(int id, CancellationToken ct);
     Task<Switch?> GetByIpAsync(string ip, CancellationToken ct);
     Task<Dictionary<int, int>> PortCountsAsync(CancellationToken ct);
+    Task<Dictionary<int, int>> PortUpCountsAsync(CancellationToken ct);
     Task<Dictionary<string, Switch>> GetByIpsAsync(IEnumerable<string> ips, CancellationToken ct);
     Task AddAsync(Switch sw, CancellationToken ct);
     Task DeleteAsync(Switch sw, CancellationToken ct);

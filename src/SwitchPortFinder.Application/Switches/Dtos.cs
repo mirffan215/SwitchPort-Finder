@@ -41,7 +41,7 @@ public record SwitchSummaryDto(
     int Id, string Name, string ManagementIp, Manufacturer Manufacturer, string ManufacturerName,
     Manufacturer? DetectedManufacturer, bool VendorMismatch, string? Model, SwitchStatus Status,
     DateTime? LastScanAt, bool UseAsArpSource, string? Location, int? CredentialProfileId, string? CredentialProfileName,
-    int PortCount, bool IsWirelessController = false);
+    int PortCount, bool IsWirelessController = false, int PortsUp = 0);
 
 public record SwitchDetailDto(
     int Id, string Name, string ManagementIp, Manufacturer Manufacturer, string ManufacturerName, string? ManufacturerOther,

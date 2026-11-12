@@ -248,3 +248,17 @@ a.companymark { text-decoration: underline; text-underline-offset: 3px; }
 .rowmenu-list > *:hover, .rowmenu-list > *:focus-visible { background:color-mix(in srgb, var(--accent) 12%, transparent); outline:none; } .rowmenu-list .danger { color:var(--bad); border-top:1px solid var(--line); border-radius:0 0 7px 7px; margin-top:4px; }
 .tablewrap.swtable { overflow:visible; } @media (max-width: 980px) { .tablewrap.swtable { overflow-x:auto; } }
 .statuscell { display:block !important; } .statusline { display:flex; align-items:center; gap:8px; }
+
+/* ---- shared table polish (every table view) ---- */
+.tablewrap tbody tr:hover { background:color-mix(in srgb, var(--accent) 6%, transparent); }
+.tablewrap td { vertical-align:middle; padding:11px 14px; } .tablewrap th { white-space:nowrap; font-weight:600; letter-spacing:.04em; padding:10px 14px; }
+.tablewrap td a:not(.btn):not(.chipbtn) { text-decoration:none; } .tablewrap td a:not(.btn):hover { text-decoration:underline; }
+.tablewrap th.sortable { cursor:pointer; user-select:none; } .tablewrap th.sortable:hover { color:var(--text); }
+.vlanchip { display:inline-block; margin-left:8px; padding:0 7px; border-radius:999px; border:1px solid var(--line); font-size:11.5px; color:var(--muted); }
+.utilcell { display:inline-flex; align-items:center; gap:8px; font-variant-numeric:tabular-nums; }
+.utilbar { display:inline-block; width:64px; height:6px; border-radius:99px; background:color-mix(in srgb, var(--muted) 25%, transparent); overflow:hidden; } .utilbar i { display:block; height:100%; background:var(--accent); border-radius:99px; } .utilbar i.warn { background:#f59e0b; } .utilbar i.bad { background:var(--bad); }
+.portsbar { display:inline-flex; align-items:center; gap:8px; justify-content:flex-end; font-variant-numeric:tabular-nums; }
+.seg { display:inline-flex; border:1px solid var(--line); border-radius:8px; overflow:hidden; } .seg button { background:var(--panel); color:var(--muted); border:0; padding:6px 12px; font:inherit; cursor:pointer; } .seg button.on { background:color-mix(in srgb, var(--accent) 16%, var(--panel)); color:var(--text); font-weight:600; } .seg button:focus-visible { outline:2px solid var(--accent); outline-offset:-2px; }
+.swcards { display:grid; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); gap:14px; }
+.swcard { background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:14px 16px; display:flex; flex-direction:column; gap:8px; } .swcard:hover { border-color:var(--accent); }
+.cardactions { display:flex; gap:8px; margin-top:4px; }

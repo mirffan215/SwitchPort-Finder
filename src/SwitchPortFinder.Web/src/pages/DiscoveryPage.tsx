@@ -1,11 +1,10 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, type JobSummary } from '../api';
-import { ErrorBox, fmtDate } from '../components/Bits';
+import { Dot, ErrorBox, fmtDate } from '../components/Bits';
 import ScanProgress from '../components/ScanProgress';
 import { useAuth } from '../components/Auth';
 
-const BADGE: Record<string, string> = { Completed: 'ok', CompletedWithWarnings: 'warnb', Failed: 'bad', Running: 'info', Queued: 'muted' };
 
 export default function DiscoveryPage() {
   const { data, error } = useQuery({ queryKey: ['jobs'], queryFn: () => api.jobs(), refetchInterval: (q) => (q.state.data?.some((j) => j.status === 'Queued' || j.status === 'Running') ? 2000 : false) });
@@ -32,7 +31,7 @@ export default function DiscoveryPage() {
               <tr key={j.id} className="clickable" onClick={() => setOpen(j)}>
                 <td>{j.switchName}</td><td>{fmtDate(j.startedAt ?? j.queuedAt)}</td><td>{fmtDate(j.completedAt)}</td>
                 <td>{j.durationSeconds != null ? `${j.durationSeconds.toFixed(1)} s` : '—'}</td>
-                <td><span className={`badge ${BADGE[j.status]}`}>{j.status === 'CompletedWithWarnings' ? 'Completed (warnings)' : j.status}</span></td>
+                <td><Dot kind={j.status === 'Completed' ? 'ok' : j.status === 'Failed' ? 'bad' : j.status === 'CompletedWithWarnings' ? 'warn' : 'muted'} label={j.status === 'CompletedWithWarnings' ? 'Completed (warnings)' : j.status} /></td>
                 <td>{j.devicesFound}</td><td>{j.portsFound}</td><td>{j.neighborsFound}</td><td>{j.errorCount}</td>
               </tr>
             ))}

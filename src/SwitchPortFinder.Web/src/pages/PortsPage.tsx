@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { Link, useSearchParams } from 'react-router-dom';
 import { api } from '../api';
-import { ErrorBox, PortTypeBadge } from '../components/Bits';
+import { Dot, ErrorBox, PortTypeBadge } from '../components/Bits';
 import { fmtBps } from '../components/Charts';
 
 const COLS: [string, string][] = [['switch', 'Switch'], ['name', 'Port'], ['', 'Status'], ['', 'Type'], ['', 'Device'], ['speed', 'Speed'], ['vlan', 'VLAN'], ['util', 'Utilization']];
@@ -36,10 +36,10 @@ export default function PortsPage() {
               <tr key={p.portId}>
                 <td><Link to={`/switches/${p.switchId}`}>{p.switchName}</Link></td>
                 <td><Link to={`/switches/${p.switchId}?port=${p.ifIndex}`}>{p.name}</Link>{p.alias && <div className="muted small">{p.alias}</div>}</td>
-                <td><span className={p.status === 'UP' ? 'up' : 'down'}>{p.status}</span></td><td><PortTypeBadge type={p.type} /></td>
+                <td><Dot kind={p.status === 'UP' ? 'ok' : 'muted'} label={p.status === 'UP' ? 'Up' : 'Down'} /></td><td><PortTypeBadge type={p.type} /></td>
                 <td>{p.device ?? (p.macCount > 0 ? <span className="muted">{p.macCount} MACs</span> : '—')}</td>
                 <td>{p.speedMbps ? `${p.speedMbps >= 1000 ? p.speedMbps / 1000 + ' Gbps' : p.speedMbps + ' Mbps'}` : '—'}</td><td>{p.vlan ?? '—'}</td>
-                <td>{p.traffic?.utilizationPct == null ? <span className="muted">—</span> : <span title={`in ${fmtBps(p.traffic.inBps)}, out ${fmtBps(p.traffic.outBps)}`}>{p.traffic.utilizationPct.toFixed(p.traffic.utilizationPct < 10 ? 1 : 0)}%</span>}</td>
+                <td>{p.traffic?.utilizationPct == null ? <span className="muted">—</span> : <span className="utilcell" title={`in ${fmtBps(p.traffic.inBps)}, out ${fmtBps(p.traffic.outBps)}`}><span className="utilbar"><i className={p.traffic.utilizationPct >= 80 ? 'bad' : p.traffic.utilizationPct >= 50 ? 'warn' : ''} style={{ width: `${Math.min(100, Math.max(2, p.traffic.utilizationPct))}%` }} /></span>{p.traffic.utilizationPct.toFixed(p.traffic.utilizationPct < 10 ? 1 : 0)}%</span>}</td>
               </tr>
             ))}
             {data?.items.length === 0 && <tr><td colSpan={8} className="muted">No ports match. Scan a switch to discover ports.</td></tr>}

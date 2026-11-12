@@ -14,6 +14,9 @@ public class SwitchRepository(AppDbContext db) : ISwitchRepository
     public Task<Dictionary<int, int>> PortCountsAsync(CancellationToken ct) =>
         db.SwitchPorts.GroupBy(p => p.SwitchId).Select(g => new { g.Key, N = g.Count() }).ToDictionaryAsync(g => g.Key, g => g.N, ct);
 
+    public Task<Dictionary<int, int>> PortUpCountsAsync(CancellationToken ct) =>
+        db.SwitchPorts.Where(p => p.OperUp).GroupBy(p => p.SwitchId).Select(g => new { g.Key, N = g.Count() }).ToDictionaryAsync(g => g.Key, g => g.N, ct);
+
     public async Task<Dictionary<string, Switch>> GetByIpsAsync(IEnumerable<string> ips, CancellationToken ct)
     {
         var result = new Dictionary<string, Switch>();

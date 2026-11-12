@@ -105,7 +105,7 @@ export interface Sighting { switchId: number; switchName: string; portId: number
 export interface Branding { companyName?: string | null; linkUrl?: string | null; hasLogo: boolean; version: number }
 export interface Integration { kind: 'dhcp' | 'ad' | 'intune'; enabled: boolean; config: Record<string, unknown>; hasSecret: boolean; lastRunAt?: string | null; lastOk?: boolean | null; lastMessage?: string | null; lastMatched: number }
 export interface ExternalInfo { source: string; os?: string | null; user?: string | null; detail?: string | null; at?: string | null }
-export interface DeviceDetail { external?: ExternalInfo | null; device: DeviceRow; ipSourceSwitch?: string | null; ipObservedAt?: string | null; locationNote: string; sightings: Sighting[] }
+export interface DeviceDetail { dhcp?: string | null; external?: ExternalInfo | null; device: DeviceRow; ipSourceSwitch?: string | null; ipObservedAt?: string | null; locationNote: string; sightings: Sighting[] }
 export interface TraceHop { switchId: number; switchName: string; switchIp: string; portId?: number | null; portName?: string | null; ifIndex?: number | null; linkConfidence?: NeighborConfidence | null; isFinal: boolean }
 export interface TraceResult {
   hops: TraceHop[]; partial: boolean; message?: string | null;

@@ -48,12 +48,16 @@ public class IntegrationsApiTests(ApiFixture fx)
     public async Task Dhcp_names_unknown_devices_but_never_overwrites_a_manual_name()
     {
         var unknown = await Seed(); var manual = await Seed("Reception printer", HostnameSource.Manual);
-        Fake.Leases.Clear(); Fake.Leases.Add(new DhcpLease(unknown, "10.77.0.5", "PC-SALES-07.corp.local")); Fake.Leases.Add(new DhcpLease(manual, "10.77.0.6", "dhcp-name"));
+        Fake.Leases.Clear(); Fake.Leases.Add(new DhcpLease(unknown, "10.77.0.5", "PC-SALES-07.corp.local", "10.77.0.0", "Active", "2026-11-14T08:00:00")); Fake.Leases.Add(new DhcpLease(manual, "10.77.0.6", "dhcp-name"));
         (await _http.PutAsync("/api/integrations/dhcp", J(new { enabled = true, config = new { server = "dhcp01.corp.local" } }))).StatusCode.Should().Be(HttpStatusCode.OK);
         var run = await (await _http.PostAsync("/api/integrations/dhcp/run", null)).Content.ReadFromJsonAsync<IntegrationDto>(Json);
         run!.LastOk.Should().BeTrue();
         var d = await Dev(unknown); (d.Hostname, d.HostnameSource, d.IpAddress).Should().Be(("PC-SALES-07", HostnameSource.Dhcp, "10.77.0.5"));
         (await Dev(manual)).Hostname.Should().Be("Reception printer");
+        d.DhcpDetail.Should().Contain("scope 10.77.0.0").And.Contain("active").And.Contain("lease until 2026-11-14 08:00:00");
+        var resvOnly = await Seed(); Fake.Leases.Add(new DhcpLease(resvOnly, "10.77.0.9", "Front-printer", "10.77.0.0", "Reserved", null, "Reception HP", true));
+        await _http.PostAsync("/api/integrations/dhcp/run", null);
+        var rv = await Dev(resvOnly); rv.Hostname.Should().Be("Front-printer"); rv.DhcpDetail.Should().Contain("reserved as 'Front-printer' (Reception HP)");
 
         Fake.Fail = true;
         var bad = await (await _http.PostAsync("/api/integrations/dhcp/run", null)).Content.ReadFromJsonAsync<IntegrationDto>(Json);

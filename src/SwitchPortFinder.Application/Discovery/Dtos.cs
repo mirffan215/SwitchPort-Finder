@@ -113,7 +113,7 @@ public static class DeviceStates
 public record SightingDto(int SwitchId, string SwitchName, int PortId, int IfIndex, string PortName, bool IsUplink, int MacsOnPort, int? Vlan, DateTime LastSeen);
 
 public record DeviceDetailDto(
-    DeviceDto Device, string? IpSourceSwitch, DateTime? IpObservedAt, string LocationNote, IReadOnlyList<SightingDto> Sightings, ExternalInfoDto? External = null);
+    DeviceDto Device, string? IpSourceSwitch, DateTime? IpObservedAt, string LocationNote, IReadOnlyList<SightingDto> Sightings, ExternalInfoDto? External = null, string? Dhcp = null);
 
 /// <summary>Facts from an optional integration (Active Directory, Intune): shown on the device page.</summary>
 public record ExternalInfoDto(string Source, string? Os, string? User, string? Detail, DateTime? At);

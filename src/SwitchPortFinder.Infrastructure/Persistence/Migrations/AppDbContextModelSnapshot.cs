@@ -398,6 +398,10 @@ namespace SwitchPortFinder.Infrastructure.Persistence.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
+                    b.Property<string>("DhcpDetail")
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
                     b.Property<DateTime?>("ExtAt")
                         .HasColumnType("datetime2");
 

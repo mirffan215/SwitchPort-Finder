@@ -30,6 +30,15 @@ public class IntegrationParseTests
         (l[0].Mac, l[0].Ip, l[0].HostName).Should().Be(("AABBCCDDEE01", "10.0.0.5", "pc-1.corp.local")); l[1].HostName.Should().BeNull();
     }
 
+    [Fact]
+    public void Reservations_and_lease_details_are_read_by_column_name()
+    {
+        var csv = "\"Kind\",\"IPAddress\",\"ClientId\",\"HostName\",\"ScopeId\",\"State\",\"Expires\",\"Description\"\r\n\"lease\",\"10.0.0.5\",\"aa-bb-cc-dd-ee-01\",\"pc-1\",\"10.0.0.0\",\"Active\",\"2026-11-14T08:00:00\",\"\"\r\n\"reservation\",\"10.0.0.9\",\"aa-bb-cc-dd-ee-09\",\"Front-printer\",\"10.0.0.0\",\"Reserved\",\"\",\"Reception HP\"\r\n";
+        var l = Parse.LeaseCsv(csv);
+        (l[0].Reserved, l[0].Scope, l[0].State, l[0].Expires).Should().Be((false, "10.0.0.0", "Active", "2026-11-14T08:00:00"));
+        (l[1].Reserved, l[1].HostName, l[1].Description).Should().Be((true, "Front-printer", "Reception HP"));
+    }
+
     [Fact] public void The_ou_path_is_read_from_the_distinguished_name() { Parse.OuPath("CN=PC-1,OU=Sales,OU=Staff,DC=corp,DC=local").Should().Be("Sales / Staff"); Parse.OuPath("CN=PC-1,CN=Computers,DC=corp,DC=local").Should().BeNull(); }
 
     [Theory]

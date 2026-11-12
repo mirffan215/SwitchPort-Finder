@@ -218,7 +218,7 @@ Each one is switched on by an administrator, is **read-only**, and runs only whe
 
 | Integration | What it reads | What you need |
 |---|---|---|
-| **Windows DHCP** | Leases (IP, MAC, host name) → names devices that show as "Unknown Device", fills a missing IP | Windows PowerShell + the DHCP management tools (RSAT) on the portal server; the service account needs read access to the DHCP server (member of *DHCP Users*) |
+| **Windows DHCP** | Leases and reservations (IP, MAC, host name, reservation name/description, scope, lease state and expiry) → names devices that show as "Unknown Device", fills a missing IP, and shows the DHCP details on the device page | Windows PowerShell + the DHCP management tools (RSAT) on the portal server; the service account needs read access to the DHCP server (member of *DHCP Users*) |
 | **Local domain (Active Directory)** | Computer accounts over **LDAPS** → adds OS and OU to devices whose name matches | Domain controller name, LDAPS port (636), base DN (e.g. `DC=corp,DC=local`), a read-only account (`user@domain`) and its password. Install your domain CA on the server, or tick "trust certificate" |
 | **Intune** | Managed devices via Microsoft Graph → matches by MAC; adds name, user, OS, compliance | Entra app registration with the application permission `DeviceManagementManagedDevices.Read.All` (admin consent), tenant ID, client ID and secret; the portal server must reach `login.microsoftonline.com` and `graph.microsoft.com` |
 

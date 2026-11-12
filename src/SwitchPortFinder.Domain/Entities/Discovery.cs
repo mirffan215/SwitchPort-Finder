@@ -86,6 +86,8 @@ public class Device
     public string? ExtUser { get; set; }
     public string? ExtDetail { get; set; }
     public string? ExtSource { get; set; }
+    /// <summary>What the DHCP server knows about this MAC: reservation, scope, lease state and expiry.</summary>
+    public string? DhcpDetail { get; set; }
     public DateTime? ExtAt { get; set; }
     public HostnameSource HostnameSource { get; set; }
     public DateTime? HostnameCheckedAt { get; set; }

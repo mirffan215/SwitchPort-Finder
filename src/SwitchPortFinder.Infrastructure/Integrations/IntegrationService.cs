@@ -104,18 +104,32 @@ public class IntegrationService(AppDbContext db, ICredentialProtector protector,
     {
         var cfg = JsonSerializer.Deserialize<DhcpConfig>(r.ConfigJson, J)!;
         var leases = await dhcp.ReadAsync(cfg.Server, ct);
-        var byMac = leases.GroupBy(l => l.Mac).ToDictionary(g => g.Key, g => g.Last());
+        // per MAC: the lease and the reservation (a reservation's name is used when the lease has no host name)
+        var byMac = leases.GroupBy(l => l.Mac).ToDictionary(g => g.Key, g => (Lease: g.LastOrDefault(x => !x.Reserved), Resv: g.LastOrDefault(x => x.Reserved)));
         var devices = await db.Devices.ToListAsync(ct); var n = 0; var now = DateTime.UtcNow;
         foreach (var d in devices)
         {
-            if (!byMac.TryGetValue(d.Mac, out var l)) continue;
-            var changed = false;
-            if (Parse.ShortName(l.HostName) is { } name && d.HostnameSource != HostnameSource.Manual && (Unknown(d) || d.HostnameSource is HostnameSource.ReverseDns or HostnameSource.Dhcp) && d.Hostname != name) { d.Hostname = name; d.HostnameSource = HostnameSource.Dhcp; d.HostnameCheckedAt = now; changed = true; }
+            if (!byMac.TryGetValue(d.Mac, out var m)) continue;
+            var l = m.Lease ?? m.Resv!; var changed = false;
+            var detail = Detail(m.Lease, m.Resv);
+            if (d.DhcpDetail != detail) { d.DhcpDetail = detail; changed = true; }
+            if (Parse.ShortName(l.HostName ?? m.Resv?.HostName) is { } name && d.HostnameSource != HostnameSource.Manual && (Unknown(d) || d.HostnameSource is HostnameSource.ReverseDns or HostnameSource.Dhcp) && d.Hostname != name) { d.Hostname = name; d.HostnameSource = HostnameSource.Dhcp; d.HostnameCheckedAt = now; changed = true; }
             if (string.IsNullOrEmpty(d.IpAddress)) { d.IpAddress = l.Ip; d.IpObservedAt = now; changed = true; }
             if (changed) n++;
         }
         await db.SaveChangesAsync(ct);
         return (leases.Count, n);
+    }
+
+    private static string Detail(DhcpLease? lease, DhcpLease? resv)
+    {
+        var p = new List<string>();
+        if (resv is not null) p.Add($"reserved{(resv.HostName is null ? "" : $" as '{resv.HostName}'")}{(resv.Description is null ? "" : $" ({resv.Description})")}");
+        var any = lease ?? resv!;
+        p.Add($"scope {any.Scope ?? "?"}"); p.Add($"IP {any.Ip}");
+        if (lease?.State is { } st) p.Add(st.ToLowerInvariant());
+        if (lease?.Expires is { } ex) p.Add($"lease until {ex.Replace('T', ' ')}");
+        var s = string.Join(" · ", p); return s.Length <= 300 ? s : s[..300];
     }
 
     private async Task<(int, int)> RunAd(Integration r, CancellationToken ct)

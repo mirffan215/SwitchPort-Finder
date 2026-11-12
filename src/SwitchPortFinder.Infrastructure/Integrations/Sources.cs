@@ -6,7 +6,7 @@ using System.Text.RegularExpressions;
 
 namespace SwitchPortFinder.Infrastructure.Integrations;
 
-public sealed record DhcpLease(string Mac, string Ip, string? HostName);
+public sealed record DhcpLease(string Mac, string Ip, string? HostName, string? Scope = null, string? State = null, string? Expires = null, string? Description = null, bool Reserved = false);
 public sealed record DirectoryComputer(string Name, string? DnsName, string? Os, string? Ou);
 public sealed record IntuneDevice(string? Name, string? User, string? Os, string? Compliance, string? WifiMac, string? EthMac, string? Serial);
 
@@ -31,15 +31,17 @@ public static partial class Parse
     }
     /// <summary>First label of a DNS name, as the portal shows host names ("pc-12.corp.local" → "pc-12").</summary>
     public static string? ShortName(string? s) { if (string.IsNullOrWhiteSpace(s)) return null; var t = s.Trim().TrimEnd('.'); var i = t.IndexOf('.'); t = i > 0 ? t[..i] : t; return t.Length is > 0 and <= 100 && !t.Any(char.IsControl) ? t : null; }
-    /// <summary>CSV of IPAddress,ClientId,HostName (PowerShell ConvertTo-Csv output; quoted fields) → leases.</summary>
+    /// <summary>CSV from the PowerShell script: Kind,IPAddress,ClientId,HostName,ScopeId,State,Expires,Description (Kind = lease or reservation). Columns are found by header name.</summary>
     public static List<DhcpLease> LeaseCsv(string csv)
     {
-        var list = new List<DhcpLease>();
-        foreach (var line in csv.Split('\n', StringSplitOptions.RemoveEmptyEntries).Skip(1))
+        var list = new List<DhcpLease>(); Dictionary<string, int>? col = null;
+        foreach (var raw in csv.Split('\n', StringSplitOptions.RemoveEmptyEntries))
         {
-            var f = Fields(line.TrimEnd('\r'));
-            if (f.Count < 2 || Mac(f[1]) is not { } mac || !System.Net.IPAddress.TryParse(f[0], out _)) continue;
-            list.Add(new DhcpLease(mac, f[0], f.Count > 2 && !string.IsNullOrWhiteSpace(f[2]) ? f[2].Trim() : null));
+            var f = Fields(raw.TrimEnd('\r'));
+            if (col is null) { col = f.Select((n, i) => (n.Trim(), i)).ToDictionary(x => x.Item1, x => x.i, StringComparer.OrdinalIgnoreCase); continue; }
+            string? C(string n) => col.TryGetValue(n, out var i) && i < f.Count && !string.IsNullOrWhiteSpace(f[i]) ? f[i].Trim() : null;
+            if (Mac(C("ClientId")) is not { } mac || C("IPAddress") is not { } ip || !System.Net.IPAddress.TryParse(ip, out _)) continue;
+            list.Add(new DhcpLease(mac, ip, C("HostName"), C("ScopeId"), C("State"), C("Expires"), C("Description"), string.Equals(C("Kind"), "reservation", StringComparison.OrdinalIgnoreCase)));
         }
         return list;
     }
@@ -59,7 +61,10 @@ public sealed class PowerShellDhcpSource : IDhcpLeaseSource
     public async Task<IReadOnlyList<DhcpLease>> ReadAsync(string server, CancellationToken ct)
     {
         if (!Parse.IsHost(server)) throw new InvalidOperationException("The DHCP server name is not valid.");
-        var script = $"$ErrorActionPreference='Stop'; Get-DhcpServerv4Scope -ComputerName '{server}' | Get-DhcpServerv4Lease -ComputerName '{server}' | Select-Object IPAddress,ClientId,HostName | ConvertTo-Csv -NoTypeInformation";
+        var script = $"$ErrorActionPreference='Stop'; $sv='{server}'; $sc=Get-DhcpServerv4Scope -ComputerName $sv; " +
+            "$l=@($sc | Get-DhcpServerv4Lease -ComputerName $sv | Select-Object @{n='Kind';e={'lease'}},IPAddress,ClientId,HostName,ScopeId,@{n='State';e={[string]$_.AddressState}},@{n='Expires';e={if($_.LeaseExpiryTime){$_.LeaseExpiryTime.ToString('s')}}},@{n='Description';e={''}}); " +
+            "$r=@(); try {{ $r=@($sc | Get-DhcpServerv4Reservation -ComputerName $sv | Select-Object @{n='Kind';e={'reservation'}},IPAddress,ClientId,@{n='HostName';e={$_.Name}},ScopeId,@{n='State';e={'Reserved'}},@{n='Expires';e={''}},Description) }} catch {{ }}; " +
+            "($l + $r) | ConvertTo-Csv -NoTypeInformation";
         var psi = new ProcessStartInfo("powershell.exe") { RedirectStandardOutput = true, RedirectStandardError = true, UseShellExecute = false, CreateNoWindow = true };
         foreach (var a in new[] { "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", script }) psi.ArgumentList.Add(a);
         Process p;

@@ -28,34 +28,70 @@ export function AuthGate({ children }: { children: ReactNode }) {
 function LoginPage() {
   const qc = useQueryClient();
   const [u, setU] = useState(''); const [p, setP] = useState('');
-  const [challenge, setChallenge] = useState<string | null>(null); const [code, setCode] = useState(''); const [recovery, setRecovery] = useState(false);
+  const [challenge, setChallenge] = useState<string | null>(null); const [code, setCode] = useState(''); const [recovery, setRecovery] = useState(false); const [show, setShow] = useState(false);
   const login = useMutation({ mutationFn: () => api.login(u, p), onSuccess: (r) => { setP(''); if (r.mfaRequired && r.mfaChallenge) setChallenge(r.mfaChallenge); else qc.invalidateQueries({ queryKey: ['me'] }); } });
   const second = useMutation({ mutationFn: () => api.loginMfa(challenge!, code), onSuccess: () => { setCode(''); setChallenge(null); qc.invalidateQueries({ queryKey: ['me'] }); }, onError: (e) => { setCode(''); if (String((e as Error).message).includes('sign-in expired')) setChallenge(null); } });
   const submit = (e: FormEvent) => { e.preventDefault(); if (challenge) second.mutate(); else login.mutate(); };
   if (challenge) return (
-    <div className="login">
-      <form className="form" onSubmit={submit}>
+    <AuthShell>
+      <form onSubmit={submit} className="authform">
         <h1>Two-factor authentication</h1>
-        <p className="muted">{recovery ? 'Enter one of your recovery codes.' : 'Enter the 6-digit code from your authenticator app.'}</p>
+        <p className="authsub">{recovery ? 'Enter one of your recovery codes.' : 'Enter the 6-digit code from your authenticator app.'}</p>
         <Field label={recovery ? 'Recovery code' : '6-digit code'}><input autoFocus autoComplete="one-time-code" inputMode={recovery ? 'text' : 'numeric'} value={code} onChange={(e) => setCode(e.target.value)} required maxLength={20} /></Field>
         <ErrorBox error={second.error} />
-        <button className="btn primary" disabled={second.isPending || !code}>{second.isPending ? 'Checking…' : 'Verify'}</button>
-        <button type="button" className="link" onClick={() => { setRecovery(!recovery); setCode(''); }}>{recovery ? 'Use my authenticator app instead' : 'Use a recovery code instead'}</button>
-        <button type="button" className="link" onClick={() => { setChallenge(null); setCode(''); }}>Back to sign in</button>
+        <button className="btn primary authbtn" disabled={second.isPending || !code}>{second.isPending ? 'Checking…' : 'Verify'}</button>
+        <div className="authlinks">
+          <button type="button" className="link" onClick={() => { setRecovery(!recovery); setCode(''); }}>{recovery ? 'Use my authenticator app instead' : 'Use a recovery code instead'}</button>
+          <button type="button" className="link" onClick={() => { setChallenge(null); setCode(''); }}>Back to sign in</button>
+        </div>
       </form>
-    </div>
+    </AuthShell>
   );
   return (
-    <div className="login">
-      <form className="form" onSubmit={submit}>
-        <div style={{ textAlign: 'center', marginBottom: 8 }}><CompanyMark height={56} /></div>
-        <h1>SwitchPort Finder</h1>
-        <p className="muted">Sign in to continue.</p>
+    <AuthShell>
+      <form onSubmit={submit} className="authform">
+        <h1>Welcome back</h1>
+        <p className="authsub">Sign in to find devices, ports and switches on your network.</p>
         <Field label="Username"><input autoFocus autoComplete="username" value={u} onChange={(e) => setU(e.target.value)} required /></Field>
-        <Field label="Password"><input type="password" autoComplete="current-password" value={p} onChange={(e) => setP(e.target.value)} required /></Field>
+        <Field label="Password">
+          <span className="pwwrap"><input type={show ? 'text' : 'password'} autoComplete="current-password" value={p} onChange={(e) => setP(e.target.value)} required />
+            <button type="button" className="pwtoggle" onClick={() => setShow(!show)} aria-pressed={show}>{show ? 'Hide' : 'Show'}</button></span>
+        </Field>
         <ErrorBox error={login.error} />
-        <button className="btn primary" disabled={login.isPending}>{login.isPending ? 'Signing in…' : 'Sign in'}</button>
+        <button className="btn primary authbtn" disabled={login.isPending}>{login.isPending ? 'Signing in…' : 'Sign in'}</button>
       </form>
-    </div>
+    </AuthShell>
+  );
+}
+
+const Feature = ({ d, title, text }: { d: string; title: string; text: string }) => (
+  <li><span className="authicon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={d} /></svg></span><span><strong>{title}</strong><small>{text}</small></span></li>
+);
+
+/** Two-column sign-in layout: brand and benefits on the left, the form card on the right. */
+function AuthShell({ children }: { children: ReactNode }) {
+  return (
+    <main className="authpage">
+      <aside className="authside">
+        <div className="authbrand">
+          <span className="authlogo" aria-hidden="true"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3v6M5 21v-6h14v6M12 9v6M3 21h4M17 21h4M10 21h4" /></svg></span>
+          <span><span className="authname">SwitchPort Finder</span><span className="authtag">Port Finder &amp; SNMP Suite</span></span>
+        </div>
+        <h2>Know exactly where every device is connected.</h2>
+        <ul className="authfeatures">
+          <Feature d="M21 21l-4.3-4.3M10.5 18a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15z" title="Find any device fast" text="Search by name, IP or MAC and see the switch, port and VLAN." />
+          <Feature d="M3 12h4l3-8 4 16 3-8h4" title="Live network health" text="Uptime, utilization, errors and alerts across every switch." />
+          <Feature d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z" title="Read-only and secure" text="Uses SNMP read access only. Nothing on your network is changed." />
+        </ul>
+        <p className="authfoot">Internal network tool · runs entirely on your own server</p>
+      </aside>
+      <section className="authcard-wrap">
+        <div className="authcard">
+          <div className="authcompany"><CompanyMark height={48} /></div>
+          {children}
+        </div>
+        <p className="authsmall">Authorised users only. Sign-ins are logged.</p>
+      </section>
+    </main>
   );
 }

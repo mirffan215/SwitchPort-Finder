@@ -51,6 +51,7 @@ public class ScanResultWriter(AppDbContext db, IHostnameResolver dns, Classifica
         ApplySwitch(sw, r, now);
 
         // ---- wireless controller: the access points it lists ----
+        if (r.AutoDetectedController && r.WirelessAps.Count > 0 && !sw.IsWirelessController) { sw.IsWirelessController = true; }
         if (sw.IsWirelessController && r.WirelessAps.Count > 0)
         {
             var known = await db.WirelessAps.Where(a => a.ControllerId == sw.Id).ToDictionaryAsync(a => a.SysMac, ct);

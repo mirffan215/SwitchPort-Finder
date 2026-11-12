@@ -292,6 +292,21 @@ public class DiscoveryApiTests(ApiFixture fx)
     }
 
     [Fact]
+    public async Task A_device_that_identifies_itself_as_a_wireless_controller_is_recognised_without_ticking_anything()
+    {
+        var n = Interlocked.Increment(ref _seed); var ip = $"203.8.{n}.5";
+        var net = fx.Services.GetService(typeof(FakeSnmpClient)).As<FakeSnmpClient>().Net;
+        net.WithSystem(ip, "WLC-AUTO", "1.3.6.1.4.1.9.1.2530", "Cisco IOS XE Software, Catalyst 9800-L Wireless Controller");
+        string R(int c) => $"{Oids.LwappApEntry}.{c}.0.17.34.51.68.9";
+        net.Walk(ip, "pub", $"{Oids.LwappApEntry}.5", [Vb(R(5), Txt($"AUTO-AP-{n}"))]);
+        var id = await AddSwitch($"AUTO-{n}", ip);
+        (await _http.GetFromJsonAsync<SwitchDetailDto>($"/api/switches/{id}", Json))!.IsWirelessController.Should().BeFalse();
+        await Scan(id);
+        (await _http.GetFromJsonAsync<SwitchDetailDto>($"/api/switches/{id}", Json))!.IsWirelessController.Should().BeTrue("the scan recognised it");
+        (await _http.GetFromJsonAsync<AccessPointsResponse>("/api/access-points", Json))!.Items.Should().Contain(a => a.Name == $"AUTO-AP-{n}");
+    }
+
+    [Fact]
     public async Task A_wireless_controller_scan_lists_its_access_points_and_marks_the_ones_it_stops_listing_offline()
     {
         var n = Interlocked.Increment(ref _seed); var ip = $"203.9.{n}.5";

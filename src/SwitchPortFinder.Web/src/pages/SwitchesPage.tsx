@@ -32,6 +32,7 @@ export default function SwitchesPage() {
           {MANUFACTURERS.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
         </select>
         {canWrite && <button className="btn" disabled={scanAll.isPending || (data?.length ?? 0) === 0} onClick={() => scanAll.mutate()}>Scan all switches</button>}
+        {canWrite && <Link className="btn" to="/switches/new?controller=1">+ Add Wireless Controller</Link>}
         {canWrite && <Link className="btn primary" to="/switches/new">+ Add Switch</Link>}
       </div>
       <ErrorBox error={error ?? del.error ?? test.error ?? scan.error ?? scanAll.error} />

@@ -26,7 +26,7 @@ const sfx = Math.random().toString(36).slice(2, 7);
 
   // ---- login
   await goto('/');
-  ok(await page.getByRole('heading', { name: 'SwitchPort Finder' }).isVisible() && await page.getByLabel('Password').isVisible(), 'unauthenticated visitor sees only the login form');
+  ok(await page.getByRole('heading', { name: 'Welcome back' }).isVisible() && await page.getByLabel('Password').isVisible(), 'unauthenticated visitor sees only the login form');
   ok(!(await page.locator('body').innerText()).includes('Dashboard'), 'no application data/navigation is rendered before login');
   await page.getByLabel('Username').fill('admin'); await page.getByLabel('Password').fill('wrong-wrong-wrong-1');
   await page.getByRole('button', { name: 'Sign in' }).click(); await page.waitForTimeout(600);

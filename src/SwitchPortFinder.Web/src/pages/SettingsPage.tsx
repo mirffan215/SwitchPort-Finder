@@ -13,23 +13,45 @@ import CredentialFields, { emptyCredential } from '../components/CredentialField
 
 type Tab = 'profiles' | 'import' | 'general' | 'notifications' | 'company' | 'integrations' | 'types' | 'users' | 'account';
 
+const Ico = ({ d }: { d: string }) => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={d} /></svg>;
+interface Item { id: Tab; label: string; desc: string; icon: string; admin?: boolean; auth?: boolean }
+const GROUPS: { title: string; items: Item[] }[] = [
+  { title: 'Network', items: [
+    { id: 'import', label: 'Import switches', desc: 'Add many switches at once from a CSV file, or export the current list.', icon: 'M12 3v12M7 10l5 5 5-5M4 21h16', admin: true },
+    { id: 'profiles', label: 'SNMP credential profiles', desc: 'Reusable SNMP communities and SNMPv3 users, so you enter them once and apply them to many switches.', icon: 'M15 7a4 4 0 1 1-3.9 4.9L4 19v-3H1v-3h4l6.1-6.1A4 4 0 0 1 15 7z', admin: true },
+    { id: 'types', label: 'Device types', desc: 'Rules that decide whether a device is an access point, phone, printer, camera or server.', icon: 'M4 6h16M4 12h16M4 18h10', admin: true },
+    { id: 'integrations', label: 'Integrations', desc: 'Optional DHCP, domain and Intune lookups that name unknown devices. All off by default.', icon: 'M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1', admin: true },
+  ] },
+  { title: 'System', items: [
+    { id: 'general', label: 'Scanning & status', desc: 'SNMP timeouts, scan options and when a device is shown as offline or stale.', icon: 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1-2 3.4-.2-.1a1.7 1.7 0 0 0-1.9.2 1.7 1.7 0 0 0-1 1.5V22h-4v-.1a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.9-.2l-.2.1-2-3.4.1-.1A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.5-1H3v-4h.1A1.7 1.7 0 0 0 4.6 9a1.7 1.7 0 0 0-.3-1.8L4.2 7l2-3.4.2.1a1.7 1.7 0 0 0 1.9-.2A1.7 1.7 0 0 0 9.3 2H13.3a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9.2l.2-.1 2 3.4-.1.1A1.7 1.7 0 0 0 19.4 9a1.7 1.7 0 0 0 1.5 1h.1v4h-.1a1.7 1.7 0 0 0-1.5 1z', admin: true },
+    { id: 'notifications', label: 'E-mail & alerts', desc: 'Mail server (TLS) and alert rules such as uplink utilization or a switch going down.', icon: 'M4 6h16v12H4zM4 7l8 6 8-6', admin: true },
+    { id: 'company', label: 'Company & logo', desc: 'Your company name, website and logo, shown in the menu and on the sign-in page.', icon: 'M3 21V8l9-5 9 5v13M9 21v-6h6v6', admin: true },
+  ] },
+  { title: 'Access', items: [
+    { id: 'users', label: 'Users', desc: 'Portal accounts and roles (administrator or read-only viewer).', icon: 'M16 11a4 4 0 1 0-8 0M4 21a8 8 0 0 1 16 0', admin: true, auth: true },
+    { id: 'account', label: 'My account', desc: 'Change your password and manage two-factor authentication.', icon: 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM5 21a7 7 0 0 1 14 0', auth: true },
+  ] },
+];
+
 export default function SettingsPage() {
   const { me, canWrite } = useAuth();
   const [tab, setTab] = useState<Tab>(canWrite ? 'import' : 'account');
+  const groups = GROUPS.map((g) => ({ ...g, items: g.items.filter((i) => (!i.admin || canWrite) && (!i.auth || me.authRequired)) })).filter((g) => g.items.length > 0);
+  const current = groups.flatMap((g) => g.items).find((i) => i.id === tab);
   return (
-    <section>
-      <h1>Settings</h1>
-      <div className="tabs">
-        {canWrite && <button className={tab === 'import' ? 'active' : ''} onClick={() => setTab('import')}>Admin · Import Switches</button>}
-        {canWrite && <button className={tab === 'profiles' ? 'active' : ''} onClick={() => setTab('profiles')}>Admin · Credential Profiles</button>}
-        {canWrite && <button className={tab === 'general' ? 'active' : ''} onClick={() => setTab('general')}>General</button>}
-        {canWrite && <button className={tab === 'types' ? 'active' : ''} onClick={() => setTab('types')}>Admin · Device types</button>}
-        {canWrite && <button className={tab === 'notifications' ? 'active' : ''} onClick={() => setTab('notifications')}>Admin · Notifications</button>}
-        {canWrite && <button className={tab === 'integrations' ? 'active' : ''} onClick={() => setTab('integrations')}>Admin · Integrations</button>}
-        {canWrite && <button className={tab === 'company' ? 'active' : ''} onClick={() => setTab('company')}>Admin · Company</button>}
-        {canWrite && me.authRequired && <button className={tab === 'users' ? 'active' : ''} onClick={() => setTab('users')}>Admin · Users</button>}
-        {me.authRequired && <button className={tab === 'account' ? 'active' : ''} onClick={() => setTab('account')}>My account</button>}
-      </div>
+    <section className="settings">
+      <h1 className="sr-only">Settings</h1>
+      <nav className="setnav" aria-label="Settings sections">
+        {groups.map((g) => (
+          <div key={g.title} className="setgroup">
+            <div className="setgroup-title">{g.title}</div>
+            {g.items.map((i) => <button key={i.id} type="button" className={tab === i.id ? 'active' : ''} aria-current={tab === i.id ? 'page' : undefined} onClick={() => setTab(i.id)}><Ico d={i.icon} /><span>{i.label}</span></button>)}
+          </div>
+        ))}
+      </nav>
+      <div className="setmain">
+        {current && <header className="sethead"><h2>{current.label}</h2><p>{current.desc}</p></header>}
+        <div className="setbody">
       {!canWrite && !me.authRequired && <p>Not available.</p>}
       {canWrite && tab === 'import' && <ImportTab />}
       {canWrite && tab === 'profiles' && <ProfilesTab />}
@@ -40,6 +62,8 @@ export default function SettingsPage() {
       {canWrite && tab === 'types' && <CategoriesTab />}
       {canWrite && tab === 'users' && <UsersTab />}
       {tab === 'account' && <AccountTab />}
+        </div>
+      </div>
     </section>
   );
 }

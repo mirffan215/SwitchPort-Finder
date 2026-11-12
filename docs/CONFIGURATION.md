@@ -223,3 +223,7 @@ Each one is switched on by an administrator, is **read-only**, and runs only whe
 | **Intune** | Managed devices via Microsoft Graph → matches by MAC; adds name, user, OS, compliance | Entra app registration with the application permission `DeviceManagementManagedDevices.Read.All` (admin consent), tenant ID, client ID and secret; the portal server must reach `login.microsoftonline.com` and `graph.microsoft.com` |
 
 Passwords and secrets are stored encrypted and are never shown again. Intune matches only devices whose Wi-Fi/Ethernet MAC Intune reports; devices that use a randomised (private) Wi-Fi MAC cannot be matched. Run **DHCP first**, then **Active Directory**: the directory match uses the host name.
+
+### Wireless controllers are recognised automatically
+
+Add the controller like any switch (**Switches → + Add Wireless Controller**: IP and SNMP read community). When a scan finds that a device identifies itself as a Cisco wireless controller (AireOS, Catalyst 9800, virtual WLC), the portal flags it as one and reads its access points, even if the box was not ticked. Other vendors' controllers are not read: only the Cisco wireless MIBs are supported.

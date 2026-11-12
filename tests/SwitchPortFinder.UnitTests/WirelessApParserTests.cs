@@ -48,4 +48,14 @@ public class WirelessApParserTests
         var ap = WirelessApParser.Bsn(cols).Single();
         (ap.Name, ap.Model, ap.Serial, ap.Associated).Should().Be(("AP-Old", "AIR-AP2802I", "FCW123", true));
     }
+
+    [Theory]
+    [InlineData("Cisco IOS XE Software, Catalyst 9800-L Wireless Controller", null, true)]
+    [InlineData("Cisco Controller", null, true)]
+    [InlineData("Cisco AireOS 8.10 AIR-CT5520-K9", null, true)]
+    [InlineData("anything", "1.3.6.1.4.1.14179.1.1.4.3", true)]
+    [InlineData("Cisco IOS Software, C3750E Software", "1.3.6.1.4.1.9.1.516", false)]
+    [InlineData("Ruijie switch", null, false)]
+    [InlineData(null, null, false)]
+    public void Well_known_wireless_controllers_are_recognised(string? descr, string? oid, bool expected) => WirelessApParser.LooksLikeController(descr, oid).Should().Be(expected);
 }

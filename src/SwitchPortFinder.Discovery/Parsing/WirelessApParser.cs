@@ -9,6 +9,17 @@ namespace SwitchPortFinder.Discovery.Parsing;
 /// </summary>
 public static class WirelessApParser
 {
+    private static readonly string[] ControllerWords = ["wireless lan controller", "wireless controller", "cisco controller", "catalyst 9800", "c9800", "9800-", "air-ct", "vwlc", "aireos", "wlc"];
+
+    /// <summary>True when the system description / object id of a device identify a well-known Cisco wireless controller (AireOS, Catalyst 9800, virtual WLC).</summary>
+    public static bool LooksLikeController(string? descr, string? objectId)
+    {
+        if (!string.IsNullOrEmpty(objectId) && (objectId.TrimStart('.').StartsWith("1.3.6.1.4.1.14179.", StringComparison.Ordinal))) return true;   // AIRESPACE (AireOS) enterprise
+        if (string.IsNullOrWhiteSpace(descr)) return false;
+        var d = descr.ToLowerInvariant();
+        return ControllerWords.Any(w => d.Contains(w));
+    }
+
     /// <summary>"AA:BB.." from the index "170.187.204.0.17.34" (six sub-identifiers 0-255) or null.</summary>
     public static string? MacFromIndex(string index)
     {

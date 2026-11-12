@@ -21,7 +21,7 @@ export default function SwitchFormPage() {
   const [model, setModel] = useState('');
   const [location, setLocation] = useState('');
   const [arp, setArp] = useState(false);
-  const [wlc, setWlc] = useState(false);
+  const [wlc, setWlc] = useState(prefill.get('controller') === '1');
   const [profileId, setProfileId] = useState<number | ''>('');
   const [cred, setCred] = useState<CredentialInput>(emptyCredential());
   const [testResult, setTestResult] = useState<TestResult | null>(null);
@@ -51,7 +51,8 @@ export default function SwitchFormPage() {
 
   return (
     <section>
-      <h1>{editId ? 'Edit Switch' : 'Add Switch'}</h1>
+      <h1>{editId ? (wlc ? 'Edit Wireless Controller' : 'Edit Switch') : wlc ? 'Add Wireless Controller' : 'Add Switch'}</h1>
+      {wlc && <div className="alert">Enter the controller's management IP and its <strong>SNMP read</strong> community (or SNMPv3 user) below, then save and click <strong>Scan</strong>. Its access points are read automatically. Use a read-only SNMP community.</div>}
       <form className="form" onSubmit={submit}>
         <div className="row">
           <Field label="Name"><input required value={name} onChange={(e) => setName(e.target.value)} placeholder="CORE-SW-01" /></Field>

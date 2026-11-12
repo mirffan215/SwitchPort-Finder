@@ -55,6 +55,8 @@ public record WirelessApInfo(string SysMac, string? EthMac, string? Name, string
 public class ScanResult
 {
     public List<WirelessApInfo> WirelessAps { get; } = [];
+    /// <summary>The device identified itself as a well-known wireless controller although it was not flagged as one.</summary>
+    public bool AutoDetectedController { get; set; }
     public SystemInfo? System { get; set; }
     public HealthReading? Health { get; set; }
     public Manufacturer? DetectedManufacturer { get; set; }

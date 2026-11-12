@@ -16,7 +16,7 @@ export default function AccessPointsPage() {
   });
   return (
     <section>
-      <div className="toolbar"><h1>Access points</h1><div className="spacer" />
+      <div className="toolbar"><h1>Access points</h1><div className="spacer" /><Link className="btn" to="/switches/new?controller=1">+ Add Wireless Controller</Link>
         <input placeholder="Search name, IP, MAC, switch, port, VLAN" aria-label="Search access points" value={q} onChange={(e) => setQ(e.target.value)} style={{ minWidth: 300 }} />
         <select value={show} onChange={(e) => setShow(e.target.value as typeof show)} aria-label="Status"><option value="all">All statuses</option><option value="online">Online</option><option value="offline">Offline</option></select>
         <select value={sw} onChange={(e) => setSw(e.target.value)} aria-label="Switch"><option value="">All switches</option>{s?.bySwitch.map((k) => <option key={k.key} value={k.key}>{k.key} ({k.value})</option>)}</select>
@@ -47,7 +47,7 @@ export default function AccessPointsPage() {
                 <td>{i.uptimeSeconds != null ? `${Math.floor(i.uptimeSeconds / 86400)}d ${Math.floor((i.uptimeSeconds % 86400) / 3600)}h` : '—'}</td><td>{ago(i.lastSeen)}</td>
               </tr>
             ))}
-            {!isLoading && rows.length === 0 && <tr><td colSpan={13} className="muted">{s && s.total > 0 ? 'No access point matches the filters.' : 'No access points yet. Add your Cisco wireless controller under Switches (tick “This is a wireless controller”) and scan it, or they are detected from LLDP/CDP, host names and manufacturer rules.'}</td></tr>}
+            {!isLoading && rows.length === 0 && <tr><td colSpan={13} className="muted">{s && s.total > 0 ? 'No access point matches the filters.' : 'No access points yet. Use “+ Add Wireless Controller” above (enter its IP and SNMP read community), then scan it, or they are detected from LLDP/CDP, host names and manufacturer rules.'}</td></tr>}
           </tbody>
         </table>
       </div>

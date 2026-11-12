@@ -223,7 +223,8 @@ public sealed class SnmpSwitchScanner(ISnmpClient snmp, IOptions<SnmpOptions> sn
         else await onStep(new StepResult(Steps.Cdp, StepState.Skipped, "CDP does not apply to this manufacturer."));
 
         // 8. Wireless controller: the access points it manages (name, MACs, uptime, associated Wi-Fi clients). Read-only.
-        if (req.IsWirelessController)
+        res.AutoDetectedController = !req.IsWirelessController && WirelessApParser.LooksLikeController(res.System?.Descr, res.System?.ObjectId);
+        if (req.IsWirelessController || res.AutoDetectedController)
             await Run(Steps.WirelessAps, async () =>
             {
                 async Task<IReadOnlyList<SnmpVarBind>> Walk(string root) { try { return await snmp.WalkAsync(target, root, ct); } catch (SnmpException) { return []; } }
@@ -232,6 +233,7 @@ public sealed class SnmpSwitchScanner(ISnmpClient snmp, IOptions<SnmpOptions> sn
                 if (aps.Count == 0) aps = WirelessApParser.Bsn(await Cols(Oids.BsnApEntry, 3, 6, 16, 17, 19, 33));   // older AireOS
                 res.WirelessAps.AddRange(aps);
                 if (aps.Count > 0) return null;
+                if (res.AutoDetectedController) return "Looks like a wireless controller, but it returned no access points (its SNMP view may block the wireless tables).";
                 const string m = "No access points were returned. Check that this is a Cisco wireless controller and that its SNMP view allows the wireless (CISCO-LWAPP-AP-MIB) tables.";
                 res.Errors.Add(new ScanError(Steps.WirelessAps, "Empty", m)); return m;
             });

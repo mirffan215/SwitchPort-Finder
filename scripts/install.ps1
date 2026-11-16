@@ -83,16 +83,21 @@ try {
     if ($HttpsPort -lt 1 -or $HttpsPort -gt 65535) { Fail 'HttpsPort is not valid.' }
     if ($Database -notmatch '^[A-Za-z0-9_\-]{1,100}$') { Fail 'Database may contain only letters, digits, _ and -.' }
 
-    $runtimes = & dotnet --list-runtimes 2>$null
-    if (-not ($runtimes | Where-Object { $_ -match '^Microsoft\.AspNetCore\.App 8\.' })) {
-        if ($InstallPrerequisites -and (Get-Command winget -ErrorAction SilentlyContinue)) {
-            Warn 'Installing the ASP.NET Core 8 runtime with winget...'
-            Invoke-Native winget @('install', '--id', 'Microsoft.DotNet.AspNetCore.8', '-e', '--accept-package-agreements', '--accept-source-agreements')
-        } else {
-            Fail "The ASP.NET Core 8 runtime is not installed. Install it from https://dotnet.microsoft.com/download/dotnet/8.0 (choose 'ASP.NET Core Runtime 8.x - Windows x64'), or re-run with -InstallPrerequisites."
+    # A self-contained package carries its own runtime (hostfxr.dll next to the exe): nothing to install. A framework-dependent one needs the ASP.NET Core 8 runtime.
+    if (Test-Path (Join-Path $PSScriptRoot 'hostfxr.dll')) {
+        Ok 'Self-contained package: no separate .NET runtime is needed'
+    } else {
+        $runtimes = @(); if (Get-Command dotnet -ErrorAction SilentlyContinue) { $runtimes = @(& dotnet --list-runtimes 2>$null) }
+        if (-not ($runtimes | Where-Object { $_ -match '^Microsoft\.AspNetCore\.App 8\.' })) {
+            if ($InstallPrerequisites -and (Get-Command winget -ErrorAction SilentlyContinue)) {
+                Warn 'Installing the ASP.NET Core 8 runtime with winget...'
+                Invoke-Native winget @('install', '--id', 'Microsoft.DotNet.AspNetCore.8', '-e', '--accept-package-agreements', '--accept-source-agreements')
+            } else {
+                Fail "The ASP.NET Core 8 runtime is not installed on this server. Either use the self-contained package (SwitchPortFinder-win-x64-selfcontained.zip, nothing to install), or install 'ASP.NET Core Runtime 8.x - Windows x64' from https://dotnet.microsoft.com/download/dotnet/8.0 and run this script again."
+            }
         }
+        Ok 'ASP.NET Core 8 runtime present'
     }
-    Ok 'ASP.NET Core 8 runtime present'
 
     $sqlService = $null
     if (-not $ConnectionString) {

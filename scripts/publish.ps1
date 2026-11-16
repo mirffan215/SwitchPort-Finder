@@ -22,7 +22,7 @@ dotnet publish @args 2>&1 | ForEach-Object { "$_" }
 if ($LASTEXITCODE -ne 0) { throw "dotnet publish failed (exit $LASTEXITCODE)" }
 $ErrorActionPreference = "Stop"
 # ship the installer, helper scripts and the SQL script inside the package so it can be installed anywhere without the repository
-foreach ($f in 'install.ps1', 'uninstall.ps1', 'backup.ps1', 'SpfInstall.Common.ps1') { Copy-Item (Join-Path $PSScriptRoot $f) $Output -Force }
+foreach ($f in 'install.ps1', 'uninstall.ps1', 'backup.ps1', 'reset-admin.ps1', 'SpfInstall.Common.ps1') { Copy-Item (Join-Path $PSScriptRoot $f) $Output -Force }
 New-Item -ItemType Directory -Force -Path (Join-Path $Output 'docs') | Out-Null
 foreach ($f in 'schema.sql', 'INSTALLATION.md', 'CONFIGURATION.md', 'TROUBLESHOOTING.md') { Copy-Item (Join-Path $root "docs\$f") (Join-Path $Output 'docs') -Force }
 if ($Zip) { $zipPath = "$($Output.TrimEnd('\','/')).zip"; if (Test-Path $zipPath) { Remove-Item $zipPath }; Compress-Archive -Path (Join-Path $Output '*') -DestinationPath $zipPath; Write-Host "==> Package: $zipPath" }

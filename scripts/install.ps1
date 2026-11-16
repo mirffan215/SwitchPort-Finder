@@ -178,8 +178,12 @@ try {
         $cfg = Get-Content $ConfigPath -Raw | ConvertFrom-Json
         $cfg.Kestrel.Endpoints.Https.Certificate.Path = $pfxPath
         $cfg.Kestrel.Endpoints.Https.Certificate.Password = $pfxPassword
+        # a new -HostName (or extra names) must also be allowed, otherwise the site refuses requests for it
+        $wanted = @($HostName, $env:COMPUTERNAME, $fqdn, 'localhost', '127.0.0.1') + $ips
+        $cfg.AllowedHosts = ((@(([string]$cfg.AllowedHosts) -split ';') + $wanted) | Where-Object { $_ } | Select-Object -Unique) -join ';'
+        $cfg.Kestrel.Endpoints.Https.Url = "https://0.0.0.0:$HttpsPort"
         $cfg | ConvertTo-Json -Depth 12 | Set-Content -Path $ConfigPath -Encoding UTF8
-        Ok 'Kept the existing configuration (certificate settings refreshed)'
+        Ok 'Kept the existing configuration (certificate, allowed host names and HTTPS port refreshed)'
     } else {
         if ($AdminPassword) {
             $adminPlain = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($AdminPassword))

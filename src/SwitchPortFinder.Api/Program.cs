@@ -14,6 +14,7 @@ using SwitchPortFinder.Infrastructure.Persistence;
 
 // `--setup-database [--grant "<account>"]`: used by the installer; creates/migrates the database without starting the web host.
 if (args.Contains("--setup-database")) return await DatabaseSetup.RunAsync(args);
+if (args.Contains("--reset-password")) return await SwitchPortFinder.Api.Infrastructure.AccountTools.RunAsync(args);
 
 // A Windows service starts with C:\Windows\System32 as its working directory; without this the app would not find its appsettings.Production.json or wwwroot.
 var builder = WebApplication.CreateBuilder(new WebApplicationOptions

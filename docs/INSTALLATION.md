@@ -189,3 +189,14 @@ Restart, sign in as that user, then create your own accounts under *Settings →
 2. Tick **Use as ARP source** on your core / Layer 3 switch (IP addresses come from its ARP table).
 3. **Scan Now** (or **Scan all switches**). Scan the switches that connect to each other so uplinks can be identified.
 4. Search from the box at the top.
+
+
+## Changing the host name, or recovering the administrator password
+
+**Use a different DNS name** (for example after installing with the computer name): run the installer again from the package folder with the new name and `-KeepConfig`. It issues a certificate for the new name, adds it to the allowed host names and keeps your data and settings:
+
+    .\install.ps1 -HostName switchlens.amg.com -HttpsPort 443 -SqlInstance .\<instance> -KeepConfig
+
+**Nobody knows the administrator password** (it is shown only once at the end of a first install): run `reset-admin.ps1` as Administrator on the server. It asks for a new password, updates the account, clears any lockout and restarts the service. Add `-ResetTwoFactor` to remove the account's authenticator apps as well.
+
+    .\reset-admin.ps1 -UserName admin

@@ -1846,3 +1846,52 @@ GO
 COMMIT;
 GO
 
+BEGIN TRANSACTION;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261116084051_Phase21ProductType'
+)
+BEGIN
+    ALTER TABLE [Switches] ADD [ProductType] nvarchar(20) NOT NULL DEFAULT N'Switch';
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261116084051_Phase21ProductType'
+)
+BEGIN
+    UPDATE Switches SET ProductType = 'WirelessController' WHERE IsWirelessController = 1
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261116084051_Phase21ProductType'
+)
+BEGIN
+    DECLARE @var6 sysname;
+    SELECT @var6 = [d].[name]
+    FROM [sys].[default_constraints] [d]
+    INNER JOIN [sys].[columns] [c] ON [d].[parent_column_id] = [c].[column_id] AND [d].[parent_object_id] = [c].[object_id]
+    WHERE ([d].[parent_object_id] = OBJECT_ID(N'[Switches]') AND [c].[name] = N'IsWirelessController');
+    IF @var6 IS NOT NULL EXEC(N'ALTER TABLE [Switches] DROP CONSTRAINT [' + @var6 + '];');
+    ALTER TABLE [Switches] DROP COLUMN [IsWirelessController];
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261116084051_Phase21ProductType'
+)
+BEGIN
+    INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
+    VALUES (N'20261116084051_Phase21ProductType', N'8.0.11');
+END;
+GO
+
+COMMIT;
+GO
+

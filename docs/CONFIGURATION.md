@@ -241,3 +241,9 @@ Sharing one administrator account is possible but gives a weaker audit trail tha
 ## Product type
 
 Every inventory entry has a **Product type**: Switch, Wireless controller, Router / L3 core, Firewall or Other (choose it first on the Add form). It decides the form (the ARP-source option is offered only where it makes sense), the Switches list (a Type column and a filter) and the page you get: a **wireless controller** opens on its access points (online, offline, Wi-Fi clients) instead of a port matrix, and the dashboard counts it separately from switches. A scan that recognises a controller sets the type for entries still typed as "Switch"; a type you chose yourself is never changed. Existing entries that had the old controller checkbox become "Wireless controller" when you upgrade. The import/export CSV does not carry the product type; set it after an import.
+
+### Windows DHCP: setting up the portal server
+
+1. On the **portal server**, install the DHCP management tools (PowerShell module `DhcpServer`), as Administrator: `Install-WindowsFeature RSAT-DHCP`. Without it the run fails with "Get-DhcpServerv4Scope is not recognized".
+2. The service reads the DHCP server as the portal server's **computer account** (the service runs as a virtual account). On the **DHCP server**, add that computer account (for example `ALMURJAN\PORTALSERVER$`) to the local group **DHCP Users** (read-only access), wait a few minutes or restart the DHCP Server service, then press **Run now**.
+3. Quick manual test on the portal server: `Get-DhcpServerv4Scope -ComputerName <dhcp-server>` should list your scopes (run it in a PowerShell window as an administrator of the portal server; the service itself uses the computer account).

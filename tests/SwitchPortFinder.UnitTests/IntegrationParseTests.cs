@@ -48,4 +48,11 @@ public class IntegrationParseTests
     [InlineData("a b", false)]
     [InlineData("", false)]
     public void Only_plain_host_names_reach_powershell(string host, bool ok) => Parse.IsHost(host).Should().Be(ok);
+
+    [Theory]
+    [InlineData("Get-DhcpServerv4Scope : The term 'Get-DhcpServerv4Scope' is not recognized as the name of a cmdlet, function", "RSAT-DHCP")]
+    [InlineData("Access is denied", "DHCP Users")]
+    [InlineData("The RPC server is unavailable", "reached")]
+    [InlineData("something odd", "could not be read: something odd")]
+    public void Dhcp_failures_are_explained_in_plain_language(string err, string expectedPart) => PowerShellDhcpSource.Explain(err).Should().Contain(expectedPart);
 }

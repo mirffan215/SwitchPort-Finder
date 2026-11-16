@@ -74,10 +74,22 @@ public sealed class PowerShellDhcpSource : IDhcpLeaseSource
             using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct); cts.CancelAfter(TimeSpan.FromSeconds(90));
             var outT = p.StandardOutput.ReadToEndAsync(cts.Token); var errT = p.StandardError.ReadToEndAsync(cts.Token);
             try { await p.WaitForExitAsync(cts.Token); } catch (OperationCanceledException) { try { p.Kill(true); } catch { } throw new InvalidOperationException("The DHCP server did not answer within 90 seconds."); }
-            if (p.ExitCode != 0) throw new InvalidOperationException("The DHCP server could not be read: " + Clip(await errT));
+            if (p.ExitCode != 0) throw new InvalidOperationException(Explain(await errT));
             return Parse.LeaseCsv(await outT);
         }
     }
+    /// <summary>A plain-language reason and fix for the two most common PowerShell failures, otherwise the (shortened) error.</summary>
+    public static string Explain(string err)
+    {
+        if (err.Contains("is not recognized as the name of a cmdlet", StringComparison.OrdinalIgnoreCase))
+            return "The DHCP management tools are not installed on the portal server. On that server run, as Administrator:  Install-WindowsFeature RSAT-DHCP  (Windows Server) and press Run now again.";
+        if (err.Contains("access is denied", StringComparison.OrdinalIgnoreCase) || err.Contains("UnauthorizedAccess", StringComparison.OrdinalIgnoreCase) || err.Contains("not authorized", StringComparison.OrdinalIgnoreCase))
+            return "The DHCP server refused the connection. Add the portal server's computer account (for example AMG\\SERVERNAME$) to the \"DHCP Users\" group on the DHCP server, wait a few minutes, and run again.";
+        if (err.Contains("RPC server is unavailable", StringComparison.OrdinalIgnoreCase) || err.Contains("cannot connect", StringComparison.OrdinalIgnoreCase))
+            return "The DHCP server could not be reached. Check the server name and that the portal server can reach it (RPC, TCP 135 and the dynamic RPC ports).";
+        return "The DHCP server could not be read: " + Clip(err);
+    }
+
     private static string Clip(string s) { s = s.Trim().Replace('\r', ' ').Replace('\n', ' '); return s.Length > 300 ? s[..300] : s; }
 }
 

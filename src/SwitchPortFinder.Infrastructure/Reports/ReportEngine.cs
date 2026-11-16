@@ -25,7 +25,7 @@ public class ReportEngine(AppDbContext db, SwitchPortFinder.Infrastructure.Disco
     public static readonly IReadOnlyList<DatasetDef> Datasets =
     [
         new("switches", "Switches", "One row per switch: status, uptime, CPU, memory, latency, port counts.", false,
-            [T("name", "Switch"), T("ip", "Management IP"), T("manufacturer", "Manufacturer"), T("model", "Model"), T("location", "Location"), T("status", "Status"),
+            [T("name", "Switch"), T("ip", "Management IP"), T("productType", "Product type"), T("manufacturer", "Manufacturer"), T("model", "Model"), T("location", "Location"), T("status", "Status"),
              N("uptimeDays", "Uptime", "days"), N("cpuPct", "CPU", "%"), N("memPct", "Memory", "%"), N("latencyMs", "SNMP latency", "ms"),
              N("ports", "Ports"), N("portsUp", "Ports up"), N("uplinks", "Uplinks"), D("lastScan", "Last scan")]),
         new("ports", "Ports", "One row per port with the latest traffic rates.", false,
@@ -185,7 +185,7 @@ public class ReportEngine(AppDbContext db, SwitchPortFinder.Infrastructure.Disco
                 var now = DateTime.UtcNow;
                 return sw.Select(s => new Row
                 {
-                    ["name"] = s.Name, ["ip"] = s.ManagementIp, ["manufacturer"] = s.Manufacturer == Manufacturer.AutoDetect && s.DetectedManufacturer is { } dm ? Application.Snmp.VendorDetector.DisplayName(dm) : Application.Snmp.VendorDetector.DisplayName(s.Manufacturer),
+                    ["name"] = s.Name, ["ip"] = s.ManagementIp, ["productType"] = s.ProductType switch { ProductType.WirelessController => "Wireless controller", ProductType.Router => "Router / L3 core", ProductType.Firewall => "Firewall", ProductType.Other => "Other", _ => "Switch" }, ["manufacturer"] = s.Manufacturer == Manufacturer.AutoDetect && s.DetectedManufacturer is { } dm ? Application.Snmp.VendorDetector.DisplayName(dm) : Application.Snmp.VendorDetector.DisplayName(s.Manufacturer),
                     ["model"] = s.Model, ["location"] = s.Location, ["status"] = s.Status.ToString(),
                     ["uptimeDays"] = s.Status == SwitchStatus.Reachable && s.UptimeSeconds is { } u && s.UptimeAt is { } ua ? (u + Math.Max(0, (now - ua).TotalSeconds)) / 86400.0 : null,
                     ["cpuPct"] = s.CpuPct, ["memPct"] = s.MemPct, ["latencyMs"] = s.LatencyMs is { } l ? (double)l : null,

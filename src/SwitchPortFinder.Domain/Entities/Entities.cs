@@ -48,7 +48,13 @@ public class Switch
     public string? Notes { get; set; }
     public bool UseAsArpSource { get; set; }
     /// <summary>A wireless controller (Cisco WLC): its scan also reads the list of access points it manages.</summary>
-    public bool IsWirelessController { get; set; }
+    public ProductType ProductType { get; set; }
+    /// <summary>Convenience view of <see cref="ProductType"/> (not stored).</summary>
+    public bool IsWirelessController
+    {
+        get => ProductType == ProductType.WirelessController;
+        set { if (value) ProductType = ProductType.WirelessController; else if (ProductType == ProductType.WirelessController) ProductType = ProductType.Switch; }
+    }
     /// <summary>Set by discovery when the device routes (ipForwarding=1) and has an ARP table.</summary>
     public bool ArpAutoDetected { get; set; }
     public string? SerialNumber { get; set; }

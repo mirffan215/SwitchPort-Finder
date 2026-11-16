@@ -32,6 +32,8 @@ public class SwitchRequest
     public string? Notes { get; set; }
     public bool UseAsArpSource { get; set; }
     /// <summary>A Cisco wireless controller: scans also read its list of access points.</summary>
+    /// <summary>Switch, WirelessController, Router, Firewall or Other. When absent, IsWirelessController decides (older clients).</summary>
+    public ProductType? ProductType { get; set; }
     public bool IsWirelessController { get; set; }
     public int? CredentialProfileId { get; set; }
     public CredentialInput? Credential { get; set; }
@@ -41,13 +43,13 @@ public record SwitchSummaryDto(
     int Id, string Name, string ManagementIp, Manufacturer Manufacturer, string ManufacturerName,
     Manufacturer? DetectedManufacturer, bool VendorMismatch, string? Model, SwitchStatus Status,
     DateTime? LastScanAt, bool UseAsArpSource, string? Location, int? CredentialProfileId, string? CredentialProfileName,
-    int PortCount, bool IsWirelessController = false, int PortsUp = 0);
+    int PortCount, bool IsWirelessController = false, int PortsUp = 0, ProductType ProductType = ProductType.Switch);
 
 public record SwitchDetailDto(
     int Id, string Name, string ManagementIp, Manufacturer Manufacturer, string ManufacturerName, string? ManufacturerOther,
     Manufacturer? DetectedManufacturer, bool VendorMismatch, string? Model, string? Location, string? Notes, bool UseAsArpSource,
     SwitchStatus Status, DateTime? LastScanAt, string? SysName, string? SysDescr, string? SysObjectId,
-    int? CredentialProfileId, string? CredentialProfileName, CredentialSummary? Credential, DateTime CreatedAt, DateTime UpdatedAt, bool IsWirelessController = false);
+    int? CredentialProfileId, string? CredentialProfileName, CredentialSummary? Credential, DateTime CreatedAt, DateTime UpdatedAt, bool IsWirelessController = false, ProductType ProductType = ProductType.Switch);
 
 public class TestConnectionRequest
 {

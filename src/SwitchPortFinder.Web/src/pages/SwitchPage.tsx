@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
-import { api, type Neighbor, type PortRow } from '../api';
+import { api, productLabel, type Neighbor, type PortRow } from '../api';
 import { ConfidenceBadge, Dot, ErrorBox, PortTypeBadge, StateBadge, StatusBadge, TestResultBox, ago, fmtDate } from '../components/Bits';
 import ScanProgress from '../components/ScanProgress';
 import { useAuth } from '../components/Auth';
@@ -35,17 +35,17 @@ export default function SwitchPage() {
 
   if (sw.isLoading) return <p>Loading…</p>;
   if (sw.error || !sw.data) return <ErrorBox error={sw.error ?? new Error('Switch not found')} />;
-  const s = sw.data; const sum = ports.data?.summary;
+  const s = sw.data; const sum = ports.data?.summary; const isCtl = s.productType === 'WirelessController';
   const sel = ports.data?.ports.find((p) => p.ifIndex === selected);
 
   return (
     <section>
       <div className="toolbar">
-        <h1>{s.name}{s.isWirelessController && <span className="tag" title="Wireless controller" style={{ marginLeft: 8 }}>Wireless controller</span>}</h1>
-        <span className="muted">· {s.managementIp} · {s.manufacturerName}{sum ? ` · ${sum.total} Ports · ${sum.connected} Connected · ${sum.down} Down · ${sum.uplinks} Switch Uplinks` : ''}</span>
+        <h1>{s.name}{s.productType && s.productType !== 'Switch' && <span className="tag" style={{ marginLeft: 8 }}>{productLabel(s.productType)}</span>}</h1>
+        <span className="muted">· {s.managementIp} · {s.manufacturerName}{sum && !isCtl ? ` · ${sum.total} Ports · ${sum.connected} Connected · ${sum.down} Down · ${sum.uplinks} Switch Uplinks` : ''}</span>
         <StatusBadge status={s.status} />
         <div className="spacer" />
-        <div className="viewsw" role="group" aria-label="View"><button type="button" aria-pressed={view === 'graphic'} onClick={() => pickView('graphic')}>Graphical</button><button type="button" aria-pressed={view === 'table'} onClick={() => pickView('table')}>Table</button></div>
+        {!isCtl && <div className="viewsw" role="group" aria-label="View"><button type="button" aria-pressed={view === 'graphic'} onClick={() => pickView('graphic')}>Graphical</button><button type="button" aria-pressed={view === 'table'} onClick={() => pickView('table')}>Table</button></div>}
         {canWrite && <button className="btn primary" disabled={scan.isPending || scanning} onClick={() => scan.mutate()}>Scan Now</button>}
         <button className="btn" onClick={refresh}>Refresh</button>
         {canWrite && <button className="btn" disabled={test.isPending} onClick={() => test.mutate()}>Test SNMP</button>}
@@ -56,10 +56,12 @@ export default function SwitchPage() {
       {test.data && <TestResultBox r={test.data} />}
       {s.vendorMismatch && <div className="alert warn">⚠ Selected manufacturer ({s.manufacturerName}) differs from the detected vendor.</div>}
       <p className="muted">Last scan: {fmtDate(s.lastScanAt)}{s.sysName ? ` · sysName ${s.sysName}` : ''}{s.model ? ` · ${s.model}` : ''}</p>
-      {ports.data && !ports.data.hasArpSource && (
+      {!isCtl && ports.data && !ports.data.hasArpSource && (
         <div className="alert warn">Mark your core / L3 switch as an ARP source (Edit → “Use as ARP source”) to see IP addresses.</div>
       )}
 
+      {isCtl && <ControllerView name={s.name} />}
+      <PortsBlock collapsed={isCtl}>
       {ports.isLoading ? (
         <p className="muted">Loading ports…</p>
       ) : !ports.data ? null : ports.data.ports.length === 0 ? (
@@ -107,7 +109,42 @@ export default function SwitchPage() {
         </div>
         </>
       )}
+      </PortsBlock>
     </section>
+  );
+}
+
+/** A wireless controller lists access points instead of a port matrix; its own network ports stay available below. */
+function PortsBlock({ collapsed, children }: { collapsed: boolean; children: React.ReactNode }) {
+  return collapsed ? <details className="ctrlports"><summary>The controller's own network ports</summary>{children}</details> : <>{children}</>;
+}
+
+function ControllerView({ name }: { name: string }) {
+  const { data, isLoading } = useQuery({ queryKey: ['access-points'], queryFn: api.accessPoints });
+  const aps = (data?.items ?? []).filter((a) => a.controller === name);
+  const online = aps.filter((a) => a.online).length; const clients = aps.reduce((n, a) => n + (a.wifiClients ?? 0), 0);
+  return (
+    <div className="panelx ctrlview">
+      <h2>Access points on this controller</h2>
+      <div className="xstats" style={{ margin: '8px 0 14px' }}>
+        <div className="xstat"><span>Access points</span><b>{aps.length}</b><small>{online} online · {aps.length - online} offline</small></div>
+        <div className="xstat"><span>Wi-Fi clients</span><b>{clients}</b><small>reported by the controller</small></div>
+        <div className={`xstat ${aps.length - online > 0 ? 'warn' : 'ok'}`}><span>Health</span><b>{aps.length === 0 ? '—' : aps.length - online > 0 ? 'Check' : 'OK'}</b><small>{aps.length === 0 ? 'no access points read yet' : aps.length - online > 0 ? 'some access points are offline' : 'all access points joined'}</small></div>
+      </div>
+      {isLoading ? <p className="muted">Loading…</p> : aps.length === 0 ? <p className="muted">No access points yet. Click <strong>Scan Now</strong>; if none appear, the controller's SNMP view may block the wireless tables (allow 1.3.6.1.4.1.9.9.513).</p> : (
+        <div className="tablewrap"><table>
+          <thead><tr><th>Access point</th><th>Address</th><th>Location</th><th>Clients</th><th>Status</th></tr></thead>
+          <tbody>{aps.map((a) => (
+            <tr key={`${a.mac}-${a.deviceId ?? ''}`}>
+              <td><div className="swname">{a.deviceId ? <Link to={`/devices/${a.deviceId}`}>{a.name}</Link> : <strong>{a.name}</strong>}</div><div className="muted small">{a.model ?? a.vendor ?? '—'}</div></td>
+              <td><div>{a.ip ?? <span className="muted">Unknown IP</span>}</div><div className="mono muted small">{a.mac}</div></td>
+              <td>{a.switchId ? <><div><Link to={`/switches/${a.switchId}`}>{a.switchName}</Link></div><div className="muted small">{a.portName ?? '—'}{a.vlan != null && <span className="vlanchip">VLAN {a.vlan}</span>}</div></> : <span className="muted">Not located yet</span>}</td>
+              <td>{a.wifiClients ?? <span className="muted">—</span>}</td>
+              <td><Dot kind={a.online ? 'ok' : a.status === 'Disabled' ? 'muted' : 'warn'} label={a.status} /></td>
+            </tr>))}</tbody>
+        </table></div>
+      )}
+    </div>
   );
 }
 

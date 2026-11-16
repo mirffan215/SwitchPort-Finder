@@ -224,7 +224,7 @@ Each one is switched on by an administrator, is **read-only**, and runs only whe
 
 Passwords and secrets are stored encrypted and are never shown again. Intune matches only devices whose Wi-Fi/Ethernet MAC Intune reports; devices that use a randomised (private) Wi-Fi MAC cannot be matched. Run **DHCP first**, then **Active Directory**: the directory match uses the host name.
 
-### Wireless controllers are recognised automatically
+### Wireless controllers are recognised automatically (Product type)
 
 Add the controller like any switch (**Switches → + Add Wireless Controller**: IP and SNMP read community). When a scan finds that a device identifies itself as a Cisco wireless controller (AireOS, Catalyst 9800, virtual WLC), the portal flags it as one and reads its access points, even if the box was not ticked. Other vendors' controllers are not read: only the Cisco wireless MIBs are supported.
 
@@ -237,3 +237,7 @@ Sharing one administrator account is possible but gives a weaker audit trail tha
 ## Management reports
 
 **Reports → Management reports** has four ready-made graphical reports (Executive summary, Network performance, Availability and reliability, Inventory and growth). Pick the period (7, 30 or 90 days) and one, several or all switches, then use **Print or save as PDF** (the browser print dialog; the page switches to a light, A4-landscape layout). **Report builder** keeps the custom reports with Excel, CSV and PDF export.
+
+## Product type
+
+Every inventory entry has a **Product type**: Switch, Wireless controller, Router / L3 core, Firewall or Other (choose it first on the Add form). It decides the form (the ARP-source option is offered only where it makes sense), the Switches list (a Type column and a filter) and the page you get: a **wireless controller** opens on its access points (online, offline, Wi-Fi clients) instead of a port matrix, and the dashboard counts it separately from switches. A scan that recognises a controller sets the type for entries still typed as "Switch"; a type you chose yourself is never changed. Existing entries that had the old controller checkbox become "Wireless controller" when you upgrade. The import/export CSV does not carry the product type; set it after an import.

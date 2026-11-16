@@ -292,6 +292,24 @@ public class DiscoveryApiTests(ApiFixture fx)
     }
 
     [Fact]
+    public async Task The_product_type_is_stored_returned_and_an_explicit_type_is_not_overridden_by_detection()
+    {
+        var n = Interlocked.Increment(ref _seed); var ip = $"203.7.{n}.5";
+        var net = fx.Services.GetService(typeof(FakeSnmpClient)).As<FakeSnmpClient>().Net;
+        net.WithSystem(ip, "FW-01", "1.3.6.1.4.1.9.1.1", "Cisco Controller");        // looks like a controller, but the admin says it is a firewall
+        string R(int c) => $"{Oids.LwappApEntry}.{c}.0.17.34.51.68.7";
+        net.Walk(ip, "pub", $"{Oids.LwappApEntry}.5", [Vb(R(5), Txt($"NOT-AN-AP-{n}"))]);
+        var r = await _http.PostAsJsonAsync("/api/switches", new SwitchRequest { Name = $"FW-{n}", ManagementIp = ip, ProductType = ProductType.Firewall, Credential = new CredentialInput { Version = SnmpVersion.V2c, Community = "pub" } }, Json);
+        r.StatusCode.Should().Be(HttpStatusCode.Created);
+        var id = (await r.Content.ReadFromJsonAsync<SwitchDetailDto>(Json))!.Id;
+        await Scan(id);
+        var d = (await _http.GetFromJsonAsync<SwitchDetailDto>($"/api/switches/{id}", Json))!;
+        (d.ProductType, d.IsWirelessController).Should().Be((ProductType.Firewall, false));
+        (await _http.GetFromJsonAsync<List<SwitchSummaryDto>>("/api/switches", Json))!.Single(x => x.Id == id).ProductType.Should().Be(ProductType.Firewall);
+        (await _http.GetFromJsonAsync<AccessPointsResponse>("/api/access-points", Json))!.Items.Should().NotContain(a => a.Name == $"NOT-AN-AP-{n}");
+    }
+
+    [Fact]
     public async Task A_device_that_identifies_itself_as_a_wireless_controller_is_recognised_without_ticking_anything()
     {
         var n = Interlocked.Increment(ref _seed); var ip = $"203.8.{n}.5";
@@ -324,7 +342,7 @@ public class DiscoveryApiTests(ApiFixture fx)
             Col(54, a => new SnmpValue(SnmpValueKind.Gauge, a));
         }
         Aps(1, 2, 3);
-        var r = await _http.PostAsJsonAsync("/api/switches", new SwitchRequest { Name = $"WLC-{n}", ManagementIp = ip, IsWirelessController = true, Credential = new CredentialInput { Version = SnmpVersion.V2c, Community = "pub" } }, Json);
+        var r = await _http.PostAsJsonAsync("/api/switches", new SwitchRequest { Name = $"WLC-{n}", ManagementIp = ip, ProductType = ProductType.WirelessController, Credential = new CredentialInput { Version = SnmpVersion.V2c, Community = "pub" } }, Json);
         r.StatusCode.Should().Be(HttpStatusCode.Created);
         var id = (await r.Content.ReadFromJsonAsync<SwitchDetailDto>(Json))!.Id;
         (await Scan(id)).Job.Status.Should().NotBe(JobStatus.Failed);

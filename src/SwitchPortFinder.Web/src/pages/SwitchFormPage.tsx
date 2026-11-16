@@ -1,7 +1,7 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { api, MANUFACTURERS, type CredentialInput, type Manufacturer, type TestResult } from '../api';
+import { api, MANUFACTURERS, PRODUCT_TYPES, productLabel, type CredentialInput, type Manufacturer, type ProductType, type TestResult } from '../api';
 import { ErrorBox, Field, TestResultBox } from '../components/Bits';
 import CredentialFields, { emptyCredential } from '../components/CredentialFields';
 
@@ -21,7 +21,8 @@ export default function SwitchFormPage() {
   const [model, setModel] = useState('');
   const [location, setLocation] = useState('');
   const [arp, setArp] = useState(false);
-  const [wlc, setWlc] = useState(prefill.get('controller') === '1');
+  const [ptype, setPtype] = useState<ProductType>(prefill.get('controller') === '1' ? 'WirelessController' : ((prefill.get('type') as ProductType) || 'Switch'));
+  const wlc = ptype === 'WirelessController';
   const [profileId, setProfileId] = useState<number | ''>('');
   const [cred, setCred] = useState<CredentialInput>(emptyCredential());
   const [testResult, setTestResult] = useState<TestResult | null>(null);
@@ -30,7 +31,7 @@ export default function SwitchFormPage() {
     const s = existing.data;
     if (!s) return;
     setName(s.name); setIp(s.managementIp); setManufacturer(s.manufacturer); setOther(s.manufacturerOther ?? '');
-    setModel(s.model ?? ''); setLocation(s.location ?? ''); setArp(s.useAsArpSource); setWlc(!!s.isWirelessController); setProfileId(s.credentialProfileId ?? '');
+    setModel(s.model ?? ''); setLocation(s.location ?? ''); setArp(s.useAsArpSource); setPtype(s.productType ?? (s.isWirelessController ? 'WirelessController' : 'Switch')); setProfileId(s.credentialProfileId ?? '');
     if (s.credential) setCred({ ...emptyCredential(), version: s.credential.version, authProtocol: s.credential.authProtocol, privProtocol: s.credential.privProtocol, contextName: s.credential.contextName ?? '' });
   }, [existing.data]);
 
@@ -41,7 +42,7 @@ export default function SwitchFormPage() {
   });
   const save = useMutation({
     mutationFn: () => {
-      const body = { name, managementIp: ip, manufacturer, manufacturerOther: other, model, location, useAsArpSource: arp, isWirelessController: wlc,
+      const body = { name, managementIp: ip, manufacturer, manufacturerOther: other, model, location, useAsArpSource: wlc || ptype === 'Firewall' ? false : arp, productType: ptype,
         credentialProfileId: usingProfile ? Number(profileId) : null, credential: usingProfile ? null : cred };
       return editId ? api.updateSwitch(editId, body) : api.createSwitch(body);
     },
@@ -51,9 +52,21 @@ export default function SwitchFormPage() {
 
   return (
     <section>
-      <h1>{editId ? (wlc ? 'Edit Wireless Controller' : 'Edit Switch') : wlc ? 'Add Wireless Controller' : 'Add Switch'}</h1>
+      <h1>{editId ? `Edit ${productLabel(ptype)}` : `Add ${productLabel(ptype)}`}</h1>
       {wlc && <div className="alert">Enter the controller's management IP and its <strong>SNMP read</strong> community (or SNMPv3 user) below, then save and click <strong>Scan</strong>. Its access points are read automatically. Use a read-only SNMP community.</div>}
       <form className="form" onSubmit={submit}>
+        <fieldset className="ptypes">
+          <legend>Product type</legend>
+          <div className="ptype-grid" role="radiogroup" aria-label="Product type">
+            {PRODUCT_TYPES.map((p) => (
+              <label key={p.value} className={`ptype ${ptype === p.value ? 'on' : ''}`}>
+                <input type="radio" name="ptype" value={p.value} checked={ptype === p.value} onChange={() => setPtype(p.value)} />
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={p.icon} /></svg>
+                <span><b>{p.label}</b><small>{p.hint}</small></span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
         <div className="row">
           <Field label="Name"><input required value={name} onChange={(e) => setName(e.target.value)} placeholder="CORE-SW-01" /></Field>
           <Field label="Management IP"><input required value={ip} onChange={(e) => { setIp(e.target.value); setTestResult(null); }} placeholder="IPv4 or IPv6" /></Field>
@@ -80,15 +93,11 @@ export default function SwitchFormPage() {
           {!usingProfile && <CredentialFields value={cred} onChange={(v) => { setCred(v); setTestResult(null); }} existing={existing.data?.credential} />}
         </fieldset>
 
-        <label className="check">
+        {(ptype === 'Switch' || ptype === 'Router' || ptype === 'Other') && <label className="check">
           <input type="checkbox" checked={arp} onChange={(e) => setArp(e.target.checked)} />
           Use as ARP source <small>(core / Layer 3 switch or router that holds the IP→MAC table; Layer 3 devices are also auto-detected)</small>
-        </label>
+        </label>}
 
-        <label className="check">
-          <input type="checkbox" checked={wlc} onChange={(e) => setWlc(e.target.checked)} />
-          This is a Cisco wireless controller <small>(the scan reads its access point list, so the access points appear on the Access points page automatically)</small>
-        </label>
 
         {testResult && <TestResultBox r={testResult} />}
         <ErrorBox error={test.error ?? save.error} />

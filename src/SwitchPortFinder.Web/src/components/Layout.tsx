@@ -20,7 +20,7 @@ const NAV = [
   { to: '/discovery', label: 'Discovery', icon: I('M21 12a9 9 0 11-3-6.7L21 8M21 3v5h-5') },
   { to: '/settings', label: 'Settings', icon: I('M12 15a3 3 0 100-6 3 3 0 000 6zM19 12a7 7 0 00-.1-1l2-1.5-2-3.5-2.3 1a7 7 0 00-1.7-1L15 3h-4l-.4 3a7 7 0 00-1.7 1l-2.3-1-2 3.5 2 1.5a7 7 0 000 2l-2 1.5 2 3.5 2.3-1a7 7 0 001.7 1l.4 3h4l.4-3a7 7 0 001.7-1l2.3 1 2-3.5-2-1.5a7 7 0 00.1-1z') },
 ];
-const TITLES: [string, string][] = [['/switches', 'Switch Inventory & Port Matrix'], ['/devices', 'Devices'], ['/access-points', 'Access Points'], ['/ports', 'Ports'], ['/reports', 'Reports'], ['/topology', 'Network Topology'], ['/discovery', 'Discovery'], ['/settings', 'Settings'], ['/search', 'Search Results']];
+const TITLES: [string, string][] = [['/switches', 'Network Inventory'], ['/devices', 'Devices'], ['/access-points', 'Access Points'], ['/ports', 'Ports'], ['/reports', 'Reports'], ['/topology', 'Network Topology'], ['/discovery', 'Discovery'], ['/settings', 'Settings'], ['/search', 'Search Results']];
 const titleFor = (path: string) => (path === '/' ? 'Dashboard & Overview' : TITLES.find(([p]) => path.startsWith(p))?.[1] ?? 'SwitchPort Finder');
 
 export default function Layout() {

@@ -19,7 +19,9 @@ export default function Dashboard() {
   const sws = useQuery({ queryKey: ['switches'], queryFn: api.listSwitches });
   const util = useQuery({ queryKey: ['top-util', 10], queryFn: () => api.topPorts('utilization', 10), refetchInterval: 30_000 });
   const last = d?.lastDiscovery;
-  const swList = sws.data ?? [];
+  const allEntries = sws.data ?? [];
+  const controllers = allEntries.filter((x) => x.productType === 'WirelessController');
+  const swList = allEntries.filter((x) => x.productType !== 'WirelessController');   // "switches" excludes wireless controllers, which have their own figure
   const stale = (s: { status: string; lastScanAt?: string | null }) => s.status === 'Reachable' && !!s.lastScanAt && Date.now() - new Date(s.lastScanAt).getTime() > 24 * 3600 * 1000;
 
   // Everything that needs a person, worst first. Built from data the portal already has.
@@ -47,7 +49,7 @@ export default function Dashboard() {
 
   return (
     <section className="dash">
-      <div className="toolbar"><div><h1 style={{ margin: 0 }}>Network overview</h1><div className="muted small">{last ? `Last scan ${ago(last.completedAt ?? last.queuedAt)} · ` : ''}{swList.length} switch{swList.length === 1 ? '' : 'es'}{aps.data && aps.data.summary.total > 0 ? ` · ${aps.data.summary.total} access points` : ''}</div></div><div className="spacer" />{canWrite && <Link className="btn" to="/switches/new">+ Add Switch</Link>}</div>
+      <div className="toolbar"><div><h1 style={{ margin: 0 }}>Network overview</h1><div className="muted small">{last ? `Last scan ${ago(last.completedAt ?? last.queuedAt)} · ` : ''}{swList.length} switch{swList.length === 1 ? '' : 'es'}{controllers.length > 0 ? ` · ${controllers.length} wireless controller${controllers.length === 1 ? '' : 's'}` : ''}{aps.data && aps.data.summary.total > 0 ? ` · ${aps.data.summary.total} access points` : ''}</div></div><div className="spacer" />{canWrite && <Link className="btn" to="/switches/new">+ Add Switch</Link>}</div>
       <ErrorBox error={error} />
       {d && d.switches === 0 && <div className="alert">No switches yet. <Link to="/switches/new">Add your first switch</Link>, <Link to="/switches/new?controller=1">add your wireless controller</Link> or <Link to="/settings">import a list</Link>.</div>}
 

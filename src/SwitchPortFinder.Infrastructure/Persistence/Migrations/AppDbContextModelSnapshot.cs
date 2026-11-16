@@ -982,9 +982,6 @@ namespace SwitchPortFinder.Infrastructure.Persistence.Migrations
                     b.Property<int?>("ImportBatchId")
                         .HasColumnType("int");
 
-                    b.Property<bool>("IsWirelessController")
-                        .HasColumnType("bit");
-
                     b.Property<DateTime?>("LastScanAt")
                         .HasColumnType("datetime2");
 
@@ -1022,6 +1019,11 @@ namespace SwitchPortFinder.Infrastructure.Persistence.Migrations
                     b.Property<string>("Notes")
                         .HasMaxLength(1000)
                         .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("ProductType")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
 
                     b.Property<string>("SerialNumber")
                         .HasMaxLength(100)

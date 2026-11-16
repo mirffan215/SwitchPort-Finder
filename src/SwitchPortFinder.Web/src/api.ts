@@ -23,11 +23,21 @@ export interface CredentialSummary {
   version: SnmpVersion; authProtocol: AuthProtocol; privProtocol: PrivProtocol; contextName?: string | null;
   hasCommunity: boolean; hasUsername: boolean; hasAuthPassword: boolean; hasPrivPassword: boolean;
 }
+export type ProductType = 'Switch' | 'WirelessController' | 'Router' | 'Firewall' | 'Other';
+/** What an inventory entry is; decides which form fields and which page view it gets. */
+export const PRODUCT_TYPES: { value: ProductType; label: string; plural: string; hint: string; icon: string }[] = [
+  { value: 'Switch', label: 'Switch', plural: 'Switches', hint: 'Layer 2 / access or distribution switch: ports, devices and uplinks are read.', icon: 'M3 6h18v5H3zM3 13h18v5H3zM7 8.5h.01M7 15.5h.01' },
+  { value: 'WirelessController', label: 'Wireless controller', plural: 'Wireless controllers', hint: 'Cisco wireless LAN controller: its access points and Wi-Fi client counts are read.', icon: 'M5 12.5a10 10 0 0 1 14 0M8.5 16a5 5 0 0 1 7 0M12 19.5h.01' },
+  { value: 'Router', label: 'Router / L3 core', plural: 'Routers', hint: 'Routing core: provides the IP-to-MAC (ARP) table.', icon: 'M4 15h16v5H4zM8 15v-4M16 15v-4M12 15V8M9 5l3-3 3 3' },
+  { value: 'Firewall', label: 'Firewall', plural: 'Firewalls', hint: 'Firewall or security gateway with SNMP.', icon: 'M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z' },
+  { value: 'Other', label: 'Other', plural: 'Other', hint: 'Any other SNMP-capable device.', icon: 'M12 8v8M8 12h8M4 4h16v16H4z' },
+];
+export const productLabel = (t?: ProductType | null) => PRODUCT_TYPES.find((p) => p.value === t)?.label ?? 'Switch';
 export interface SwitchSummary {
   id: number; name: string; managementIp: string; manufacturer: Manufacturer; manufacturerName: string;
   detectedManufacturer?: Manufacturer | null; vendorMismatch: boolean; model?: string | null;
   status: 'Unknown' | 'Reachable' | 'Unreachable'; lastScanAt?: string | null; useAsArpSource: boolean;
-  location?: string | null; credentialProfileId?: number | null; credentialProfileName?: string | null; portCount: number; portsUp?: number; isWirelessController?: boolean;
+  location?: string | null; credentialProfileId?: number | null; credentialProfileName?: string | null; portCount: number; portsUp?: number; isWirelessController?: boolean; productType?: ProductType;
 }
 export interface SwitchDetail extends Omit<SwitchSummary, 'portCount'> {
   manufacturerOther?: string | null; notes?: string | null; sysName?: string | null; sysDescr?: string | null;
@@ -35,7 +45,7 @@ export interface SwitchDetail extends Omit<SwitchSummary, 'portCount'> {
 }
 export interface SwitchRequest {
   name: string; managementIp: string; manufacturer: Manufacturer; manufacturerOther?: string; model?: string;
-  location?: string; notes?: string; useAsArpSource: boolean; isWirelessController?: boolean; credentialProfileId?: number | null; credential?: CredentialInput | null;
+  location?: string; notes?: string; useAsArpSource: boolean; productType?: ProductType; credentialProfileId?: number | null; credential?: CredentialInput | null;
 }
 export interface TestResult {
   success: boolean; message: string; errorCode?: string | null; sysName?: string | null; sysDescr?: string | null;

@@ -50,7 +50,7 @@ public class AccessPointService(AppDbContext db, DeviceQueryService devices)
         KeyValuePair<string, int>[] Top(IEnumerable<string> keys) => keys.GroupBy(k => k).OrderByDescending(g => g.Count()).ThenBy(g => g.Key).Select(g => new KeyValuePair<string, int>(g.Key, g.Count())).ToArray();
         var online = rows.Count(r => r.Online);
         var clients = rows.Any(r => r.WifiClients is not null) ? rows.Sum(r => r.WifiClients ?? 0) : (int?)null;
-        return new AccessPointsResponse(new AccessPointSummary(rows.Count, online, rows.Count - online, await db.Switches.CountAsync(s => s.IsWirelessController, ct), clients,
+        return new AccessPointsResponse(new AccessPointSummary(rows.Count, online, rows.Count - online, await db.Switches.CountAsync(s => s.ProductType == ProductType.WirelessController, ct), clients,
             Top(rows.Select(r => r.SwitchName ?? "Not located")), Top(rows.Select(r => r.Vendor ?? "Unknown"))), rows);
     }
 

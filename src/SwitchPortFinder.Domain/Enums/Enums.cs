@@ -31,6 +31,9 @@ public enum DeviceCategory { Unclassified = 0, AccessPoint = 1, IpPhone = 2, Pri
 
 public enum ImportMode { SkipExisting = 0, UpdateExisting = 1 }
 
+/// <summary>What an inventory entry is. Decides what the portal shows and reads for it (a wireless controller lists access points rather than a port matrix).</summary>
+public enum ProductType { Switch = 0, WirelessController = 1, Router = 2, Firewall = 3, Other = 4 }
+
 public enum PortType { Unknown = 0, Endpoint = 1, SwitchUplink = 2, Down = 3 }
 
 public enum DeviceState { Active = 0, Offline = 1, Stale = 2 }

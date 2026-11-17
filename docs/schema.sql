@@ -1895,3 +1895,46 @@ GO
 COMMIT;
 GO
 
+BEGIN TRANSACTION;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261117065118_Phase22NetworkEvents'
+)
+BEGIN
+    CREATE TABLE [NetworkEvents] (
+        [Id] bigint NOT NULL IDENTITY,
+        [At] datetime2 NOT NULL,
+        [Kind] nvarchar(20) NOT NULL,
+        [SwitchId] int NULL,
+        [DeviceId] int NULL,
+        [Title] nvarchar(200) NOT NULL,
+        [Detail] nvarchar(300) NULL,
+        CONSTRAINT [PK_NetworkEvents] PRIMARY KEY ([Id])
+    );
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261117065118_Phase22NetworkEvents'
+)
+BEGIN
+    CREATE INDEX [IX_NetworkEvents_At] ON [NetworkEvents] ([At]);
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261117065118_Phase22NetworkEvents'
+)
+BEGIN
+    INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
+    VALUES (N'20261117065118_Phase22NetworkEvents', N'8.0.11');
+END;
+GO
+
+COMMIT;
+GO
+

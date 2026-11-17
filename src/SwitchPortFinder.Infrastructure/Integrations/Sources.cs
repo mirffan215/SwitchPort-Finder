@@ -64,6 +64,7 @@ public sealed class PowerShellDhcpSource : IDhcpLeaseSource
         var script = $"$ErrorActionPreference='Stop'; $sv='{server}'; $sc=Get-DhcpServerv4Scope -ComputerName $sv; " +
             "$l=@($sc | Get-DhcpServerv4Lease -ComputerName $sv | Select-Object @{n='Kind';e={'lease'}},IPAddress,ClientId,HostName,ScopeId,@{n='State';e={[string]$_.AddressState}},@{n='Expires';e={if($_.LeaseExpiryTime){$_.LeaseExpiryTime.ToString('s')}}},@{n='Description';e={''}}); " +
             "$r=@(); try {{ $r=@($sc | Get-DhcpServerv4Reservation -ComputerName $sv | Select-Object @{n='Kind';e={'reservation'}},IPAddress,ClientId,@{n='HostName';e={$_.Name}},ScopeId,@{n='State';e={'Reserved'}},@{n='Expires';e={''}},Description) }} catch {{ }}; " +
+            "[Console]::Error.WriteLine('SPF-DIAG scopes=' + @($sc).Count + ' leases=' + $l.Count + ' reservations=' + $r.Count); " +
             "($l + $r) | ConvertTo-Csv -NoTypeInformation";
         var psi = new ProcessStartInfo("powershell.exe") { RedirectStandardOutput = true, RedirectStandardError = true, UseShellExecute = false, CreateNoWindow = true };
         foreach (var a in new[] { "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", script }) psi.ArgumentList.Add(a);
@@ -75,9 +76,22 @@ public sealed class PowerShellDhcpSource : IDhcpLeaseSource
             var outT = p.StandardOutput.ReadToEndAsync(cts.Token); var errT = p.StandardError.ReadToEndAsync(cts.Token);
             try { await p.WaitForExitAsync(cts.Token); } catch (OperationCanceledException) { try { p.Kill(true); } catch { } throw new InvalidOperationException("The DHCP server did not answer within 90 seconds."); }
             if (p.ExitCode != 0) throw new InvalidOperationException(Explain(await errT));
-            return Parse.LeaseCsv(await outT);
+            var leases = Parse.LeaseCsv(await outT);
+            if (leases.Count == 0) throw new InvalidOperationException(ExplainEmpty(await errT));
+            return leases;
         }
     }
+    /// <summary>Nothing came back although PowerShell did not fail: say how many scopes the portal could see, which tells permission problems from empty scopes.</summary>
+    public static string ExplainEmpty(string err)
+    {
+        var m = System.Text.RegularExpressions.Regex.Match(err ?? "", @"SPF-DIAG scopes=(\d+) leases=(\d+) reservations=(\d+)");
+        if (!m.Success) return "The DHCP server returned no leases. " + Clip(err ?? "");
+        var scopes = int.Parse(m.Groups[1].Value); var leases = int.Parse(m.Groups[2].Value);
+        if (scopes == 0) return "The portal could not see any DHCP scope on that server. This usually means the portal server's computer account is not allowed to read it: add that computer to the \"DHCP Users\" group, then restart the portal server (or run klist -li 0x3e7 purge) and try again.";
+        if (leases == 0) return $"The portal sees {scopes} scope(s) but they returned no leases (reservations: {m.Groups[3].Value}). Check that the scopes have active leases, and that the account has read access to them.";
+        return $"The server returned {leases} lease(s) but the portal could not read the answer. Please report this.";
+    }
+
     /// <summary>A plain-language reason and fix for the two most common PowerShell failures, otherwise the (shortened) error.</summary>
     public static string Explain(string err)
     {

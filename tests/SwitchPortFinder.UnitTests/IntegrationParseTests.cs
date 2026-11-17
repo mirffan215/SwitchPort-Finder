@@ -55,4 +55,11 @@ public class IntegrationParseTests
     [InlineData("The RPC server is unavailable", "reached")]
     [InlineData("something odd", "could not be read: something odd")]
     public void Dhcp_failures_are_explained_in_plain_language(string err, string expectedPart) => PowerShellDhcpSource.Explain(err).Should().Contain(expectedPart);
+
+    [Theory]
+    [InlineData("SPF-DIAG scopes=0 leases=0 reservations=0", "could not see any DHCP scope")]
+    [InlineData("SPF-DIAG scopes=3 leases=0 reservations=1", "3 scope(s)")]
+    [InlineData("SPF-DIAG scopes=3 leases=40 reservations=1", "could not read the answer")]
+    [InlineData("", "returned no leases")]
+    public void An_empty_dhcp_answer_is_explained_from_the_diagnostic_line(string err, string expectedPart) => PowerShellDhcpSource.ExplainEmpty(err).Should().Contain(expectedPart);
 }

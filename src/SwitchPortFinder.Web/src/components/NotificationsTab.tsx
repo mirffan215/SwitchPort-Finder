@@ -80,14 +80,14 @@ function RuleRow({ rule, switches, onChanged }: { rule: AlertRule; switches: { i
   return (
     <>
       <tr>
-        <td><input type="checkbox" aria-label="Enabled" checked={r.enabled} onChange={(e) => setR({ ...r, enabled: e.target.checked })} /></td>
-        <td><input aria-label="Name" value={r.name} onChange={(e) => setR({ ...r, name: e.target.value })} style={{ width: 210 }} /><div className="muted small">{t.label} — {t.hint}</div></td>
-        <td>{t.hasLimit ? <span style={{ whiteSpace: 'nowrap' }}><input aria-label="Limit" type="number" min={0.1} step="any" value={r.threshold} onChange={(e) => setR({ ...r, threshold: Number(e.target.value) })} style={{ width: 78 }} /> {t.unit}</span> : '—'}</td>
-        <td><input aria-label="Minutes" type="number" min={0} max={1440} value={r.durationMinutes} onChange={(e) => setR({ ...r, durationMinutes: Number(e.target.value) })} style={{ width: 70 }} /> min</td>
-        <td><select aria-label="Switch" value={r.switchId ?? ''} onChange={(e) => setR({ ...r, switchId: e.target.value ? Number(e.target.value) : null })}><option value="">All switches</option>{switches.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select></td>
-        <td><input aria-label="Remind every" type="number" min={0} max={10080} value={r.cooldownMinutes} onChange={(e) => setR({ ...r, cooldownMinutes: Number(e.target.value) })} style={{ width: 76 }} /> min</td>
-        <td><input type="checkbox" aria-label="Notify when resolved" checked={r.notifyOnResolve} onChange={(e) => setR({ ...r, notifyOnResolve: e.target.checked })} /></td>
-        <td className="actions"><button className="btn small" disabled={!dirty || save.isPending} onClick={() => save.mutate()}>Save</button><button className="link danger" onClick={() => confirm(`Delete rule "${r.name}"?`) && del.mutate()}>Delete</button></td>
+        <td className="c-half" data-label="On"><input type="checkbox" aria-label="Enabled" checked={r.enabled} onChange={(e) => setR({ ...r, enabled: e.target.checked })} /></td>
+        <td className="c-full" data-label="Name"><input aria-label="Name" value={r.name} onChange={(e) => setR({ ...r, name: e.target.value })} style={{ width: 210 }} /><div className="muted small">{t.label} — {t.hint}</div></td>
+        <td className="c-half" data-label="Limit">{t.hasLimit ? <span style={{ whiteSpace: 'nowrap' }}><input aria-label="Limit" type="number" min={0.1} step="any" value={r.threshold} onChange={(e) => setR({ ...r, threshold: Number(e.target.value) })} style={{ width: 78 }} /> {t.unit}</span> : '—'}</td>
+        <td className="c-half" data-label="For (minutes)"><input aria-label="Minutes" type="number" min={0} max={1440} value={r.durationMinutes} onChange={(e) => setR({ ...r, durationMinutes: Number(e.target.value) })} style={{ width: 70 }} /> min</td>
+        <td className="c-half" data-label="Applies to"><select aria-label="Switch" value={r.switchId ?? ''} onChange={(e) => setR({ ...r, switchId: e.target.value ? Number(e.target.value) : null })}><option value="">All switches</option>{switches.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select></td>
+        <td className="c-half" data-label="Remind every (minutes)"><input aria-label="Remind every" type="number" min={0} max={10080} value={r.cooldownMinutes} onChange={(e) => setR({ ...r, cooldownMinutes: Number(e.target.value) })} style={{ width: 76 }} /> min</td>
+        <td className="c-half" data-label="Tell me when resolved"><input type="checkbox" aria-label="Notify when resolved" checked={r.notifyOnResolve} onChange={(e) => setR({ ...r, notifyOnResolve: e.target.checked })} /></td>
+        <td className="c-full actions"><button className="btn small" disabled={!dirty || save.isPending} onClick={() => save.mutate()}>Save</button><button className="link danger" onClick={() => confirm(`Delete rule "${r.name}"?`) && del.mutate()}>Delete</button></td>
       </tr>
       {(save.error || del.error) && <tr><td colSpan={8}><ErrorBox error={save.error ?? del.error} /></td></tr>}
     </>
@@ -104,7 +104,7 @@ function Rules() {
     <div>
       <h3>Alert rules</h3>
       <p className="muted small">An alert opens when the reading stays at or above the limit for the given minutes, and closes when it falls below 90% of the limit (so it does not flap). One e-mail is sent per check cycle for everything that is new, still open after the reminder interval, or resolved. Readings come from the health poll, so make sure it is on (Settings → General → Health poll interval).</p>
-      <div className="cardlist-wrap"><table className="cardlist">
+      <div className="cardlist-wrap"><table className="cardlist rules">
         <thead><tr><th>On</th><th>Rule</th><th>Limit</th><th>For</th><th>Applies to</th><th>Remind every</th><th>Tell me when resolved</th><th /></tr></thead>
         <tbody>{data?.map((r) => <RuleRow key={r.id} rule={r} switches={switches.data ?? []} onChanged={refresh} />)}{data?.length === 0 && <tr><td colSpan={8} className="muted">No rules yet.</td></tr>}</tbody>
       </table></div>

@@ -192,7 +192,7 @@ a.companymark { text-decoration: underline; text-underline-offset: 3px; }
 .setbody .form { max-width:860px; } .setbody h3 { font-size:15px; margin:0 0 6px; }
 .setbody .panelx { background:transparent; }
 @media (max-width: 860px) {
-  .settings { grid-template-columns:1fr; gap:14px; }
+  .settings { grid-template-columns:minmax(0,1fr); gap:14px; } .setnav, .setmain { min-width:0; }
   .setnav { position:static; flex-direction:row; overflow-x:auto; gap:6px; padding:8px; }
   .setgroup { display:flex; gap:4px; } .setgroup-title { display:none; }
   .setnav button { white-space:nowrap; width:auto; }
@@ -430,4 +430,34 @@ table.cardlist tbody tr.clickable { cursor:pointer; } table.cardlist tbody tr.hi
   .toolbar > input[aria-label^="Search"], .toolbar > input[placeholder^="Search"] { flex:1 1 100%; }
   table.cardlist tbody td.num { text-align:start; }
   .pagehead .tile { width:40px; height:40px; } .pagehead-text h2 { font-size:19px; }
+}
+
+/* ---- report builder: sections ---- */
+.rbsec > summary { list-style:none; cursor:pointer; font-size:12px; letter-spacing:.07em; text-transform:uppercase; color:var(--muted); font-weight:600; display:flex; align-items:center; justify-content:space-between; padding:2px 0; }
+.rbsec > summary::-webkit-details-marker { display:none; } .rbsec > summary::after { content:'+'; font-size:16px; color:var(--muted); } .rbsec[open] > summary::after { content:'–'; }
+.rbsec-body { padding-top:8px; }
+@media (min-width: 861px) { .rbsec > summary { cursor:default; pointer-events:none; } .rbsec > summary::after { content:''; } }
+@media (max-width: 860px) {
+  .rb { display:flex; flex-direction:column; } .rb-main { order:-1; width:100%; } .rb-side { order:0; padding:10px 12px; gap:8px; }
+  .rbsec { border:1px solid var(--line); border-radius:12px; background:var(--surface); box-shadow:var(--shadow-sm); padding:10px 12px; }
+  .rbsec[open] > summary { color:var(--accent); } .presets { grid-template-columns:1fr 1fr; } .presets button { font-size:12.5px; }
+  .rb-row.f { grid-template-columns:1fr 1fr; } .rb-row.f button { justify-self:end; }
+  .rb-canvas { padding:12px; }
+}
+
+/* ---- settings forms on phones: one column, full-width controls, roomy buttons ---- */
+@media (max-width: 560px) {
+  .row { flex-direction:column; align-items:stretch; } .row > .field { min-width:0; flex:none; width:100%; }
+  .form { max-width:none; } .form .field input, .form .field select, .form .field textarea { width:100%; }
+  .setbody { padding:12px; } .panelx { padding:12px 14px; }
+  .buttons { display:flex; flex-wrap:wrap; gap:8px; } .buttons .btn { flex:1 1 auto; text-align:center; }
+  .check { align-items:flex-start; } .check small { display:block; }
+  .alert { padding:10px 12px; }
+}
+@media (max-width: 760px) {
+  table.cardlist.rules tbody tr { grid-template-columns:1fr 1fr; }
+  table.cardlist.rules tbody td { grid-column:auto !important; } table.cardlist.rules tbody td.c-full { grid-column:1 / -1 !important; }
+  table.cardlist td[data-label]::before { content:attr(data-label); display:block; font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); margin-bottom:2px; }
+  table.cardlist td[data-label="On"] { display:flex; align-items:center; gap:8px; } table.cardlist td[data-label="On"]::before { margin:0; }
+  .rb { align-items:stretch; }
 }

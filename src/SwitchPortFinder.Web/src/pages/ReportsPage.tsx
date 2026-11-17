@@ -27,6 +27,17 @@ const PRESETS: { name: string; def: Partial<Def> }[] = [
 ];
 
 const useDebounced = <T,>(v: T, ms = 450) => { const [x, setX] = useState(v); useEffect(() => { const t = setTimeout(() => setX(v), ms); return () => clearTimeout(t); }, [v, ms]); return x; };
+/** A builder section: always open on a wide screen, collapsible on a phone so the chart stays near the top. */
+function Sec({ title, children }: { title: string; children: React.ReactNode }) {
+  const [open, setOpen] = useState(() => typeof window === 'undefined' || window.matchMedia('(min-width: 861px)').matches);
+  return (
+    <details className="rbsec" open={open} onToggle={(e) => setOpen((e.currentTarget as HTMLDetailsElement).open)}>
+      <summary>{title}</summary>
+      <div className="rbsec-body">{children}</div>
+    </details>
+  );
+}
+
 export default function ReportsPage() {
   const [view, setView] = useState<'exec' | 'build'>('exec');
   return (
@@ -79,34 +90,34 @@ function ReportBuilder() {
       <div className="rb">
         <aside className="rb-side" aria-label="Report builder">
           <label className="field"><span>Report name</span><input value={def.title} onChange={(e) => set({ title: e.target.value })} maxLength={150} /></label>
-          <div><h3>Start from</h3>
+          <Sec title="Start from">
             <div className="presets">{PRESETS.map((p) => <button key={p.name} className="btn small" style={{ marginLeft: 0 }} onClick={() => choose(p.name, p.def)}>{p.name}</button>)}</div>
             {(saved.data?.length ?? 0) > 0 && <label className="field" style={{ marginTop: 8 }}><span>Saved reports</span><select value={savedId ?? ''} onChange={(e) => { const r = saved.data?.find((x) => x.id === Number(e.target.value)); if (r) load(r); }}><option value="">— choose —</option>{saved.data?.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}</select></label>}
-          </div>
-          <div><h3>Switches</h3>
+          </Sec>
+          <Sec title="Switches">
             <SwitchPicker all={switches.data ?? []} value={def.switchIds ?? []} onChange={(v) => set({ switchIds: v })} />
-          </div>
-          <div><h3>Data</h3>
+          </Sec>
+          <Sec title="Data">
             <select value={def.dataset} onChange={(e) => changeDataset(e.target.value)} aria-label="Dataset">{datasets.data?.map((d) => <option key={d.key} value={d.key}>{d.label}</option>)}</select>
             <p className="muted small" style={{ margin: '4px 0 0' }}>{ds?.description}</p>
-          </div>
-          {ds?.history && <div><h3>Period</h3>
+          </Sec>
+          {ds?.history && <Sec title="Period">
             <div className="chips">{RANGES.map(([k, l]) => <button key={k} className="chipbtn" aria-pressed={def.range === k} onClick={() => set({ range: k })}>{l}</button>)}</div>
             {def.range === 'custom' && <div className="rb-row" style={{ gridTemplateColumns: '1fr 1fr', marginTop: 6 }}><input type="date" aria-label="From" value={def.from ?? ''} onChange={(e) => set({ from: e.target.value })} /><input type="date" aria-label="To" value={def.to ?? ''} onChange={(e) => set({ to: e.target.value })} /></div>}
-          </div>}
-          <div><h3>Show as</h3>
+          </Sec>}
+          <Sec title="Show as">
             <div className="chips">{CHARTS.map(([k, l]) => <button key={k} className="chipbtn" aria-pressed={def.chart === k} onClick={() => set({ chart: k, mode: k === 'table' && def.mode === 'table' ? 'table' : def.mode === 'table' && k !== 'table' ? 'summary' : def.mode, ...(k !== 'table' && def.mode === 'table' && !def.measures.length ? { measures: nums.length ? [{ field: nums[0].key, agg: 'avg' }] : [{ field: '*', agg: 'count' }] } : {}) })}>{l}</button>)}</div>
             <div className="chips" style={{ marginTop: 8 }}>{(['table', 'summary'] as const).map((m) => <button key={m} className="chipbtn" aria-pressed={def.mode === m} onClick={() => set({ mode: m, chart: m === 'table' ? 'table' : def.chart === 'table' ? 'column' : def.chart, measures: m === 'summary' && !def.measures.length ? [{ field: '*', agg: 'count' }] : def.measures })}>{m === 'table' ? 'List of rows' : 'Group and summarise'}</button>)}</div>
-          </div>
+          </Sec>
           {def.mode === 'table' ? (
-            <div><h3>Columns</h3><div className="chips">{fields.map((f) => <button key={f.key} className="chipbtn" aria-pressed={def.columns.includes(f.key)} onClick={() => toggleCol(f.key)}>{f.label}</button>)}</div></div>
+            <Sec title="Columns"><div className="chips">{fields.map((f) => <button key={f.key} className="chipbtn" aria-pressed={def.columns.includes(f.key)} onClick={() => toggleCol(f.key)}>{f.label}</button>)}</div></Sec>
           ) : (
             <>
-              <div><h3>Group by (axis)</h3>
+              <Sec title="Group by (axis)">
                 <div className="chips">{dims.map((f) => <button key={f.key} className="chipbtn" aria-pressed={def.groupBy.includes(f.key)} onClick={() => set({ groupBy: def.groupBy.includes(f.key) ? def.groupBy.filter((g) => g !== f.key) : [...def.groupBy, f.key].slice(-2) })}>{f.label}</button>)}</div>
                 {def.groupBy.includes('at') && <label className="field" style={{ marginTop: 6 }}><span>Time step</span><select value={def.bucket} onChange={(e) => set({ bucket: e.target.value })}><option value="hour">Hour</option><option value="day">Day</option><option value="week">Week</option><option value="month">Month</option></select></label>}
-              </div>
-              <div><h3>Values</h3>
+              </Sec>
+              <Sec title="Values">
                 {def.measures.map((m, i) => (
                   <div className="rb-row" key={i} style={{ marginBottom: 6 }}>
                     <select aria-label="Aggregation" value={m.agg} onChange={(e) => set({ measures: def.measures.map((x, j) => (j === i ? { ...x, agg: e.target.value } : x)) })}>{AGGS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select>
@@ -114,10 +125,10 @@ function ReportBuilder() {
                     <button className="link" aria-label="Remove value" onClick={() => set({ measures: def.measures.filter((_, j) => j !== i) })}>✕</button>
                   </div>))}
                 <button className="btn small" style={{ marginLeft: 0 }} onClick={addMeasure}>+ Add value</button>
-              </div>
+              </Sec>
             </>
           )}
-          <div><h3>Filters</h3>
+          <Sec title="Filters">
             {def.filters.map((f, i) => (
               <div className="rb-row f" key={i} style={{ marginBottom: 6 }}>
                 <select aria-label="Filter field" value={f.field} onChange={(e) => set({ filters: def.filters.map((x, j) => (j === i ? { ...x, field: e.target.value } : x)) })}>{fields.map((x) => <option key={x.key} value={x.key}>{x.label}</option>)}</select>
@@ -126,7 +137,7 @@ function ReportBuilder() {
                 <button className="link" aria-label="Remove filter" onClick={() => set({ filters: def.filters.filter((_, j) => j !== i) })}>✕</button>
               </div>))}
             <button className="btn small" style={{ marginLeft: 0 }} onClick={() => set({ filters: [...def.filters, { field: fields[0]?.key ?? '', op: 'contains', value: '' }] })}>+ Add filter</button>
-          </div>
+          </Sec>
           <div className="rb-row" style={{ gridTemplateColumns: '1fr 1fr' }}>
             <label className="field"><span>Sort by</span><select value={def.sortBy ?? ''} onChange={(e) => set({ sortBy: e.target.value || undefined })}><option value="">Automatic</option>{sortable.map((c) => <option key={c.key} value={c.key}>{c.label}</option>)}</select></label>
             <label className="field"><span>Show at most</span><select value={def.limit} onChange={(e) => set({ limit: Number(e.target.value) })}>{[5, 10, 20, 50, 100, 500, 1000, 5000].map((n) => <option key={n} value={n}>{n} rows</option>)}</select></label>

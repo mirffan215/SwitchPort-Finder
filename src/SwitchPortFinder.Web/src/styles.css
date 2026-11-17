@@ -461,3 +461,28 @@ table.cardlist tbody tr.clickable { cursor:pointer; } table.cardlist tbody tr.hi
   table.cardlist td[data-label="On"] { display:flex; align-items:center; gap:8px; } table.cardlist td[data-label="On"]::before { margin:0; }
   .rb { align-items:stretch; }
 }
+
+/* ================= forms and settings as cards ================= */
+.tile.sm { display:inline-grid; place-items:center; width:26px; height:26px; border-radius:8px; background:var(--accent); color:var(--accent-ink); flex-shrink:0; }
+.formtitle { display:flex; align-items:center; gap:10px; margin:0 0 4px; font-size:16px; }
+.form h3, .panelx > h3, .setbody h3:not(.formtitle) { display:flex; align-items:center; gap:8px; }
+.form h3:not(.formtitle)::before, .panelx > h3:not(.formtitle)::before, .setbody > div > h3:not(.formtitle)::before { content:''; width:4px; height:16px; border-radius:4px; background:var(--accent); flex-shrink:0; }
+/* every form and panel is a card; the Settings content frame itself becomes transparent */
+.setbody { background:none; border:0; box-shadow:none; padding:0; display:flex; flex-direction:column; gap:16px; }
+.setbody .form, .setbody .panelx { background:var(--surface); border:1px solid var(--line); border-radius:12px; box-shadow:var(--shadow-sm); padding:18px; max-width:none; }
+.setbody .form .form, .setbody .panelx .form, .setbody .form.modal .form { background:none; border:0; box-shadow:none; padding:0; }
+.setbody .form.modal { margin-top:0; }
+.form.formcard { background:var(--surface); border:1px solid var(--line); border-radius:12px; box-shadow:var(--shadow-sm); padding:18px; max-width:880px; }
+fieldset { background:var(--panel2); box-shadow:none; }
+.setbody fieldset, .formcard fieldset { background:var(--panel2); }
+.alert { border-radius:12px; box-shadow:var(--shadow-sm); }
+/* report builder: the left panel becomes separate section cards, the chips become pill cards */
+.rb-side { background:none; border:0; padding:0; box-shadow:none; }
+.rbsec { border:1px solid var(--line); border-radius:12px; background:var(--surface); box-shadow:var(--shadow-sm); padding:10px 14px; }
+.rb-side > label.field, .rb-side > .rb-row, .rb-side > .buttons, .rb-side > label.check { background:var(--surface); border:1px solid var(--line); border-radius:12px; box-shadow:var(--shadow-sm); padding:10px 14px; }
+.chipbtn { border-radius:12px; box-shadow:var(--shadow-sm); transition:border-color .16s, background-color .16s; } .chipbtn:hover { border-color:color-mix(in srgb, var(--accent) 55%, var(--line)); }
+.rb-canvas { border-radius:12px; box-shadow:var(--shadow-sm); }
+.rb-side > label.check { display:flex; }
+.rb-main { grid-template-columns:minmax(0,1fr); } .rb-canvas { min-width:0; }
+.setbody > *, .setbody .form, .setbody .panelx, .setmain { min-width:0; }
+.setbody [style*="display: grid"] { grid-template-columns:minmax(0,1fr); }

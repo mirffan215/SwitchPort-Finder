@@ -20,7 +20,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
   if (error || !me) return <div style={{ padding: 20 }}><ErrorBox error={error ?? new Error('Cannot reach the server')} /></div>;
   if (me.authRequired && !me.authenticated) return <LoginPage />;
   // Policy: an administrator without an authenticator app must enrol before anything else.
-  if (me.mfaSetupRequired) return <div className="login"><div className="form" style={{ background: 'var(--panel)', border: '1px solid var(--line)', borderRadius: 12, padding: 28, width: 'min(460px,100%)' }}><h1>Set up two-factor authentication</h1><MfaSetup forced onFinished={() => undefined} /><button className="link" onClick={() => out.mutate()}>Sign out</button></div></div>;
+  if (me.mfaSetupRequired) return <AuthShell><div className="authform"><h1>Set up two-factor authentication</h1><MfaSetup forced onFinished={() => undefined} /><button className="link" onClick={() => out.mutate()}>Sign out</button></div></AuthShell>;
   // With authentication off (V1 default) everyone is an administrator.
   return <Ctx.Provider value={{ me, canWrite: !me.authRequired || me.role === 'Admin', logout: () => out.mutate() }}>{children}</Ctx.Provider>;
 }

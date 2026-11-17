@@ -54,7 +54,7 @@ export default function SwitchFormPage() {
     <section>
       <PageHead icon={PRODUCT_TYPES.find((p) => p.value === ptype)?.icon ?? ''} title={editId ? `Edit ${productLabel(ptype)}` : `Add ${productLabel(ptype)}`} subtitle="SNMP read access is used; nothing is changed on the device" />
       {wlc && <div className="alert">Enter the controller's management IP and its <strong>SNMP read</strong> community (or SNMPv3 user) below, then save and click <strong>Scan</strong>. Its access points are read automatically. Use a read-only SNMP community.</div>}
-      <form className="form" onSubmit={submit}>
+      <form className="form formcard" onSubmit={submit}>
         <fieldset className="ptypes">
           <legend>Product type</legend>
           <div className="ptype-grid" role="radiogroup" aria-label="Product type">

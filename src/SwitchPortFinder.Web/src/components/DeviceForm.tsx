@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, CATEGORIES, categoryLabel, type DeviceRow, type ManualDevice } from '../api';
-import { ErrorBox, Field } from './Bits';
+import { ErrorBox, Field, FormTitle } from './Bits';
 
 /**
  * Add a device by hand or edit the manual details of a discovered one: a name, owner, notes and the switch port it is plugged into.
@@ -24,7 +24,7 @@ export default function DeviceForm({ device, onDone, onCancel }: { device?: Devi
   const edge = (ports.data?.ports ?? []).filter((p) => p.type !== 'SwitchUplink');
   return (
     <form className="form modal" onSubmit={(e: FormEvent) => { e.preventDefault(); save.mutate(); }}>
-      <h3>{device ? 'Edit device details' : 'Add a device manually'}</h3>
+      <FormTitle icon="M3 5h18v11H3zM8 20h8M12 16v4">{device ? 'Edit device details' : 'Add a device manually'}</FormTitle>
       <p className="muted small">Use this for a device the scans cannot name or place. The name and port you enter are kept when switches are scanned again. Leave the port empty to let scans decide the location.</p>
       <div className="row">
         {!device && <Field label="MAC address" hint="AA:BB:CC:DD:EE:FF, aa-bb-cc-dd-ee-ff or aabb.ccdd.eeff"><input value={mac} onChange={(e) => setMac(e.target.value)} required placeholder="AA:BB:CC:DD:EE:FF" /></Field>}

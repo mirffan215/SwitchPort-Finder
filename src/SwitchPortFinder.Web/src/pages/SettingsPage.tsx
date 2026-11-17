@@ -8,7 +8,7 @@ import CategoriesTab from '../components/CategoriesTab';
 import CompanyTab from '../components/CompanyTab';
 import IntegrationsTab from '../components/IntegrationsTab';
 import { useAuth } from '../components/Auth';
-import { Dot, ErrorBox, Field, PageHead, RowMenu, ago } from '../components/Bits';
+import { Dot, ErrorBox, Field, FormTitle, PageHead, RowMenu, ago } from '../components/Bits';
 import CredentialFields, { emptyCredential } from '../components/CredentialFields';
 
 type Tab = 'profiles' | 'import' | 'general' | 'notifications' | 'company' | 'integrations' | 'types' | 'users' | 'account';
@@ -172,7 +172,7 @@ function UsersTab() {
           </tr>))}</tbody>
       </table></div>
       <form className="form modal" onSubmit={(e) => { e.preventDefault(); create.mutate(); }}>
-        <h3>Add user</h3>
+        <FormTitle icon="M16 11a4 4 0 1 0-8 0M4 21a8 8 0 0 1 16 0M19 8v6M16 11h6">Add user</FormTitle>
         <div className="row">
           <Field label="Username"><input value={name} onChange={(e) => setName(e.target.value)} required autoComplete="off" /></Field>
           <Field label="Password" hint="At least 12 characters."><input type="password" value={pw} onChange={(e) => setPw(e.target.value)} required autoComplete="new-password" /></Field>
@@ -195,7 +195,7 @@ function SecureExport() {
   if (!open) return <p><button className="btn" onClick={() => { setOpen(true); setOk(false); }}>Export switches with credentials (encrypted)…</button></p>;
   return (
     <form className="form modal" onSubmit={(e) => { e.preventDefault(); setOk(false); exp.mutate(); }}>
-      <h3>Export switches with credentials</h3>
+      <FormTitle icon="M12 3v12M7 10l5 5 5-5M4 21h16">Export switches with credentials</FormTitle>
       <p className="muted small">The file is encrypted (AES-256) with the passphrase you choose and can only be opened by importing it here. Without the passphrase it is unreadable. Keep the passphrase separate from the file, and delete the file when you are done. This action is written to the application log.</p>
       {me.authRequired && <Field label="Your password"><input type="password" autoComplete="current-password" value={pw} onChange={(e) => setPw(e.target.value)} required /></Field>}
       <div className="row">
@@ -312,7 +312,7 @@ function ProfileForm({ profile, onClose }: { profile: ProfileDto | null; onClose
   });
   return (
     <form className="form modal" onSubmit={(e) => { e.preventDefault(); save.mutate(); }}>
-      <h3>{profile ? 'Edit profile' : 'New profile'}</h3>
+      <FormTitle icon="M15 7a4 4 0 1 1-3.9 4.9L4 19v-3H1v-3h4l6.1-6.1A4 4 0 0 1 15 7z">{profile ? 'Edit profile' : 'New profile'}</FormTitle>
       <Field label="Name"><input required value={name} onChange={(e) => setName(e.target.value)} placeholder="Core-v3" /></Field>
       <Field label="Description"><input value={description} onChange={(e) => setDescription(e.target.value)} /></Field>
       <CredentialFields value={cred} onChange={setCred} existing={profile?.credential} />

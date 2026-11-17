@@ -122,3 +122,8 @@ export function PageHead({ icon, title, subtitle, children }: { icon: string; ti
 export function IconLink({ to, label, d }: { to: string; label: string; d: string }) {
   return <Link className="tool iconbtn" to={to} aria-label={label} title={label}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={d} /></svg></Link>;
 }
+
+/** Title bar of an inline dialog/form: a small blue icon tile and a bold title. */
+export function FormTitle({ icon, children }: { icon: string; children: ReactNode }) {
+  return <h3 className="formtitle"><span className="tile sm" aria-hidden="true"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d={icon} /></svg></span>{children}</h3>;
+}

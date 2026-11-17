@@ -2,7 +2,7 @@ import { Fragment } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router-dom';
 import { api } from '../api';
-import { ConfidenceBadge, ErrorBox } from '../components/Bits';
+import { ConfidenceBadge, ErrorBox, PageHead } from '../components/Bits';
 
 /** Vertical hop diagram: switch → port → switch → port → device, then the Final Location block. */
 export default function TracePage() {
@@ -14,7 +14,7 @@ export default function TracePage() {
   const d = dev.data?.device;
   return (
     <section>
-      <div className="toolbar"><h1>Trace · {d?.hostname ?? `device ${id}`}</h1><div className="spacer" /><Link className="btn" to={`/devices/${id}`}>Device details</Link></div>
+      <PageHead icon="M3 12h4l3-8 4 16 3-8h4" title={`Trace · ${d?.hostname ?? `device ${id}`}`} subtitle="From the device up to the core"><Link className="btn" to={`/devices/${id}`}>Device details</Link></PageHead>
       {data.partial && <div className="alert warn" role="status">⚠ {data.message ?? 'Path partially determined'}</div>}
       <div className="trace">
         {data.hops.map((h, i) => (

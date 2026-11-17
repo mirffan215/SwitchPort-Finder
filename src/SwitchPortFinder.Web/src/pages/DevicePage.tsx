@@ -4,7 +4,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import DeviceForm from '../components/DeviceForm';
 import { useAuth } from '../components/Auth';
 import { api } from '../api';
-import { CategoryBadge, ErrorBox, StateBadge, ago, fmtDate } from '../components/Bits';
+import { ago, CategoryBadge, ErrorBox, fmtDate, PageHead, StateBadge } from '../components/Bits';
 
 export default function DevicePage() {
   const id = Number(useParams().id);
@@ -16,13 +16,12 @@ export default function DevicePage() {
   const d = data.device;
   return (
     <section>
-      <div className="toolbar">
-        <h1>{d.hostname}</h1><StateBadge state={d.state} /><div className="spacer" />
+      <PageHead icon="M3 5h18v11H3zM8 20h8M12 16v4" title={d.hostname} subtitle={<><StateBadge state={d.state} /> <span className="mono">{d.mac}</span>{d.vendor ? ` · ${d.vendor}` : ''}</>}>
         {d.switchId ? <Link className="btn primary" to={`/switches/${d.switchId}?port=${d.ifIndex}`}>Open Switch</Link> : null}
         {canWrite && <button className="btn" onClick={() => setEditing(!editing)}>Edit details</button>}
-        {canWrite && d.manual && <button className="btn" onClick={() => confirm('Delete this manually added device?') && del.mutate()}>Delete</button>}
         <Link className="btn" to={`/devices/${d.id}/trace`}>Trace Device</Link>
-      </div>
+        {canWrite && d.manual && <button className="btn danger" onClick={() => confirm('Delete this manually added device?') && del.mutate()}>Delete</button>}
+      </PageHead>
       {editing && <DeviceForm device={d} onDone={() => setEditing(false)} onCancel={() => setEditing(false)} />}
       <ErrorBox error={del.error} />
       <dl className="kv big">
@@ -43,7 +42,7 @@ export default function DevicePage() {
         <dt>Location confidence</dt><dd className={d.lowConfidence ? 'warn' : ''}>{data.locationNote}</dd>
       </dl>
       <h2>Where this MAC was seen</h2>
-      <div className="tablewrap"><table>
+      <div className="cardlist-wrap"><table className="cardlist">
         <thead><tr><th>Switch</th><th>Port</th><th>Kind</th><th>MACs on port</th><th>VLAN</th><th>Last seen</th></tr></thead>
         <tbody>{data.sightings.map((s) => (
           <tr key={s.portId} className={s.isUplink ? 'dim' : ''}>
@@ -51,7 +50,7 @@ export default function DevicePage() {
             <td><Link to={`/switches/${s.switchId}?port=${s.ifIndex}`}>{s.portName}</Link></td>
             <td>{s.isUplink ? 'Switch uplink (not a location)' : 'Edge port'}</td><td>{s.macsOnPort}</td><td>{s.vlan ?? '—'}</td><td>{ago(s.lastSeen)}</td>
           </tr>))}
-          {data.sightings.length === 0 && <tr><td colSpan={6} className="muted">No sightings.</td></tr>}
+          {data.sightings.length === 0 && <tr><td colSpan={6} className="empty-row">No sightings.</td></tr>}
         </tbody>
       </table></div>
     </section>

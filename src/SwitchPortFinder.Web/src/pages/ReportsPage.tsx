@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { api, type SavedReport } from '../api';
-import { ErrorBox } from '../components/Bits';
+import { ErrorBox, PageHead } from '../components/Bits';
 import { useAuth } from '../components/Auth';
 import ExecutiveReports from './ExecutiveReports';
 import { BASE, RANGES, SwitchPicker, Viz, toQuery, type Chart, type Def } from '../lib/reportShared';
@@ -31,7 +31,7 @@ export default function ReportsPage() {
   const [view, setView] = useState<'exec' | 'build'>('exec');
   return (
     <section className="reports">
-      <div className="toolbar"><h1>Reports</h1><div className="seg" role="group" aria-label="Report type"><button type="button" className={view === 'exec' ? 'on' : ''} aria-pressed={view === 'exec'} onClick={() => setView('exec')}>Management reports</button><button type="button" className={view === 'build' ? 'on' : ''} aria-pressed={view === 'build'} onClick={() => setView('build')}>Report builder</button></div></div>
+      <PageHead icon="M4 20V10M10 20V4M16 20v-7M22 20H2" title="Reports" subtitle="Ready-made management reports and a custom report builder"><div className="seg" role="group" aria-label="Report type"><button type="button" className={view === 'exec' ? 'on' : ''} aria-pressed={view === 'exec'} onClick={() => setView('exec')}>Management reports</button><button type="button" className={view === 'build' ? 'on' : ''} aria-pressed={view === 'build'} onClick={() => setView('build')}>Report builder</button></div></PageHead>
       {view === 'exec' ? <ExecutiveReports /> : <ReportBuilder />}
     </section>
   );

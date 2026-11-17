@@ -61,7 +61,7 @@ export default function Layout() {
       <div className="content">
         <header className="topbar">
           {pathname !== '/' && <button type="button" className="btn backbtn" onClick={goBack} aria-label="Go back"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6" /></svg> Back</button>}
-          <h1>{titleFor(pathname)}</h1>
+          <span className="sr-only" role="status">{titleFor(pathname)}</span>
           <SearchBox />
           <ThemeSwitch />
         </header>

@@ -112,13 +112,13 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <h2>Recently discovered devices <Link className="small" to="/devices">all</Link></h2>
-      <div className="tablewrap"><table>
+      <h2 className="sectionhead"><span className="bar" aria-hidden="true" />Recently discovered devices <Link className="small" to="/devices">all</Link></h2>
+      <div className="cardlist-wrap"><table className="cardlist">
         <thead><tr><th>Device</th><th>IP</th><th>Location</th><th>Status</th></tr></thead>
         <tbody>
-          {d?.recentDevices.slice(0, 5).map((x) => <tr key={x.id}><td><div className="swname"><Link to={`/devices/${x.id}`}>{x.hostname}</Link></div><div className="muted small mono">{x.mac}</div></td><td>{x.ip ?? <span className="muted">Unknown</span>}</td>
+          {d?.recentDevices.slice(0, 5).map((x) => <tr key={x.id}><td className="c-main"><div className="swname"><Link className="rowlink" to={`/devices/${x.id}`}>{x.hostname}</Link></div><div className="muted small mono">{x.mac}</div></td><td>{x.ip ?? <span className="muted">Unknown</span>}</td>
             <td>{x.switchId ? <Link to={`/switches/${x.switchId}?port=${x.ifIndex}`}>{x.switchName} · {x.portName}</Link> : '—'}</td><td><StateDot state={x.state} lastSeen={x.lastSeen} /></td></tr>)}
-          {d?.recentDevices.length === 0 && <tr><td colSpan={4} className="muted">No devices yet. Scan a switch.</td></tr>}
+          {d?.recentDevices.length === 0 && <tr><td colSpan={4} className="empty-row">No devices yet. Scan a switch.</td></tr>}
         </tbody></table></div>
     </section>
   );

@@ -104,7 +104,7 @@ function Rules() {
     <div>
       <h3>Alert rules</h3>
       <p className="muted small">An alert opens when the reading stays at or above the limit for the given minutes, and closes when it falls below 90% of the limit (so it does not flap). One e-mail is sent per check cycle for everything that is new, still open after the reminder interval, or resolved. Readings come from the health poll, so make sure it is on (Settings → General → Health poll interval).</p>
-      <div className="tablewrap"><table>
+      <div className="cardlist-wrap"><table className="cardlist">
         <thead><tr><th>On</th><th>Rule</th><th>Limit</th><th>For</th><th>Applies to</th><th>Remind every</th><th>Tell me when resolved</th><th /></tr></thead>
         <tbody>{data?.map((r) => <RuleRow key={r.id} rule={r} switches={switches.data ?? []} onChanged={refresh} />)}{data?.length === 0 && <tr><td colSpan={8} className="muted">No rules yet.</td></tr>}</tbody>
       </table></div>
@@ -119,14 +119,14 @@ function History() {
   return (
     <div>
       <h3>Active alerts {alerts.data && <span className={`badge ${alerts.data.activeCount ? 'bad' : 'ok'}`}>{alerts.data.activeCount}</span>}</h3>
-      <div className="tablewrap tall"><table>
+      <div className="cardlist-wrap"><table className="cardlist">
         <thead><tr><th>Alert</th><th>Since</th><th>Notified</th></tr></thead>
         <tbody>{alerts.data?.active.map((a) => <tr key={a.id}><td><strong>{a.title}</strong><div className="muted small">{a.detail}</div></td><td>{ago(a.firstAt)}</td><td>{a.notifyCount}×</td></tr>)}{alerts.data?.active.length === 0 && <tr><td colSpan={3} className="muted">Nothing is alerting.</td></tr>}</tbody></table></div>
       <h3 style={{ marginTop: 16 }}>Recently resolved</h3>
-      <div className="tablewrap tall"><table><thead><tr><th>Alert</th><th>Opened</th><th>Resolved</th></tr></thead>
+      <div className="cardlist-wrap"><table className="cardlist"><thead><tr><th>Alert</th><th>Opened</th><th>Resolved</th></tr></thead>
         <tbody>{alerts.data?.recent.map((a) => <tr key={a.id}><td>{a.title}</td><td>{ago(a.firstAt)}</td><td>{ago(a.resolvedAt)}</td></tr>)}{alerts.data?.recent.length === 0 && <tr><td colSpan={3} className="muted">None yet.</td></tr>}</tbody></table></div>
       <h3 style={{ marginTop: 16 }}>E-mail log</h3>
-      <div className="tablewrap tall"><table><thead><tr><th>When</th><th>Subject</th><th>To</th><th>Result</th></tr></thead>
+      <div className="cardlist-wrap"><table className="cardlist"><thead><tr><th>When</th><th>Subject</th><th>To</th><th>Result</th></tr></thead>
         <tbody>{log.data?.map((l, i) => <tr key={i}><td>{ago(l.at)}</td><td>{l.subject}</td><td className="small">{l.recipients}</td><td>{l.success ? <span className="badge ok">Sent</span> : <span className="badge bad" title={l.error ?? ''}>Failed</span>}{!l.success && <div className="muted small">{l.error}</div>}</td></tr>)}{log.data?.length === 0 && <tr><td colSpan={4} className="muted">Nothing sent yet.</td></tr>}</tbody></table></div>
     </div>
   );

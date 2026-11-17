@@ -54,7 +54,7 @@ export default function CategoriesTab() {
     <div>
       <h3>Device types (access points, IP phones…)</h3>
       <p className="muted small">Each device is given a type by the first matching rule, lowest priority number first. A rule matches when <strong>all</strong> of its filled-in conditions match: manufacturer (from the MAC), host name, what the device announces on its switch port by LLDP/CDP (name, model, “wireless access point” / “telephone” capability) and its VLAN. Cisco access points and phones share the Cisco manufacturer name with everything else Cisco makes, so for them the neighbor information, host name (phones are named SEP + MAC) and VLAN are what count. Changes apply to all devices at once. A type set by hand on a device always wins.</p>
-      <div className="tablewrap"><table>
+      <div className="cardlist-wrap"><table className="cardlist">
         <thead><tr><th>On</th><th className="num">Priority</th><th>Rule</th><th>Then it is</th><th><span className="sr-only">Actions</span></th></tr></thead>
         <tbody>{data?.map((r) => <Row key={r.id} rule={r} onChanged={refresh} />)}</tbody>
       </table></div>

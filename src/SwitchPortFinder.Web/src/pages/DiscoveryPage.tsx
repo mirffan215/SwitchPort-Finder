@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, type JobSummary } from '../api';
-import { Dot, ErrorBox, fmtDate } from '../components/Bits';
+import { Dot, ErrorBox, PageHead, fmtDate } from '../components/Bits';
 import ScanProgress from '../components/ScanProgress';
 import { useAuth } from '../components/Auth';
 
@@ -18,24 +18,27 @@ export default function DiscoveryPage() {
   const detail = useQuery({ queryKey: ['job', open?.id], queryFn: () => api.job(open!.id), enabled: !!open });
   return (
     <section>
-      <div className="toolbar"><h1>Discovery</h1><div className="spacer" />
+      <PageHead icon="M21 12a9 9 0 11-3-6.7L21 8M21 3v5h-5" title="Discovery" subtitle={`${rows.length} scan job${rows.length === 1 ? '' : 's'}`}>
+        {canWrite && <button className="btn primary" disabled={scanAll.isPending} onClick={() => scanAll.mutate()}>Scan all switches</button>}
+      </PageHead>
+      <div className="toolbar" style={{ gap: 10 }}>
         <select value={sw} onChange={(e) => setSw(e.target.value)} aria-label="Switch filter"><option value="">All switches</option>{switches.map((n) => <option key={n}>{n}</option>)}</select>
         <select value={status} onChange={(e) => setStatus(e.target.value)} aria-label="Status filter"><option value="">All statuses</option><option>Completed</option><option value="CompletedWithWarnings">Completed (warnings)</option><option>Failed</option><option>Running</option><option>Queued</option></select>
         {canWrite && <button className="btn primary" disabled={scanAll.isPending} onClick={() => scanAll.mutate()}>Scan all switches</button>}</div>
       <ErrorBox error={error ?? scanAll.error} />
-      <div className="tablewrap">
-        <table>
+      <div className="cardlist-wrap">
+        <table className="cardlist">
           <thead><tr><th>Switch</th><th>Started</th><th>Completed</th><th>Duration</th><th>Status</th><th>Devices</th><th>Ports</th><th>Neighbors</th><th>Errors</th></tr></thead>
           <tbody>
             {rows.map((j) => (
               <tr key={j.id} className="clickable" onClick={() => setOpen(j)}>
-                <td>{j.switchName}</td><td>{fmtDate(j.startedAt ?? j.queuedAt)}</td><td>{fmtDate(j.completedAt)}</td>
+                <td className="c-main"><strong>{j.switchName}</strong></td><td>{fmtDate(j.startedAt ?? j.queuedAt)}</td><td>{fmtDate(j.completedAt)}</td>
                 <td>{j.durationSeconds != null ? `${j.durationSeconds.toFixed(1)} s` : '—'}</td>
                 <td><Dot kind={j.status === 'Completed' ? 'ok' : j.status === 'Failed' ? 'bad' : j.status === 'CompletedWithWarnings' ? 'warn' : 'muted'} label={j.status === 'CompletedWithWarnings' ? 'Completed (warnings)' : j.status} /></td>
                 <td>{j.devicesFound}</td><td>{j.portsFound}</td><td>{j.neighborsFound}</td><td>{j.errorCount}</td>
               </tr>
             ))}
-            {rows.length === 0 && <tr><td colSpan={9} className="muted">No discovery jobs{data?.length ? ' match the filters' : ' yet'}.</td></tr>}
+            {rows.length === 0 && <tr><td colSpan={9} className="empty-row">No discovery jobs{data?.length ? ' match the filters' : ' yet'}.</td></tr>}
           </tbody>
         </table>
       </div>

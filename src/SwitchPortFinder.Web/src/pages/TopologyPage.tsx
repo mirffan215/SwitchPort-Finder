@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { Background, Controls, Handle, MiniMap, Position, ReactFlow, type Edge, type Node, type NodeProps } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { api, type TopoNode } from '../api';
-import { ErrorBox } from '../components/Bits';
+import { ErrorBox, PageHead } from '../components/Bits';
 
 type SwData = { n: TopoNode };
 
@@ -44,7 +44,8 @@ export default function TopologyPage() {
   if (isLoading) return <p>Loading…</p>;
   return (
     <section>
-      <div className="toolbar"><h1>Topology</h1><span className="muted">{data?.nodes.length ?? 0} switches · {data?.edges.length ?? 0} links</span><div className="spacer" />
+      <PageHead icon="M12 3v6M5 21v-6h14v6M12 9v6M3 21h4M17 21h4M10 21h4" title="Network topology" subtitle={`${data?.nodes.length ?? 0} switches · ${data?.edges.length ?? 0} links`} />
+      <div className="toolbar">
         <span className="legend"><span className="sw solid" /> Confirmed (LLDP/CDP)</span><span className="legend"><span className="sw dashed" /> Likely (MAC table)</span><span className="legend"><span className="boxe" /> Unmanaged</span></div>
       <ErrorBox error={error} />
       {data && data.nodes.length === 0 && <p>No switches yet. Add switches and scan them; uplinks between them are drawn here.</p>}

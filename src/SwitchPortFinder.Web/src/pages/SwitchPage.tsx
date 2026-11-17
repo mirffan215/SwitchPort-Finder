@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { api, productLabel, type Neighbor, type PortRow } from '../api';
-import { ConfidenceBadge, Dot, ErrorBox, PortTypeBadge, StateBadge, StatusBadge, TestResultBox, ago, fmtDate } from '../components/Bits';
+import { ago, ConfidenceBadge, Dot, ErrorBox, fmtDate, PageHead, PortTypeBadge, StateBadge, StatusBadge, TestResultBox } from '../components/Bits';
 import ScanProgress from '../components/ScanProgress';
 import { useAuth } from '../components/Auth';
 import { Donut, fmtBps, fmtRate } from '../components/Charts';
@@ -40,17 +40,13 @@ export default function SwitchPage() {
 
   return (
     <section>
-      <div className="toolbar">
-        <h1>{s.name}{s.productType && s.productType !== 'Switch' && <span className="tag" style={{ marginLeft: 8 }}>{productLabel(s.productType)}</span>}</h1>
-        <span className="muted">· {s.managementIp} · {s.manufacturerName}{sum && !isCtl ? ` · ${sum.total} Ports · ${sum.connected} Connected · ${sum.down} Down · ${sum.uplinks} Switch Uplinks` : ''}</span>
-        <StatusBadge status={s.status} />
-        <div className="spacer" />
+      <PageHead icon="M3 6h18v5H3zM3 13h18v5H3zM7 8.5h.01M7 15.5h.01" title={s.name} subtitle={<><StatusBadge status={s.status} /> {s.productType && s.productType !== 'Switch' && <span className="tag">{productLabel(s.productType)}</span>} {s.managementIp} · {s.manufacturerName}{sum && !isCtl ? ` · ${sum.total} Ports · ${sum.connected} Connected · ${sum.down} Down · ${sum.uplinks} Switch Uplinks` : ''}</>}>
         {!isCtl && <div className="viewsw" role="group" aria-label="View"><button type="button" aria-pressed={view === 'graphic'} onClick={() => pickView('graphic')}>Graphical</button><button type="button" aria-pressed={view === 'table'} onClick={() => pickView('table')}>Table</button></div>}
         {canWrite && <button className="btn primary" disabled={scan.isPending || scanning} onClick={() => scan.mutate()}>Scan Now</button>}
         <button className="btn" onClick={refresh}>Refresh</button>
         {canWrite && <button className="btn" disabled={test.isPending} onClick={() => test.mutate()}>Test SNMP</button>}
         {canWrite && <Link className="btn" to={`/switches/${id}/edit`}>Edit</Link>}
-      </div>
+      </PageHead>
       <ErrorBox error={scan.error ?? test.error ?? ports.error} />
       {jobId && <ScanProgress jobId={jobId} onDone={() => { setScanning(false); refresh(); }} onClose={() => setJobId(null)} />}
       {test.data && <TestResultBox r={test.data} />}
@@ -71,8 +67,8 @@ export default function SwitchPage() {
         {view === 'graphic' && <Graphical ports={ports.data.ports} selected={selected} heat={heat} setHeat={setHeat}
           onPick={(p) => { setSelected(p.ifIndex); setSp({}, { replace: true }); }} />}
         <div className="split">
-          {view === 'table' && <div className="tablewrap">
-            <table>
+          {view === 'table' && <div className="cardlist-wrap">
+            <table className="cardlist">
               <thead><tr><th>Port</th><th>Status</th><th>Type</th><th>Device</th><th>IP</th><th>MAC</th><th>VLAN</th></tr></thead>
               <tbody>
                 {ports.data?.ports.map((p) => {
@@ -132,7 +128,7 @@ function ControllerView({ name }: { name: string }) {
         <div className={`xstat ${aps.length - online > 0 ? 'warn' : 'ok'}`}><span>Health</span><b>{aps.length === 0 ? '—' : aps.length - online > 0 ? 'Check' : 'OK'}</b><small>{aps.length === 0 ? 'no access points read yet' : aps.length - online > 0 ? 'some access points are offline' : 'all access points joined'}</small></div>
       </div>
       {isLoading ? <p className="muted">Loading…</p> : aps.length === 0 ? <p className="muted">No access points yet. Click <strong>Scan Now</strong>; if none appear, the controller's SNMP view may block the wireless tables (allow 1.3.6.1.4.1.9.9.513).</p> : (
-        <div className="tablewrap"><table>
+        <div className="cardlist-wrap"><table className="cardlist">
           <thead><tr><th>Access point</th><th>Address</th><th>Location</th><th>Clients</th><th>Status</th></tr></thead>
           <tbody>{aps.map((a) => (
             <tr key={`${a.mac}-${a.deviceId ?? ''}`}>

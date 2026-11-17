@@ -2,7 +2,7 @@ import { FormEvent, useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { api, MANUFACTURERS, PRODUCT_TYPES, productLabel, type CredentialInput, type Manufacturer, type ProductType, type TestResult } from '../api';
-import { ErrorBox, Field, TestResultBox } from '../components/Bits';
+import { ErrorBox, Field, PageHead, TestResultBox } from '../components/Bits';
 import CredentialFields, { emptyCredential } from '../components/CredentialFields';
 
 export default function SwitchFormPage() {
@@ -52,7 +52,7 @@ export default function SwitchFormPage() {
 
   return (
     <section>
-      <h1>{editId ? `Edit ${productLabel(ptype)}` : `Add ${productLabel(ptype)}`}</h1>
+      <PageHead icon={PRODUCT_TYPES.find((p) => p.value === ptype)?.icon ?? ''} title={editId ? `Edit ${productLabel(ptype)}` : `Add ${productLabel(ptype)}`} subtitle="SNMP read access is used; nothing is changed on the device" />
       {wlc && <div className="alert">Enter the controller's management IP and its <strong>SNMP read</strong> community (or SNMPv3 user) below, then save and click <strong>Scan</strong>. Its access points are read automatically. Use a read-only SNMP community.</div>}
       <form className="form" onSubmit={submit}>
         <fieldset className="ptypes">

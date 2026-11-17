@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link, useSearchParams } from 'react-router-dom';
 import { api, type DeviceRow } from '../api';
-import { ErrorBox, PortTypeBadge, StateBadge, StatusBadge, ago } from '../components/Bits';
+import { ago, ErrorBox, PageHead, PortTypeBadge, StateBadge, StatusBadge } from '../components/Bits';
 
 export function DeviceCard({ d }: { d: DeviceRow }) {
   return (
@@ -31,7 +31,7 @@ export default function SearchPage() {
   const none = data && !data.devices.length && !data.switches.length && !data.ports.length;
   return (
     <section>
-      <h1>Search results for “{q}”</h1>
+      <PageHead icon="M21 21l-4.3-4.3M10.5 18a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15z" title={`Search results for “${q}”`} subtitle="Devices, switches and ports" />
       <ErrorBox error={error} />
       {q.trim().length < 2 && <p className="muted">Type at least 2 characters. MAC addresses work in any format (AA:BB:CC:DD:EE:FF, aabb.ccdd.eeff, AA-BB-…), including fragments of 4+ hex characters.</p>}
       {isLoading && <p>Searching…</p>}

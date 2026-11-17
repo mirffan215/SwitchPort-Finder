@@ -8,7 +8,7 @@ import CategoriesTab from '../components/CategoriesTab';
 import CompanyTab from '../components/CompanyTab';
 import IntegrationsTab from '../components/IntegrationsTab';
 import { useAuth } from '../components/Auth';
-import { Dot, ErrorBox, Field, RowMenu, ago } from '../components/Bits';
+import { Dot, ErrorBox, Field, PageHead, RowMenu, ago } from '../components/Bits';
 import CredentialFields, { emptyCredential } from '../components/CredentialFields';
 
 type Tab = 'profiles' | 'import' | 'general' | 'notifications' | 'company' | 'integrations' | 'types' | 'users' | 'account';
@@ -50,7 +50,7 @@ export default function SettingsPage() {
         ))}
       </nav>
       <div className="setmain">
-        {current && <header className="sethead"><h2>{current.label}</h2><p>{current.desc}</p></header>}
+        {current && <PageHead icon={current.icon} title={current.label} subtitle={current.desc} />}
         <div className="setbody">
       {!canWrite && !me.authRequired && <p>Not available.</p>}
       {canWrite && tab === 'import' && <ImportTab />}
@@ -85,7 +85,7 @@ function TwoFactor() {
         <>
           <p className="muted">{me.mfaEnabled ? 'Your account asks for a code from an authenticator app at every sign-in. You can add up to 5 phones.' : 'Add a second step to your sign-in with an authenticator app.'}{required && ' Required for administrators.'}</p>
           {me.mfaEnabled && (
-            <div className="tablewrap"><table>
+            <div className="cardlist-wrap"><table className="cardlist">
               <thead><tr><th>Authenticator app</th><th>Added</th><th>Last used</th><th /></tr></thead>
               <tbody>{devices.data?.map((dv) => (
                 <tr key={dv.id}><td><strong>{dv.name}</strong></td><td>{new Date(dv.createdAt).toLocaleDateString()}</td><td>{dv.lastUsedAt ? new Date(dv.lastUsedAt).toLocaleString() : '—'}</td>
@@ -155,7 +155,7 @@ function UsersTab() {
     <div>
       <p className="muted"><strong>Admin</strong> can change anything. <strong>Viewer</strong> can search, browse, trace and export, but cannot add, edit, scan or delete. Passwords are stored only as salted hashes. An account is locked for a while after repeated wrong passwords.</p>
       <ErrorBox error={error ?? update.error ?? del.error} />
-      <div className="tablewrap"><table>
+      <div className="cardlist-wrap"><table className="cardlist">
         <thead><tr><th>User</th><th>Role</th><th>Status</th><th>Two-factor</th><th><span className="sr-only">Actions</span></th></tr></thead>
         <tbody>{data?.map((u) => (
           <tr key={u.id}>
@@ -245,8 +245,8 @@ function ImportTab() {
       {preview && (
         <>
           <p><strong>{preview.fileName}</strong>: {preview.total} rows — <span className="badge ok">{preview.new} new</span> <span className="badge info">{preview.update} update</span> <span className="badge muted">{preview.skipped} skipped</span> <span className="badge bad">{preview.errors} errors</span>. Nothing is saved until you commit.</p>
-          <div className="tablewrap tall">
-            <table>
+          <div className="cardlist-wrap">
+            <table className="cardlist">
               <thead><tr><th>Row</th><th>Status</th><th>Name</th><th>IP</th><th>Manufacturer</th><th>SNMP</th><th>Messages</th></tr></thead>
               <tbody>{preview.rows.map((r) => (
                 <tr key={r.rowNumber} className={`row-${r.status.toLowerCase()}`}>
@@ -281,8 +281,8 @@ function ProfilesTab() {
       <p className="muted">Named SNMP credential sets that import rows and switches can reference. Secrets are encrypted and never shown again.</p>
       <div className="toolbar"><div className="spacer" /><button className="btn primary" onClick={() => setEditing('new')}>+ New profile</button></div>
       <ErrorBox error={error ?? del.error} />
-      <div className="tablewrap">
-        <table>
+      <div className="cardlist-wrap">
+        <table className="cardlist">
           <thead><tr><th>Profile</th><th>SNMP</th><th className="num">Used by</th><th><span className="sr-only">Actions</span></th></tr></thead>
           <tbody>
             {data?.map((p) => (

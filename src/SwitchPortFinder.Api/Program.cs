@@ -37,6 +37,8 @@ builder.WebHost.ConfigureKestrel(k => { k.Limits.MaxRequestBodySize = 20 * 1024 
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddDiscovery();
 builder.Services.AddHttpContextAccessor();
+// Compress only static text assets (scripts, styles, the HTML shell, SVG): never API/JSON responses, which can carry secrets (BREACH).
+builder.Services.AddResponseCompression(o => { o.EnableForHttps = true; o.MimeTypes = ["text/css", "application/javascript", "text/javascript", "text/html", "image/svg+xml"]; });
 builder.Services.RemoveAll<SwitchPortFinder.Application.Abstractions.IUserAuthorizationService>();
 builder.Services.AddSingleton<SwitchPortFinder.Application.Abstractions.IUserAuthorizationService, HttpContextUserAuthorizationService>();
 
@@ -107,6 +109,7 @@ if (app.Environment.IsDevelopment())
 }
 
 // Plain HTTP in V1. To enable HTTPS later add an Https endpoint under Kestrel:Endpoints and call app.UseHttpsRedirection().
+app.UseResponseCompression();
 app.UseDefaultFiles();
 app.UseStaticFiles();
 app.UseAuthentication();

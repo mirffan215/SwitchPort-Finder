@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { Link } from 'react-router-dom';
 import { ApiError, type TestResult } from '../api';
 
 export function StatusBadge({ status }: { status: string }) {
@@ -105,3 +106,19 @@ export function RowMenu({ label, children }: { label: string; children: (close: 
 }
 
 
+
+/** Page heading: a blue icon tile, a bold title, a small grey subtitle and the page's main actions on the right. */
+export function PageHead({ icon, title, subtitle, children }: { icon: string; title: string; subtitle?: ReactNode; children?: ReactNode }) {
+  return (
+    <div className="pagehead">
+      <span className="tile" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d={icon} /></svg></span>
+      <div className="pagehead-text"><h2>{title}</h2>{subtitle && <p>{subtitle}</p>}</div>
+      <div className="pagehead-actions">{children}</div>
+    </div>
+  );
+}
+
+/** Icon-only quick action for a list row (shown on hover or keyboard focus on desktop). */
+export function IconLink({ to, label, d }: { to: string; label: string; d: string }) {
+  return <Link className="tool iconbtn" to={to} aria-label={label} title={label}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={d} /></svg></Link>;
+}

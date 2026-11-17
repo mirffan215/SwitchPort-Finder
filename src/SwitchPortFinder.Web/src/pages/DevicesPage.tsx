@@ -2,10 +2,10 @@ import { useEffect, useState } from 'react';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { Link, useSearchParams } from 'react-router-dom';
 import { api, CATEGORIES, categoryLabel } from '../api';
-import { CategoryBadge, ErrorBox, StateDot } from '../components/Bits';
+import { CategoryBadge, ErrorBox, IconLink, PageHead, RowMenu, StateDot } from '../components/Bits';
 import { useAuth } from '../components/Auth';
 
-const COLS: [string, string][] = [['hostname', 'Device'], ['ip', 'Address'], ['category', 'Type'], ['switch', 'Location'], ['lastseen', 'Status']];
+const COLS: [string, string][] = [['hostname', 'Device'], ['ip', 'Address'], ['category', 'Type'], ['switch', 'Location'], ['lastseen', 'Status'], ['', '']];
 
 export default function DevicesPage() {
   const { canWrite } = useAuth();
@@ -29,35 +29,49 @@ export default function DevicesPage() {
     : <th key={label}>{label}</th>;
   return (
     <section>
-      <div className="toolbar">
-        <h1>Devices</h1><div className="spacer" />
-        <input placeholder="Search hostname, IP, MAC, manufacturer, switch, port, VLAN" value={q} onChange={(e) => setQ(e.target.value)} style={{ minWidth: 340 }} aria-label="Search devices" />
+      <PageHead icon="M3 5h18v11H3zM8 20h8M12 16v4" title="Devices" subtitle={data ? `${data.total.toLocaleString()} device${data.total === 1 ? '' : 's'}${state ? ` · ${state === 'Active' ? 'online' : state.toLowerCase()}` : ''}` : 'Loading…'}>
         {canWrite && <Link className="btn primary" to="/devices/new">+ Add device</Link>}<a className="btn" href={exportHref('csv')} download>Export CSV</a><a className="btn" href={exportHref('xlsx')} download>Export Excel</a>
+      </PageHead>
+      <div className="toolbar" style={{ gap: 10 }}>
+        <input placeholder="Search hostname, IP, MAC, manufacturer, switch, port, VLAN" value={q} onChange={(e) => setQ(e.target.value)} style={{ flex: '1 1 320px', minWidth: 0 }} aria-label="Search devices" />
         <select value={category} onChange={(e) => { setCategory(e.target.value); setPage(1); }} aria-label="Type"><option value="">All types</option>{CATEGORIES.map((c) => <option key={c} value={c}>{categoryLabel(c)}</option>)}</select>
-        <select value={state} onChange={(e) => { setState(e.target.value); setPage(1); }} aria-label="State"><option value="">All states</option><option value="Active">Online</option><option value="Offline">Offline</option><option value="Stale">Stale</option></select>
+        <div className="pills" role="group" aria-label="State">
+          {[['', 'All'], ['Active', 'Online'], ['Offline', 'Offline'], ['Stale', 'Stale']].map(([v, l]) => <button key={v} type="button" className="pill-card" aria-pressed={state === v} onClick={() => { setState(v); setPage(1); }}>{l}</button>)}
+        </div>
       </div>
       {portId && <div className="fchips"><button className="chipbtn" onClick={() => { const n = new URLSearchParams(sp); ['portId', 'excludeId', 'behind'].forEach((k) => n.delete(k)); setSp(n); }} title="Show all devices again">Devices behind {behind || 'this port'}</button></div>}
       <ErrorBox error={error} />
-      <div className="tablewrap" style={{ opacity: isFetching ? 0.7 : 1 }}>
-        <table>
+      <div className="cardlist-wrap" style={{ opacity: isFetching ? 0.7 : 1 }}>
+        <table className="cardlist">
           <thead><tr>{COLS.map(([k, l]) => th(k, l))}</tr></thead>
           <tbody>
             {data?.items.map((d) => (
               <tr key={d.id}>
-                <td>
-                  <div className="swname"><Link to={`/devices/${d.id}`}>{d.hostname}</Link>{d.manual && <span className="tag" title="Added by hand">manual</span>}</div>
+                <td className="c-main">
+                  <div className="swname"><Link className="rowlink" to={`/devices/${d.id}`}>{d.hostname}</Link>{d.manual && <span className="tag" title="Added by hand">manual</span>}</div>
                   <div className="muted small" title={d.vendor === 'Private (randomized MAC)' ? 'Phones and laptops use a random MAC address for Wi-Fi privacy, so the manufacturer cannot be known from it.' : 'The maker of the network adapter, from the MAC address'}>{d.vendor ?? 'Manufacturer not looked up yet'}</div>
                 </td>
-                <td><div>{d.ip ?? <span className="muted">Unknown IP</span>}</div><div className="mono muted small">{d.mac}</div></td>
-                <td><CategoryBadge c={d.category} manual={d.categoryManual} /></td>
-                <td>{d.switchId ? <>
+                <td className="c-sub"><div>{d.ip ?? <span className="muted">Unknown IP</span>}</div><div className="mono muted small">{d.mac}</div></td>
+                <td className="c-meta"><CategoryBadge c={d.category} manual={d.categoryManual} /></td>
+                <td className="c-meta">{d.switchId ? <>
                   <div><Link to={`/switches/${d.switchId}`}>{d.switchName}</Link>{d.pinned && <span title="Location set manually"> 📌</span>}</div>
                   <div className="muted small">{d.ifIndex ? <Link to={`/switches/${d.switchId}?port=${d.ifIndex}`}>{d.portName}</Link> : '—'}{d.vlan != null && <span className="vlanchip">VLAN {d.vlan}</span>}</div></>
                   : <span className="muted" title="Only seen behind switch uplinks so far: open the device and use Edit details to set where it is plugged in.">Not located yet</span>}</td>
-                <td><StateDot state={d.state} lastSeen={d.lastSeen} /></td>
+                <td className="c-status"><StateDot state={d.state} lastSeen={d.lastSeen} /></td>
+                <td className="rowtools"><div className="tools">
+                  <IconLink to={`/devices/${d.id}`} label={`View ${d.hostname}`} d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z" />
+                  {d.switchId && d.ifIndex ? <IconLink to={`/switches/${d.switchId}?port=${d.ifIndex}`} label={`Open port ${d.portName}`} d="M3 6h18v5H3zM3 13h18v5H3zM7 8.5h.01M7 15.5h.01" /> : null}
+                  <span className="more"><RowMenu label={`More actions for ${d.hostname}`}>{(close) => <>
+                    <Link role="menuitem" to={`/devices/${d.id}`} onClick={close}>View details</Link>
+                    <Link role="menuitem" to={`/devices/${d.id}/trace`} onClick={close}>Trace path</Link>
+                    {d.switchId && <Link role="menuitem" to={`/switches/${d.switchId}`} onClick={close}>Open switch</Link>}
+                    <button type="button" role="menuitem" onClick={() => { close(); navigator.clipboard?.writeText(d.mac).catch(() => undefined); }}>Copy MAC</button>
+                    {d.ip && <button type="button" role="menuitem" onClick={() => { close(); navigator.clipboard?.writeText(d.ip!).catch(() => undefined); }}>Copy IP</button>}
+                  </>}</RowMenu></span>
+                </div></td>
               </tr>
             ))}
-            {data?.items.length === 0 && <tr><td colSpan={5} className="muted">No devices. Scan a switch to discover devices.</td></tr>}
+            {data?.items.length === 0 && <tr><td colSpan={6} className="empty-row">No devices. Scan a switch to discover devices.</td></tr>}
           </tbody>
         </table>
       </div>

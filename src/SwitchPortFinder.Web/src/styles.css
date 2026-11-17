@@ -416,3 +416,18 @@ table.cardlist tbody tr.clickable { cursor:pointer; } table.cardlist tbody tr.hi
 @media (max-width:860px) { .setnav { flex-direction:row; overflow-x:auto; gap:6px; padding-bottom:4px; } .setnav button { margin-bottom:0; flex-shrink:0; } .setgroup { display:flex; gap:6px; } }
 .setbody { border-radius:12px; box-shadow:var(--shadow-sm); } .xr-sheet, .panelx { border-radius:12px; box-shadow:var(--shadow-sm); }
 .seg, .xr-tabs button, .ptype { box-shadow:var(--shadow-sm); } .tabs button { border-radius:12px; }
+
+/* ---- phone polish (≤ 560px): compact header, headings that share a row, filters in two columns ---- */
+.pagehead-text { flex:1 1 0; }
+@media (max-width: 900px) {
+  .sidebar { position:relative; } .brandsub { display:none; }
+  .userbox { position:absolute; top:12px; inset-inline-end:12px; padding:0; border:0; background:none; gap:8px; } .userbox .who { display:none; }
+  .topbar { flex-wrap:wrap; overflow:visible; row-gap:8px; } .topbar .search { flex:1 1 100%; order:3; max-width:none; margin:0; }
+  .topbar .themesw { margin-inline-start:auto; }
+}
+@media (max-width: 560px) {
+  .toolbar > select, .toolbar > input:not([type="checkbox"]) { flex:1 1 calc(50% - 10px); min-width:0 !important; }
+  .toolbar > input[aria-label^="Search"], .toolbar > input[placeholder^="Search"] { flex:1 1 100%; }
+  table.cardlist tbody td.num { text-align:start; }
+  .pagehead .tile { width:40px; height:40px; } .pagehead-text h2 { font-size:19px; }
+}

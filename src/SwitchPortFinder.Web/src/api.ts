@@ -112,6 +112,7 @@ export interface SwitchHit { id: number; name: string; managementIp: string; man
 export interface PortHit { switchId: number; switchName: string; switchIp: string; portId: number; ifIndex: number; portName: string; alias?: string | null; status: string; type: PortType }
 export interface SearchResponse { query: string; devices: DeviceRow[]; switches: SwitchHit[]; ports: PortHit[]; truncated: boolean }
 export interface Sighting { switchId: number; switchName: string; portId: number; ifIndex: number; portName: string; isUplink: boolean; macsOnPort: number; vlan?: number | null; lastSeen: string }
+export interface ChangeEvent { at: string; kind: 'scan' | 'alert' | 'devices'; severity: 'ok' | 'warn' | 'bad' | 'info'; title: string; detail?: string | null; link?: string | null }
 export interface Branding { companyName?: string | null; linkUrl?: string | null; hasLogo: boolean; version: number }
 export interface Integration { kind: 'dhcp' | 'ad' | 'intune'; enabled: boolean; config: Record<string, unknown>; hasSecret: boolean; lastRunAt?: string | null; lastOk?: boolean | null; lastMessage?: string | null; lastMatched: number }
 export interface ExternalInfo { source: string; os?: string | null; user?: string | null; detail?: string | null; at?: string | null }
@@ -237,6 +238,7 @@ export const api = {
   deleteCategoryRule: (id: number) => request<void>(`/api/categories/rules/${id}`, { method: 'DELETE' }),
   reapplyCategories: () => request<{ changed: number }>('/api/categories/reapply', { method: 'POST' }),
   switchUptime: () => request<SwitchUptimeResponse>('/api/metrics/switch-uptime?n=5'),
+  dashboardChanges: (n = 12) => request<ChangeEvent[]>(`/api/dashboard/changes?n=${n}`),
   topPorts: (metric: 'utilization' | 'drops', n = 5) => request<TopPortsResponse>(`/api/metrics/top-ports?metric=${metric}&n=${n}`),
   listProfiles: () => request<ProfileDto[]>('/api/credential-profiles'),
   createProfile: (r: { name: string; description?: string; credential: CredentialInput }) => request<ProfileDto>('/api/credential-profiles', json('POST', r)),

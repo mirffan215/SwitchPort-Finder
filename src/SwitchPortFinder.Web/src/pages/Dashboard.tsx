@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
-import { api, type Dashboard as DashboardDto } from '../api';
+import { api, type AccessPointsResponse, type Dashboard as DashboardDto } from '../api';
 import { ErrorBox, StateDot, ago } from '../components/Bits';
 import { useAuth } from '../components/Auth';
 import { Donut } from '../components/Charts';
@@ -17,6 +17,7 @@ export default function Dashboard() {
   const alerts = useQuery({ queryKey: ['alerts'], queryFn: api.alerts, refetchInterval: 30_000 });
   const aps = useQuery({ queryKey: ['access-points'], queryFn: api.accessPoints });
   const sws = useQuery({ queryKey: ['switches'], queryFn: api.listSwitches });
+  const changes = useQuery({ queryKey: ['dash-changes'], queryFn: () => api.dashboardChanges(10), refetchInterval: 30_000 });
   const util = useQuery({ queryKey: ['top-util', 10], queryFn: () => api.topPorts('utilization', 10), refetchInterval: 30_000 });
   const last = d?.lastDiscovery;
   const allEntries = sws.data ?? [];
@@ -96,6 +97,25 @@ export default function Dashboard() {
         </div>
       )}
 
+      <div className="charts">
+        <WifiPanel aps={aps.data} />
+        <div className="panelx">
+          <h2 className="sectionhead"><span className="bar" aria-hidden="true" />What changed <Link className="small" to="/discovery">discovery log</Link></h2>
+          <p className="hint">Scans, alerts and new devices from the last 7 days.</p>
+          {changes.isLoading ? <p className="muted">Loading…</p> : (changes.data?.length ?? 0) === 0 ? <div className="empty">Nothing has changed yet. Scan a switch to start the feed.</div> : (
+            <ul className="dfeed">
+              {changes.data!.slice(0, 8).map((e, i) => (
+                <li key={`${e.at}-${i}`}>
+                  <span className={`stdot ${e.severity === 'info' ? 'accent' : e.severity}`} aria-hidden="true" />
+                  <div><div className="dfeed-title">{e.link ? <Link to={e.link}>{e.title}</Link> : e.title}</div>{e.detail && <div className="muted small">{e.detail}</div>}</div>
+                  <time className="muted small" dateTime={e.at} title={new Date(e.at).toLocaleString()}>{ago(e.at)}</time>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
+
       <div className="charts three">
         <TopUptime />
         <div className="panelx">
@@ -140,4 +160,35 @@ function portSlices(d: DashboardDto, nav: (to: string) => void) {
     { label: 'Connected', value: endpoints, color: 'var(--ok)', onClick: () => nav('/ports?status=up') },
     { label: 'Switch uplinks', value: uplinks, color: 'var(--accent)', onClick: () => nav('/ports?type=SwitchUplink') },
     { label: 'Down / unused', value: d.downPorts, color: 'var(--muted)', onClick: () => nav('/ports?status=down') }];
+}
+
+/** Wi-Fi clients per access point, from the wireless controller. */
+function WifiPanel({ aps }: { aps?: AccessPointsResponse }) {
+  const items = [...(aps?.items ?? [])].filter((a) => a.wifiClients != null).sort((a, b) => (b.wifiClients ?? 0) - (a.wifiClients ?? 0)).slice(0, 10);
+  const max = Math.max(1, ...items.map((a) => a.wifiClients ?? 0));
+  return (
+    <div className="panelx">
+      <h2 className="sectionhead"><span className="bar" aria-hidden="true" />Wi-Fi <Link className="small" to="/access-points">access points</Link></h2>
+      {!aps || aps.summary.total === 0 ? <div className="empty">No access points yet. <Link to="/switches/new?controller=1">Add your wireless controller</Link> to see Wi-Fi clients here.</div> : (
+        <>
+          <div className="wifitotals">
+            <div><b>{aps.summary.wifiClients ?? 0}</b><span>clients now</span></div>
+            <div><b>{aps.summary.online}<small> / {aps.summary.total}</small></b><span>access points online</span></div>
+            <div><b>{aps.summary.controllers}</b><span>controller{aps.summary.controllers === 1 ? '' : 's'}</span></div>
+          </div>
+          {items.length === 0 ? <p className="muted">The controller has not reported client counts yet.</p> : (
+            <ul className="wifibars" aria-label="Wi-Fi clients per access point">
+              {items.map((a) => (
+                <li key={`${a.mac}-${a.deviceId ?? ''}`}>
+                  <span className="wb-name" title={a.name}>{a.deviceId ? <Link to={`/devices/${a.deviceId}`}>{a.name}</Link> : a.name}</span>
+                  <span className="wb-track"><i className={a.online ? '' : 'off'} style={{ width: `${Math.max(3, ((a.wifiClients ?? 0) / max) * 100)}%` }} /></span>
+                  <span className="wb-val">{a.wifiClients}{!a.online && <small> offline</small>}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </>
+      )}
+    </div>
+  );
 }

@@ -310,6 +310,18 @@ public class DiscoveryApiTests(ApiFixture fx)
     }
 
     [Fact]
+    public async Task The_dashboard_feed_lists_recent_scans_and_new_devices_newest_first()
+    {
+        var n = Build(); var access = await AddSwitch("FEED-SW", n.AccessIp);
+        await Scan(access);
+        var feed = (await _http.GetFromJsonAsync<List<ChangeEventDto>>("/api/dashboard/changes?n=50", Json))!;
+        feed.Should().Contain(e => e.Kind == "scan" && e.Title == "Scan finished for FEED-SW" && e.Link == $"/switches/{access}");
+        feed.Should().Contain(e => e.Kind == "devices" && e.Title.Contains("new device") && e.Title.Contains("FEED-SW"));
+        feed.Select(e => e.At).Should().BeInDescendingOrder();
+        (await _http.GetAsync("/api/dashboard/changes?n=0")).StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
     public async Task A_device_that_identifies_itself_as_a_wireless_controller_is_recognised_without_ticking_anything()
     {
         var n = Interlocked.Increment(ref _seed); var ip = $"203.8.{n}.5";

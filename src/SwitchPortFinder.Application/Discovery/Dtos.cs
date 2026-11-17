@@ -117,3 +117,6 @@ public record DeviceDetailDto(
 
 /// <summary>Facts from an optional integration (Active Directory, Intune): shown on the device page.</summary>
 public record ExternalInfoDto(string Source, string? Os, string? User, string? Detail, DateTime? At);
+
+/// <summary>One line of the dashboard's "What changed" feed. Kind: scan, alert or devices. Severity: ok, warn, bad or info.</summary>
+public record ChangeEventDto(DateTime At, string Kind, string Severity, string Title, string? Detail, string? Link);

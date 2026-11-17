@@ -486,3 +486,17 @@ fieldset { background:var(--panel2); box-shadow:none; }
 .rb-main { grid-template-columns:minmax(0,1fr); } .rb-canvas { min-width:0; }
 .setbody > *, .setbody .form, .setbody .panelx, .setmain { min-width:0; }
 .setbody [style*="display: grid"] { grid-template-columns:minmax(0,1fr); }
+
+/* ---- dashboard: Wi-Fi panel and "What changed" feed ---- */
+.stdot.accent { background:var(--accent); box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent); }
+.wifitotals { display:flex; gap:22px; flex-wrap:wrap; margin:10px 0 14px; } .wifitotals b { display:block; font-size:26px; line-height:1.1; font-variant-numeric:tabular-nums; } .wifitotals b small { font-size:14px; color:var(--muted); font-weight:500; } .wifitotals span { color:var(--muted); font-size:12.5px; }
+.wifibars { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:10px; }
+.wifibars li { display:grid; grid-template-columns:minmax(0,1.2fr) minmax(0,2fr) 64px; gap:12px; align-items:center; }
+.wb-name { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-weight:500; } .wb-name a { color:var(--text); text-decoration:none; } .wb-name a:hover { color:var(--accent); text-decoration:underline; }
+.wb-track { height:10px; border-radius:99px; background:var(--panel2); border:1px solid var(--line); overflow:hidden; } .wb-track i { display:block; height:100%; background:var(--accent); border-radius:99px; } .wb-track i.off { background:var(--muted); opacity:.6; }
+.wb-val { text-align:end; font-weight:600; font-variant-numeric:tabular-nums; } .wb-val small { color:var(--muted); font-weight:400; }
+.dfeed { list-style:none; margin:10px 0 0; padding:0; display:flex; flex-direction:column; }
+.dfeed li { display:grid; grid-template-columns:12px minmax(0,1fr) auto; gap:12px; align-items:start; padding:10px 0; border-top:1px solid var(--line); } .dfeed li:first-child { border-top:0; }
+.dfeed .stdot { margin-top:6px; } .dfeed-title { font-weight:500; } .dfeed-title a { color:var(--text); text-decoration:none; } .dfeed-title a:hover { color:var(--accent); text-decoration:underline; } .dfeed time { white-space:nowrap; }
+@media (max-width:560px) { .wifibars li { grid-template-columns:minmax(0,1fr) 56px; } .wifibars .wb-track { grid-column:1 / -1; order:3; } }
+.dash .panelx > h2:not(.sectionhead) { display:flex; align-items:center; gap:10px; } .dash .panelx > h2:not(.sectionhead)::before { content:''; width:4px; height:18px; border-radius:4px; background:var(--accent); flex-shrink:0; }

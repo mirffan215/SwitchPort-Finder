@@ -50,6 +50,9 @@ public class DiscoveryController(AccessPointService accessPoints, ManualDeviceSe
     [HttpGet("api/dashboard")]
     public async Task<IActionResult> Dashboard(CancellationToken ct) => Ok(await dashboard.GetAsync(ct));
 
+    [HttpGet("api/dashboard/changes")]
+    public async Task<IActionResult> Changes([FromQuery] int n = 12, CancellationToken ct = default) => Ok(await dashboard.ChangesAsync(n, ct));
+
     /// <summary>Top ports by utilization or by packet drops, from the counters of the last two scans. Read-only.</summary>
     [HttpGet("api/metrics/top-ports")]
     public async Task<IActionResult> TopPorts([FromQuery] string metric = "utilization", [FromQuery] int n = 5, CancellationToken ct = default)

@@ -35,6 +35,31 @@ public class TopologyService(AppDbContext db, PortQueryService ports)
 
 public class DashboardService(AppDbContext db, DiscoveryService discovery, DeviceQueryService devices, IOptions<DiscoveryOptions> opt)
 {
+    /// <summary>Recent events for the dashboard feed: finished scans, alerts opened or resolved, and newly found devices (last 7 days), newest first.</summary>
+    public async Task<List<ChangeEventDto>> ChangesAsync(int n, CancellationToken ct)
+    {
+        var since = DateTime.UtcNow.AddDays(-7); var list = new List<ChangeEventDto>();
+        var jobs = await db.DiscoveryJobs.AsNoTracking().Where(j => j.CompletedAt != null && j.CompletedAt > since).OrderByDescending(j => j.CompletedAt).Take(30)
+            .Select(j => new { j.SwitchId, Name = j.Switch!.Name, j.Status, At = j.CompletedAt!.Value, j.PortsFound, j.DevicesFound, j.ErrorCount }).ToListAsync(ct);
+        foreach (var j in jobs)
+            list.Add(j.Status == JobStatus.Failed
+                ? new(j.At, "scan", "bad", $"Scan failed for {j.Name}", j.ErrorCount > 0 ? $"{j.ErrorCount} error(s)" : null, $"/switches/{j.SwitchId}")
+                : new(j.At, "scan", j.Status == JobStatus.CompletedWithWarnings ? "warn" : "ok", $"Scan finished for {j.Name}", $"{j.PortsFound} ports, {j.DevicesFound} devices{(j.ErrorCount > 0 ? $", {j.ErrorCount} warning(s)" : "")}", $"/switches/{j.SwitchId}"));
+        var alerts = await db.AlertEvents.AsNoTracking().Where(a => a.FirstAt > since || (a.ResolvedAt != null && a.ResolvedAt > since)).OrderByDescending(a => a.FirstAt).Take(40).ToListAsync(ct);
+        foreach (var a in alerts)
+        {
+            if (a.FirstAt > since) list.Add(new(a.FirstAt, "alert", "bad", "Alert opened: " + a.Title, a.Detail, "/settings"));
+            if (a.ResolvedAt is { } r && r > since) list.Add(new(r, "alert", "ok", "Alert resolved: " + a.Title, null, "/settings"));
+        }
+        var found = await db.Devices.AsNoTracking().Where(d => d.FirstSeen > since).Select(d => new { d.SwitchId, SwitchName = d.Switch != null ? d.Switch.Name : null, d.FirstSeen, Unnamed = d.Hostname == "Unknown Device" }).ToListAsync(ct);
+        foreach (var g in found.GroupBy(d => (d.SwitchId, At: new DateTime(d.FirstSeen.Year, d.FirstSeen.Month, d.FirstSeen.Day, d.FirstSeen.Hour, 0, 0, DateTimeKind.Utc))))
+        {
+            var c = g.Count(); var un = g.Count(x => x.Unnamed); var name = g.First().SwitchName;
+            list.Add(new(g.Max(x => x.FirstSeen), "devices", "info", $"{c} new device{(c == 1 ? "" : "s")} found{(name is null ? "" : " on " + name)}", un > 0 ? $"{un} not named yet" : null, "/devices"));
+        }
+        return list.OrderByDescending(e => e.At).Take(Math.Clamp(n, 1, 50)).ToList();
+    }
+
     public async Task<DashboardDto> GetAsync(CancellationToken ct)
     {
         var latest = await db.Switches.AsNoTracking().MaxAsync(s => s.LastScanAt, ct);

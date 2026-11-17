@@ -57,6 +57,9 @@ public class DashboardService(AppDbContext db, DiscoveryService discovery, Devic
             var c = g.Count(); var un = g.Count(x => x.Unnamed); var name = g.First().SwitchName;
             list.Add(new(g.Max(x => x.FirstSeen), "devices", "info", $"{c} new device{(c == 1 ? "" : "s")} found{(name is null ? "" : " on " + name)}", un > 0 ? $"{un} not named yet" : null, "/devices"));
         }
+        var events = await db.NetworkEvents.AsNoTracking().Where(e => e.At > since).OrderByDescending(e => e.At).Take(40).ToListAsync(ct);
+        foreach (var e in events)
+            list.Add(new(e.At, e.Kind, e.Kind == "reboot" ? "warn" : "info", e.Title, e.Detail, e.Kind == "reboot" ? (e.SwitchId is { } sid ? $"/switches/{sid}" : null) : (e.DeviceId is { } did ? $"/devices/{did}" : "/devices")));
         return list.OrderByDescending(e => e.At).Take(Math.Clamp(n, 1, 50)).ToList();
     }
 

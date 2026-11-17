@@ -322,6 +322,30 @@ public class DiscoveryApiTests(ApiFixture fx)
     }
 
     [Fact]
+    public async Task A_restarted_switch_and_a_device_that_moved_port_appear_in_the_dashboard_feed()
+    {
+        var n = Build(); fx.Services.GetService(typeof(FakeResolver)).As<FakeResolver>().Names[n.PcIp] = "MOVER-PC";   // a name of its own: other tests search for PC-001
+        var access = await AddSwitch("MOVE-SW", n.AccessIp); var core = await AddSwitch("MOVE-CORE", n.CoreIp, arp: true);
+        var net = fx.Services.GetService(typeof(FakeSnmpClient)).As<FakeSnmpClient>().Net;
+        net.Gets[$"{n.AccessIp}|{Oids.SysUpTime}"] = new SnmpValue(SnmpValueKind.TimeTicks, 5_000_000);      // up about 14 hours
+        await Scan(core); await Scan(access);
+        var PcMac = n.PcMac;
+        (await _http.GetFromJsonAsync<List<ChangeEventDto>>("/api/dashboard/changes?n=50", Json))!.Should().NotContain(e => e.Kind == "moved" && e.Title.Contains("MOVER-PC"), "the first sighting is not a move");
+
+        // the PC is plugged into Gi1/0/16 and the switch restarted
+        var key = $"{n.AccessIp}|pub"; net_Walks(net)[key].Remove(Oids.Dot1qTpFdbTable);
+        var coreMac = $"AABBCC{(int.Parse(n.CoreIp.Split('.')[2])):X2}0A10";
+        net.Walk(n.AccessIp, "pub", Oids.Dot1qTpFdbTable, Dot1qFdb((50, PcMac, 16, 3), (50, coreMac, 24, 3)));
+        net.Gets[$"{n.AccessIp}|{Oids.SysUpTime}"] = new SnmpValue(SnmpValueKind.TimeTicks, 3_000);          // 30 seconds
+        await Scan(access);
+        var feed = (await _http.GetFromJsonAsync<List<ChangeEventDto>>("/api/dashboard/changes?n=50", Json))!;
+        feed.Should().Contain(e => e.Kind == "reboot" && e.Title == "MOVE-SW restarted" && e.Link == $"/switches/{access}");
+        feed.Should().Contain(e => e.Kind == "moved" && e.Title.Contains("MOVER-PC") && e.Detail!.Contains("Gi1/0/15") && e.Detail.Contains("Gi1/0/16"));
+    }
+
+    private static Dictionary<string, Dictionary<string, List<SnmpVarBind>>> net_Walks(SwitchPortFinder.TestSupport.ScriptedSnmp s) => s.Walks;
+
+    [Fact]
     public async Task A_device_that_identifies_itself_as_a_wireless_controller_is_recognised_without_ticking_anything()
     {
         var n = Interlocked.Increment(ref _seed); var ip = $"203.8.{n}.5";

@@ -190,13 +190,13 @@ public class ScanResultWriter(AppDbContext db, IHostnameResolver dns, Classifica
         }
     }
 
-    private static void ApplySwitch(Switch sw, ScanResult r, DateTime now)
+    private void ApplySwitch(Switch sw, ScanResult r, DateTime now)
     {
         if (r.Health is { Reachable: true } h) { sw.CpuPct = h.CpuPercent; sw.MemPct = h.MemoryPercent; sw.LatencyMs = h.LatencyMs; sw.HealthAt = now; }
         sw.Status = SwitchStatus.Reachable; sw.LastScanAt = now;
         if (r.System is { } s)
         {
-            if (s.UpTimeTicks > 0) { sw.UptimeSeconds = s.UpTimeTicks / 100; sw.UptimeAt = now; }
+            if (s.UpTimeTicks > 0) { ChangeLog.NoteUptime(db, sw, s.UpTimeTicks / 100, now); sw.UptimeSeconds = s.UpTimeTicks / 100; sw.UptimeAt = now; }
             sw.SysName = Trunc(s.Name, 255); sw.SysDescr = Trunc(s.Descr, 1000); sw.SysObjectId = Trunc(s.ObjectId, 200);
             if (!string.IsNullOrWhiteSpace(s.Model) && string.IsNullOrWhiteSpace(sw.Model)) sw.Model = Trunc(s.Model, 100);
             if (!string.IsNullOrWhiteSpace(s.Serial)) sw.SerialNumber = Trunc(s.Serial, 100);

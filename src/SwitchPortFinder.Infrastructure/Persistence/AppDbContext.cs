@@ -26,6 +26,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<DiscoveryError> DiscoveryErrors => Set<DiscoveryError>();
     public DbSet<SwitchNeighbor> Neighbors => Set<SwitchNeighbor>();
     public DbSet<SwitchMac> SwitchMacs => Set<SwitchMac>();
+    public DbSet<NetworkEvent> NetworkEvents => Set<NetworkEvent>();
     public DbSet<MfaDevice> MfaDevices => Set<MfaDevice>();
     public DbSet<Integration> Integrations => Set<Integration>();
     public DbSet<Branding> Brandings => Set<Branding>();
@@ -39,6 +40,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         b.Entity<PortMetricSample>(e => { e.HasIndex(x => new { x.PortId, x.At }); e.HasIndex(x => x.At); e.HasIndex(x => new { x.SwitchId, x.At }); e.Ignore(x => x.Port); });
         b.Entity<NotificationConfig>(e => { e.HasKey(x => x.Id); e.Property(x => x.Id).ValueGeneratedNever(); e.Property(x => x.Host).HasMaxLength(255); e.Property(x => x.Username).HasMaxLength(255); e.Property(x => x.FromAddress).HasMaxLength(255); e.Property(x => x.FromName).HasMaxLength(100); e.Property(x => x.Recipients).HasMaxLength(2000); e.Property(x => x.PublicBaseUrl).HasMaxLength(255); });
         b.Entity<Switch>(e => { e.Property(x => x.ProductType).HasConversion<string>().HasMaxLength(20); e.Ignore(x => x.IsWirelessController); });
+        b.Entity<NetworkEvent>(e => { e.Property(x => x.Kind).HasMaxLength(20).IsRequired(); e.Property(x => x.Title).HasMaxLength(200).IsRequired(); e.Property(x => x.Detail).HasMaxLength(300); e.HasIndex(x => x.At); });
         b.Entity<MfaDevice>(e => { e.HasOne(x => x.User).WithMany(u => u.MfaDevices).HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade); e.Property(x => x.Name).HasMaxLength(60).IsRequired(); e.Property(x => x.SecretProtected).IsRequired(); e.HasIndex(x => x.UserId); });
         b.Entity<AppUser>(e => e.Property(x => x.MfaPendingName).HasMaxLength(60));
         b.Entity<Integration>(e => { e.Property(x => x.Kind).HasMaxLength(20).IsRequired(); e.HasIndex(x => x.Kind).IsUnique(); e.Property(x => x.ConfigJson).IsRequired(); e.Property(x => x.LastMessage).HasMaxLength(500); });

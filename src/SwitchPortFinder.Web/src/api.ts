@@ -112,7 +112,7 @@ export interface SwitchHit { id: number; name: string; managementIp: string; man
 export interface PortHit { switchId: number; switchName: string; switchIp: string; portId: number; ifIndex: number; portName: string; alias?: string | null; status: string; type: PortType }
 export interface SearchResponse { query: string; devices: DeviceRow[]; switches: SwitchHit[]; ports: PortHit[]; truncated: boolean }
 export interface Sighting { switchId: number; switchName: string; portId: number; ifIndex: number; portName: string; isUplink: boolean; macsOnPort: number; vlan?: number | null; lastSeen: string }
-export interface ChangeEvent { at: string; kind: 'scan' | 'alert' | 'devices'; severity: 'ok' | 'warn' | 'bad' | 'info'; title: string; detail?: string | null; link?: string | null }
+export interface ChangeEvent { at: string; kind: 'scan' | 'alert' | 'devices' | 'reboot' | 'moved'; severity: 'ok' | 'warn' | 'bad' | 'info'; title: string; detail?: string | null; link?: string | null }
 export interface Branding { companyName?: string | null; linkUrl?: string | null; hasLogo: boolean; version: number }
 export interface Integration { kind: 'dhcp' | 'ad' | 'intune'; enabled: boolean; config: Record<string, unknown>; hasSecret: boolean; lastRunAt?: string | null; lastOk?: boolean | null; lastMessage?: string | null; lastMatched: number }
 export interface ExternalInfo { source: string; os?: string | null; user?: string | null; detail?: string | null; at?: string | null }

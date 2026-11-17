@@ -108,8 +108,10 @@ public class ClassificationService(AppDbContext db, IOptions<DiscoveryOptions> o
         var window = TimeSpan.FromMinutes(o.OfflineAfterMinutes);
         var devs = new Dictionary<string, Device>();
         foreach (var chunk in affected.Chunk(500)) foreach (var d in await db.Devices.Where(d => chunk.Contains(d.Mac)).ToListAsync(ct)) devs[d.Mac] = d;
+        var moves = new List<(Device D, int? OldSwitch, int OldPort)>();
         foreach (var (mac, d) in devs)
         {
+            var oldSwitch = d.SwitchId; var oldPort = d.PortId;
             var choice = LocationSelector.Choose(obsByMac[mac].Select(x => new LocationSelector.ObsCandidate(x.SwitchId, x.PortId, x.Vlan, x.LastSeen)),
                 uplinkPorts.Contains, pid => macCount.GetValueOrDefault(pid), window);
             d.SwitchId = choice.Best?.SwitchId; d.PortId = choice.Best?.PortId; d.Vlan = choice.Best?.Vlan; d.LowConfidence = choice.LowConfidence;
@@ -119,6 +121,18 @@ public class ClassificationService(AppDbContext db, IOptions<DiscoveryOptions> o
                 if (portById.TryGetValue(pp, out var pinned)) { d.SwitchId = pinned.SwitchId; d.PortId = pp; d.Vlan = d.PinnedVlan ?? d.Vlan; d.LowConfidence = false; }
                 else { d.PinnedSwitchId = null; d.PinnedPortId = null; d.PinnedVlan = null; }
             }
+            // a device that was on one edge port and now clearly sits on another: remember it for the dashboard feed (not first sightings, not low-confidence ties, not ports that just became uplinks)
+            if (oldPort is { } op && d.PortId is { } np && np != op && !d.LowConfidence && !uplinkPorts.Contains(op) && portById.ContainsKey(op)) moves.Add((d, oldSwitch, op));
+        }
+        if (moves.Count > 0)
+        {
+            var ids = moves.Select(m => m.D.Id).ToList();
+            var recent = (await db.NetworkEvents.AsNoTracking().Where(e => e.Kind == "moved" && e.DeviceId != null && ids.Contains(e.DeviceId!.Value) && e.At > now.AddMinutes(-60)).Select(e => e.DeviceId!.Value).ToListAsync(ct)).ToHashSet();   // anti-flap
+            var fresh = moves.Where(m => !recent.Contains(m.D.Id)).ToList();
+            string Where(int? sw, int port) => $"{(sw is { } s ? switches.FirstOrDefault(x => x.Id == s)?.Name : null) ?? "?"} {(portById.TryGetValue(port, out var pr) ? pr.Name : "?")}";
+            if (fresh.Count > 25) db.NetworkEvents.Add(new NetworkEvent { At = now, Kind = "moved", Title = $"{fresh.Count} devices changed port", Detail = "a switch was probably replaced or recabled" });
+            else foreach (var (d, osw, op) in fresh)
+                db.NetworkEvents.Add(new NetworkEvent { At = now, Kind = "moved", DeviceId = d.Id, SwitchId = d.SwitchId, Title = $"{(d.Hostname == "Unknown Device" ? SwitchPortFinder.Domain.MacAddress.Format(d.Mac) : d.Hostname)} moved", Detail = $"from {Where(osw, op)} to {Where(d.SwitchId, d.PortId!.Value)}" });
         }
         log.LogInformation("Classification: {Uplinks} uplink ports, {Changed} ports changed, {Devices} devices re-located", uplinkPorts.Count, portChanges.Count, devs.Count);
     }

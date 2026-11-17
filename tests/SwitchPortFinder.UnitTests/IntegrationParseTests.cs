@@ -63,3 +63,13 @@ public class IntegrationParseTests
     [InlineData("", "returned no leases")]
     public void An_empty_dhcp_answer_is_explained_from_the_diagnostic_line(string err, string expectedPart) => PowerShellDhcpSource.ExplainEmpty(err).Should().Contain(expectedPart);
 }
+
+public class ChangeLogTests
+{
+    [Theory]
+    [InlineData(30, "1 min")]
+    [InlineData(600, "10 min")]
+    [InlineData(7200, "2 h 0 min")]
+    [InlineData(90000, "1 d 1 h")]
+    public void Spans_are_written_in_the_largest_sensible_unit(long seconds, string expected) => SwitchPortFinder.Infrastructure.Discovery.ChangeLog.Span(seconds).Should().Be(expected);
+}

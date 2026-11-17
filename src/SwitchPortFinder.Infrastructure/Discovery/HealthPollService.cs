@@ -79,7 +79,7 @@ public sealed class HealthPollService(IServiceScopeFactory scopes, IOptions<Disc
             await db.SaveChangesAsync(ct); return;
         }
         sw.Status = SwitchStatus.Reachable;
-        if (h.UptimeSeconds is { } up) { sw.UptimeSeconds = up; sw.UptimeAt = now; }
+        if (h.UptimeSeconds is { } up) { ChangeLog.NoteUptime(db, sw, up, now); sw.UptimeSeconds = up; sw.UptimeAt = now; }
         sw.CpuPct = h.CpuPercent; sw.MemPct = h.MemoryPercent; sw.LatencyMs = h.LatencyMs; sw.HealthAt = now;
         var samples = new List<(SwitchPort, DateTime)>();
         if (h.Interfaces is { Count: > 0 } ifaces)
@@ -105,6 +105,7 @@ public sealed class HealthPollService(IServiceScopeFactory scopes, IOptions<Disc
             var cutoff = DateTime.UtcNow.AddDays(-Math.Max(7, opt.Value.MetricsRetentionDays));
             var a = await db.SwitchMetrics.Where(x => x.At < cutoff).ExecuteDeleteAsync(ct);
             var b = await db.PortMetrics.Where(x => x.At < cutoff).ExecuteDeleteAsync(ct);
+            await db.NetworkEvents.Where(x => x.At < DateTime.UtcNow.AddDays(-30)).ExecuteDeleteAsync(ct);
             var live = db.Switches.Select(s => s.Id);
             var c = await db.PortMetrics.Where(x => !live.Contains(x.SwitchId)).ExecuteDeleteAsync(ct);   // samples of deleted switches
             if (a + b + c > 0) log.LogInformation("MetricsPruned: {Switch} switch and {Port} port samples removed", a, b + c);

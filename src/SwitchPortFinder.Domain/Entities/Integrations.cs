@@ -26,3 +26,16 @@ public class Branding
     public string? LogoContentType { get; set; }
     public DateTime UpdatedAt { get; set; }
 }
+
+/// <summary>History for the dashboard feed that cannot be recomputed later: a switch restart or a device that appeared on a different port. Kept 30 days.</summary>
+public class NetworkEvent
+{
+    public long Id { get; set; }
+    public DateTime At { get; set; }
+    /// <summary>"reboot" or "moved".</summary>
+    public string Kind { get; set; } = "";
+    public int? SwitchId { get; set; }
+    public int? DeviceId { get; set; }
+    public string Title { get; set; } = "";
+    public string? Detail { get; set; }
+}

@@ -247,3 +247,12 @@ Every inventory entry has a **Product type**: Switch, Wireless controller, Route
 1. On the **portal server**, install the DHCP management tools (PowerShell module `DhcpServer`), as Administrator: `Install-WindowsFeature RSAT-DHCP`. Without it the run fails with "Get-DhcpServerv4Scope is not recognized".
 2. The service reads the DHCP server as the portal server's **computer account** (the service runs as a virtual account). On the **DHCP server**, add that computer account (for example `ALMURJAN\PORTALSERVER$`) to the local group **DHCP Users** (read-only access), wait a few minutes or restart the DHCP Server service, then press **Run now**.
 3. Quick manual test on the portal server: `Get-DhcpServerv4Scope -ComputerName <dhcp-server>` should list your scopes (run it in a PowerShell window as an administrator of the portal server; the service itself uses the computer account).
+
+## Dashboard "What changed" feed
+
+The feed lists the last 7 days: finished scans, alerts opened and resolved, new devices, **switch restarts** and **devices that moved to another port**. Restarts and moves cannot be worked out afterwards (the portal has to see the "before" value), so they are recorded when a scan or health poll notices them and kept for 30 days:
+
+- **Restart:** the switch's uptime is lower than at the previous reading (by more than 2 minutes). The event is dated at the estimated restart time. The 32-bit uptime counter wrapping after ~497 days is ignored.
+- **Moved:** a device that was on one edge port is now found on another. First sightings, low-confidence ties, ports that just became uplinks, and a device that already moved in the last hour (flapping) are not reported. If more than 25 devices change at once (a replaced or re-cabled switch) one summary line is written instead.
+
+History starts from the day this version is installed: nothing is shown for earlier restarts or moves.

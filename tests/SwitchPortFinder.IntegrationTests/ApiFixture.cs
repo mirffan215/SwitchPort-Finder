@@ -218,8 +218,9 @@ public sealed class FakeIntegrationSources : SwitchPortFinder.Infrastructure.Int
     public List<SwitchPortFinder.Infrastructure.Integrations.DirectoryComputer> Computers { get; } = [];
     public List<SwitchPortFinder.Infrastructure.Integrations.IntuneDevice> Intune { get; } = [];
     public bool Fail { get; set; }
+    public string? LastDhcpUser { get; private set; }
     public string? LastSecret { get; private set; }
-    Task<IReadOnlyList<SwitchPortFinder.Infrastructure.Integrations.DhcpLease>> SwitchPortFinder.Infrastructure.Integrations.IDhcpLeaseSource.ReadAsync(string server, CancellationToken ct) { if (Fail) throw new InvalidOperationException("DHCP server not reachable"); return Task.FromResult<IReadOnlyList<SwitchPortFinder.Infrastructure.Integrations.DhcpLease>>(Leases.ToList()); }
+    Task<IReadOnlyList<SwitchPortFinder.Infrastructure.Integrations.DhcpLease>> SwitchPortFinder.Infrastructure.Integrations.IDhcpLeaseSource.ReadAsync(string server, string? user, string? password, CancellationToken ct) { LastDhcpUser = user; LastSecret = password; if (Fail) throw new InvalidOperationException("DHCP server not reachable"); return Task.FromResult<IReadOnlyList<SwitchPortFinder.Infrastructure.Integrations.DhcpLease>>(Leases.ToList()); }
     Task<IReadOnlyList<SwitchPortFinder.Infrastructure.Integrations.DirectoryComputer>> SwitchPortFinder.Infrastructure.Integrations.IDirectorySource.ReadAsync(SwitchPortFinder.Infrastructure.Integrations.DirectoryConfig c, string password, CancellationToken ct) { LastSecret = password; return Task.FromResult<IReadOnlyList<SwitchPortFinder.Infrastructure.Integrations.DirectoryComputer>>(Computers.ToList()); }
     Task<IReadOnlyList<SwitchPortFinder.Infrastructure.Integrations.IntuneDevice>> SwitchPortFinder.Infrastructure.Integrations.IIntuneSource.ReadAsync(SwitchPortFinder.Infrastructure.Integrations.IntuneConfig c, string secret, CancellationToken ct) { LastSecret = secret; return Task.FromResult<IReadOnlyList<SwitchPortFinder.Infrastructure.Integrations.IntuneDevice>>(Intune.ToList()); }
 }

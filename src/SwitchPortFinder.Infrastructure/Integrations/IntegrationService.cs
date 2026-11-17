@@ -51,7 +51,13 @@ public class IntegrationService(AppDbContext db, ICredentialProtector protector,
         switch (kind)
         {
             case "dhcp":
-                { var s = Str(c, "server"); if (q.Enabled && !Parse.IsHost(s)) throw new ValidationFailedException("server", "Enter the DHCP server's name or IP address."); CheckTarget(s); cfg = new DhcpConfig { Server = s }; break; }
+                {
+                    var sv = Str(c, "server"); var user = Str(c, "username");
+                    if (q.Enabled && !Parse.IsHost(sv)) throw new ValidationFailedException("server", "Enter the DHCP server's name or IP address.");
+                    if (user.Length > 0 && !PowerShellDhcpSource.IsAccountName(user)) throw new ValidationFailedException("username", "Use the form user@domain or DOMAIN\\user (letters, digits and . _ - only).");
+                    if (q.Enabled && user.Length > 0 && string.IsNullOrEmpty(q.Secret ?? r.EncryptedSecret)) throw new ValidationFailedException("secret", "Enter the account's password, or clear the account name to use the portal server's computer account.");
+                    CheckTarget(sv); cfg = new DhcpConfig { Server = sv, Username = user }; break;
+                }
             case "ad":
                 {
                     var d = new DirectoryConfig { Server = Str(c, "server"), BaseDn = Str(c, "baseDn"), BindUser = Str(c, "bindUser"), TrustServerCertificate = c is not null && c.TryGetValue("trustServerCertificate", out var t) && t.ValueKind == JsonValueKind.True, Port = c is not null && c.TryGetValue("port", out var pv) && pv.TryGetInt32(out var pn) ? pn : 636 };
@@ -103,7 +109,7 @@ public class IntegrationService(AppDbContext db, ICredentialProtector protector,
     private async Task<(int, int)> RunDhcp(Integration r, CancellationToken ct)
     {
         var cfg = JsonSerializer.Deserialize<DhcpConfig>(r.ConfigJson, J)!;
-        var leases = await dhcp.ReadAsync(cfg.Server, ct);
+        var leases = await dhcp.ReadAsync(cfg.Server, string.IsNullOrWhiteSpace(cfg.Username) ? null : cfg.Username, string.IsNullOrWhiteSpace(cfg.Username) || string.IsNullOrEmpty(r.EncryptedSecret) ? null : protector.Unprotect(r.EncryptedSecret), ct);
         // per MAC: the lease and the reservation (a reservation's name is used when the lease has no host name)
         var byMac = leases.GroupBy(l => l.Mac).ToDictionary(g => g.Key, g => (Lease: g.LastOrDefault(x => !x.Reserved), Resv: g.LastOrDefault(x => x.Reserved)));
         var devices = await db.Devices.ToListAsync(ct); var n = 0; var now = DateTime.UtcNow;

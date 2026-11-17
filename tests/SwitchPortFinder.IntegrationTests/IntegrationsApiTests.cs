@@ -67,6 +67,20 @@ public class IntegrationsApiTests(ApiFixture fx)
     }
 
     [Fact]
+    public async Task Dhcp_can_use_a_read_only_account_whose_password_is_stored_encrypted_and_never_returned()
+    {
+        var mac = await Seed(); Fake.Leases.Clear(); Fake.Leases.Add(new DhcpLease(mac, "10.77.1.5", "ACCT-PC-1", "10.77.1.0", "Active", null));
+        (await _http.PutAsync("/api/integrations/dhcp", J(new { enabled = true, config = new { server = "dhcp01.corp.local", username = "svc-dhcp@corp.local" } }))).StatusCode.Should().Be(HttpStatusCode.BadRequest, "an account needs its password");
+        (await _http.PutAsync("/api/integrations/dhcp", J(new { enabled = true, config = new { server = "dhcp01.corp.local", username = "bad name; rm -rf" }, secret = "x" }))).StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        var put = await _http.PutAsync("/api/integrations/dhcp", J(new { enabled = true, config = new { server = "dhcp01.corp.local", username = "svc-dhcp@corp.local" }, secret = "Dhcp-Reader-Pw-77" }));
+        (await put.Content.ReadAsStringAsync()).Should().NotContain("Dhcp-Reader-Pw-77"); (await _http.GetStringAsync("/api/integrations")).Should().NotContain("Dhcp-Reader-Pw-77");
+        (await _http.PostAsync("/api/integrations/dhcp/run", null)).StatusCode.Should().Be(HttpStatusCode.OK);
+        (Fake.LastDhcpUser, Fake.LastSecret).Should().Be(("svc-dhcp@corp.local", "Dhcp-Reader-Pw-77"));
+        (await Dev(mac)).Hostname.Should().Be("ACCT-PC-1");
+        await _http.PutAsync("/api/integrations/dhcp", J(new { enabled = false, config = new { server = "dhcp01.corp.local", username = "" } }));
+    }
+
+    [Fact]
     public async Task Active_directory_adds_os_and_ou_and_the_password_is_stored_encrypted_and_never_returned()
     {
         var mac = await Seed("LAP-FIN-03", HostnameSource.ReverseDns);

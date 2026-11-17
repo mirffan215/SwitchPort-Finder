@@ -60,7 +60,7 @@ export default function SwitchesPage() {
           <option value="">All manufacturers</option>
           {MANUFACTURERS.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
         </select>
-        <select value={ptype} onChange={(e) => setPtype(e.target.value as '' | ProductType)} aria-label="Product type filter"><option value="">All product types</option>{PRODUCT_TYPES.map((p) => <option key={p.value} value={p.value}>{p.plural}</option>)}</select>
+        <select value={ptype} onChange={(e) => setPtype(e.target.value as '' | ProductType)} aria-label="Product type filter"><option value="">All product types</option>{PRODUCT_TYPES.map((p) => <option key={p.value} value={p.value} title={p.hint}>{p.plural}</option>)}</select>
         <select value={stat} onChange={(e) => setStat(e.target.value)} aria-label="Status filter"><option value="">All statuses</option><option value="Reachable">Reachable</option><option value="Unreachable">Unreachable</option><option value="Unknown">Never scanned</option></select>
         <div className="seg" role="group" aria-label="View"><button type="button" className={view === 'table' ? 'on' : ''} aria-pressed={view === 'table'} onClick={() => pick('table')}>Table</button><button type="button" className={view === 'cards' ? 'on' : ''} aria-pressed={view === 'cards'} onClick={() => pick('cards')}>Cards</button></div>
       </div>
@@ -84,7 +84,7 @@ export default function SwitchesPage() {
       ) : (
         <div className="cardlist-wrap">
           <table className="cardlist">
-            <thead><tr><th>Name</th><th>Type</th><th>Management IP</th><th>Manufacturer</th><th className="num">Ports</th><th>Status</th><th><span className="sr-only">Actions</span></th></tr></thead>
+            <thead><tr><th>Name</th><th title="Product type: what this entry is. A wireless controller lists access points instead of ports; a router provides the ARP table.">Type</th><th>Management IP</th><th>Manufacturer</th><th className="num">Ports</th><th>Status</th><th><span className="sr-only">Actions</span></th></tr></thead>
             <tbody>
               {rows.map((s) => (
                 <tr key={s.id}>

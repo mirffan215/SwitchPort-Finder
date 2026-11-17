@@ -46,14 +46,15 @@ function New-SpfConfig {
         [Parameter(Mandatory)][string[]]$AllowedHosts,
         [string]$AdminUser = 'admin',
         [string]$AdminPassword,
-        [int]$LoopbackHttpPort = 5000
+        [int]$LoopbackHttpPort = 5000,
+        [bool]$Hsts = $false
     )
     $auth = [ordered]@{ Mode = 'Local' }
     if ($AdminPassword) { $auth['BootstrapAdmin'] = [ordered]@{ Username = $AdminUser; Password = $AdminPassword } }
     [ordered]@{
         ConnectionStrings = [ordered]@{ Default = $ConnectionString }
         Database          = [ordered]@{ Provider = 'SqlServer'; AutoMigrate = $false }
-        Security          = [ordered]@{ KeysPath = $KeysPath; AllowLoopbackTargets = $false; TrustedOrigins = @(); Hsts = $false }
+        Security          = [ordered]@{ KeysPath = $KeysPath; AllowLoopbackTargets = $false; TrustedOrigins = @(); Hsts = $Hsts }
         Authentication    = $auth
         AllowedHosts      = (($AllowedHosts | Where-Object { $_ } | Select-Object -Unique) -join ';')
         Kestrel           = [ordered]@{ Endpoints = [ordered]@{

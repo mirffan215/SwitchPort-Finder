@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
-import { api, productLabel, type Neighbor, type PortRow } from '../api';
+import { api, PRODUCT_TYPES, productLabel, type Neighbor, type PortRow } from '../api';
 import { ago, ConfidenceBadge, Dot, ErrorBox, fmtDate, PageHead, PortTypeBadge, StateBadge, StatusBadge, TestResultBox } from '../components/Bits';
 import ScanProgress from '../components/ScanProgress';
 import { useAuth } from '../components/Auth';
@@ -40,7 +40,7 @@ export default function SwitchPage() {
 
   return (
     <section>
-      <PageHead icon="M3 6h18v5H3zM3 13h18v5H3zM7 8.5h.01M7 15.5h.01" title={s.name} subtitle={<><StatusBadge status={s.status} /> {s.productType && s.productType !== 'Switch' && <span className="tag">{productLabel(s.productType)}</span>} {s.managementIp} · {s.manufacturerName}{sum && !isCtl ? ` · ${sum.total} Ports · ${sum.connected} Connected · ${sum.down} Down · ${sum.uplinks} Switch Uplinks` : ''}</>}>
+      <PageHead icon="M3 6h18v5H3zM3 13h18v5H3zM7 8.5h.01M7 15.5h.01" title={s.name} subtitle={<><StatusBadge status={s.status} /> {s.productType && s.productType !== 'Switch' && <span className="tag" title={PRODUCT_TYPES.find((p) => p.value === s.productType)?.hint}>{productLabel(s.productType)}</span>} {s.managementIp} · {s.manufacturerName}{sum && !isCtl ? ` · ${sum.total} Ports · ${sum.connected} Connected · ${sum.down} Down · ${sum.uplinks} Switch Uplinks` : ''}</>}>
         {!isCtl && <div className="viewsw" role="group" aria-label="View"><button type="button" aria-pressed={view === 'graphic'} onClick={() => pickView('graphic')}>Graphical</button><button type="button" aria-pressed={view === 'table'} onClick={() => pickView('table')}>Table</button></div>}
         {canWrite && <button className="btn primary" disabled={scan.isPending || scanning} onClick={() => scan.mutate()}>Scan Now</button>}
         <button className="btn" onClick={refresh}>Refresh</button>

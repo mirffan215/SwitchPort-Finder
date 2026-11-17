@@ -51,11 +51,14 @@ public class DashboardService(AppDbContext db, DiscoveryService discovery, Devic
             if (a.FirstAt > since) list.Add(new(a.FirstAt, "alert", "bad", "Alert opened: " + a.Title, a.Detail, "/settings"));
             if (a.ResolvedAt is { } r && r > since) list.Add(new(r, "alert", "ok", "Alert resolved: " + a.Title, null, "/settings"));
         }
-        var found = await db.Devices.AsNoTracking().Where(d => d.FirstSeen > since).Select(d => new { d.SwitchId, SwitchName = d.Switch != null ? d.Switch.Name : null, d.FirstSeen, Unnamed = d.Hostname == "Unknown Device" }).ToListAsync(ct);
-        foreach (var g in found.GroupBy(d => (d.SwitchId, At: new DateTime(d.FirstSeen.Year, d.FirstSeen.Month, d.FirstSeen.Day, d.FirstSeen.Hour, 0, 0, DateTimeKind.Utc))))
+        // grouped in the database: right after an install every device is "new", and 50k rows must not be loaded for a 30-second dashboard refresh
+        var found = await db.Devices.AsNoTracking().Where(d => d.FirstSeen > since).GroupBy(d => d.SwitchId)
+            .Select(g => new { SwitchId = g.Key, Count = g.Count(), Unnamed = g.Count(x => x.Hostname == "Unknown Device"), At = g.Max(x => x.FirstSeen) }).ToListAsync(ct);
+        var names = await db.Switches.AsNoTracking().Select(s => new { s.Id, s.Name }).ToDictionaryAsync(s => s.Id, s => s.Name, ct);
+        foreach (var g in found)
         {
-            var c = g.Count(); var un = g.Count(x => x.Unnamed); var name = g.First().SwitchName;
-            list.Add(new(g.Max(x => x.FirstSeen), "devices", "info", $"{c} new device{(c == 1 ? "" : "s")} found{(name is null ? "" : " on " + name)}", un > 0 ? $"{un} not named yet" : null, "/devices"));
+            var name = g.SwitchId is { } id && names.TryGetValue(id, out var nm) ? nm : null;
+            list.Add(new(g.At, "devices", "info", $"{g.Count} new device{(g.Count == 1 ? "" : "s")} found{(name is null ? "" : " on " + name)}", g.Unnamed > 0 ? $"{g.Unnamed} not named yet" : null, "/devices"));
         }
         var events = await db.NetworkEvents.AsNoTracking().Where(e => e.At > since).OrderByDescending(e => e.At).Take(40).ToListAsync(ct);
         foreach (var e in events)

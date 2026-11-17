@@ -22,7 +22,10 @@ function Card({ it }: { it: Integration }) {
       <h3>{m.title} {it.enabled ? <span className="badge ok">On</span> : <span className="badge warnb">Off</span>}</h3>
       <p className="hint">{m.blurb}</p>
       <label className="check"><input type="checkbox" checked={on} onChange={(e) => { setOn(e.target.checked); setSaved(false); }} /> Turn this integration on</label>
-      {it.kind === 'dhcp' && <Field label="DHCP server (name or IP)"><input value={s('server')} onChange={(e) => set('server', e.target.value)} autoComplete="off" /></Field>}
+      {it.kind === 'dhcp' && <>
+        <Field label="DHCP server (name or IP)"><input value={s('server')} onChange={(e) => set('server', e.target.value)} autoComplete="off" /></Field>
+        <Field label="Read-only account (optional)" hint="Leave empty to use the portal server's computer account (it must be a member of DHCP Users on the DHCP server). Or enter a domain account that is a member of DHCP Users, as user@domain."><input value={s('username')} onChange={(e) => set('username', e.target.value)} autoComplete="off" placeholder="svc-dhcp-read@almurjan.com" /></Field>
+      </>}
       {it.kind === 'ad' && <>
         <div className="row">
           <Field label="Domain controller (name or IP)"><input value={s('server')} onChange={(e) => set('server', e.target.value)} autoComplete="off" /></Field>
@@ -38,7 +41,7 @@ function Card({ it }: { it: Integration }) {
         <Field label="Tenant ID"><input value={s('tenantId')} onChange={(e) => set('tenantId', e.target.value)} autoComplete="off" /></Field>
         <Field label="Application (client) ID"><input value={s('clientId')} onChange={(e) => set('clientId', e.target.value)} autoComplete="off" /></Field>
       </div>}
-      {it.kind !== 'dhcp' && <Field label={it.kind === 'ad' ? 'Account password' : 'Client secret'} hint={it.hasSecret ? 'Stored encrypted. Leave empty to keep it.' : undefined}><input type="password" value={secret} onChange={(e) => { setSecret(e.target.value); setSaved(false); }} autoComplete="new-password" placeholder={it.hasSecret ? '•••••••• (unchanged)' : ''} /></Field>}
+      {(it.kind !== 'dhcp' || s('username') !== '') && <Field label={it.kind === 'intune' ? 'Client secret' : 'Account password'} hint={it.hasSecret ? 'Stored encrypted. Leave empty to keep it.' : undefined}><input type="password" value={secret} onChange={(e) => { setSecret(e.target.value); setSaved(false); }} autoComplete="new-password" placeholder={it.hasSecret ? '•••••••• (unchanged)' : ''} /></Field>}
       <ErrorBox error={save.error ?? run.error} />
       <div className="buttons">
         <button className="btn primary" disabled={save.isPending}>{save.isPending ? 'Saving…' : 'Save'}</button>

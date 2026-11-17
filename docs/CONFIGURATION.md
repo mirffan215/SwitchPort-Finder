@@ -256,3 +256,7 @@ The feed lists the last 7 days: finished scans, alerts opened and resolved, new 
 - **Moved:** a device that was on one edge port is now found on another. First sightings, low-confidence ties, ports that just became uplinks, and a device that already moved in the last hour (flapping) are not reported. If more than 25 devices change at once (a replaced or re-cabled switch) one summary line is written instead.
 
 History starts from the day this version is installed: nothing is shown for earlier restarts or moves.
+
+### Windows DHCP with a read-only account (no computer-account permission needed)
+
+Integrations → Windows DHCP has an optional **Read-only account**. Leave it empty to use the portal server's computer account (it must be in **DHCP Users** on the DHCP server). Or enter a domain account (`user@domain`, member of **DHCP Users**) and its password: the portal then opens a CIM session to the DHCP server with that account, so nothing depends on the portal server's computer account or its Kerberos tickets. The password is stored encrypted, never shown again, and handed to PowerShell through an environment variable, not on the command line. An empty answer is now reported as "the portal could see N scope(s)", which tells a permission problem from empty scopes.

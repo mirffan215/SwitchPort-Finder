@@ -105,6 +105,10 @@ public class PerformanceTests(IsolatedApiFixture fx, ITestOutputHelper output) :
         await Time<List<SwitchSummaryDtoLite>>("switch list (500)", "/api/switches", 1500);
         await Time<PortsResponse>("switch ports page (48 ports)", "/api/switches/9/ports", 1000);
         await Time<DashboardDto>("dashboard", "/api/dashboard", 2000);
+        await Time<List<ChangeEventDto>>("dashboard feed (every device found in the last 7 days)", "/api/dashboard/changes?n=12", 1500);
+        await Time<AccessPointsResponse>("access points page", "/api/access-points", 2000);
+        await Time<Paged<PortListItem>>("ports page 1", "/api/ports?pageSize=50", 1500);
+        await Time<List<SwitchPortFinder.Infrastructure.Integrations.IntegrationDto>>("integrations list", "/api/integrations", 500);
         var topo = (await Time<TopologyResponse>("topology (500 nodes)", "/api/topology", 4000)).Result;
         topo.Nodes.Should().HaveCount(Switches); topo.Edges.Should().HaveCount(Switches - 1);
         var dev = list.Items[0];

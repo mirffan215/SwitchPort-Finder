@@ -48,7 +48,9 @@ param(
     [switch]$KeepConfig,
     [switch]$RenewCertificate,
     [switch]$InstallPrerequisites,
-    [switch]$NoFirewall
+    [switch]$NoFirewall,
+    # Tell browsers to use HTTPS only for this site (HSTS). Enable it once the certificate is trusted by every client (internal CA), never with an untrusted self-signed certificate.
+    [switch]$EnableHsts
 )
 
 $ErrorActionPreference = 'Stop'
@@ -182,6 +184,7 @@ try {
         $wanted = @($HostName, $env:COMPUTERNAME, $fqdn, 'localhost', '127.0.0.1') + $ips
         $cfg.AllowedHosts = ((@(([string]$cfg.AllowedHosts) -split ';') + $wanted) | Where-Object { $_ } | Select-Object -Unique) -join ';'
         $cfg.Kestrel.Endpoints.Https.Url = "https://0.0.0.0:$HttpsPort"
+        if ($EnableHsts) { $cfg.Security | Add-Member -NotePropertyName Hsts -NotePropertyValue $true -Force }
         $cfg | ConvertTo-Json -Depth 12 | Set-Content -Path $ConfigPath -Encoding UTF8
         Ok 'Kept the existing configuration (certificate, allowed host names and HTTPS port refreshed)'
     } else {
@@ -193,7 +196,7 @@ try {
         $cs = if ($ConnectionString) { $ConnectionString } else { New-SpfConnectionString -SqlInstance $SqlInstance -Database $Database }
         $hosts = @($HostName, $env:COMPUTERNAME, $fqdn, 'localhost', '127.0.0.1') + $ips
         $cfgObj = New-SpfConfig -ConnectionString $cs -KeysPath (Join-Path $DataPath 'keys') -LogDirectory (Join-Path $DataPath 'logs') `
-            -PfxPath $pfxPath -PfxPassword $pfxPassword -HttpsPort $HttpsPort -AllowedHosts $hosts -AdminUser $AdminUser -AdminPassword $adminPlain
+            -PfxPath $pfxPath -PfxPassword $pfxPassword -HttpsPort $HttpsPort -AllowedHosts $hosts -AdminUser $AdminUser -AdminPassword $adminPlain -Hsts ([bool]$EnableHsts)
         ConvertTo-SpfJson $cfgObj | Set-Content -Path $ConfigPath -Encoding UTF8
         Ok 'appsettings.Production.json written (HTTPS only on the network, local login on, file logging on)'
     }

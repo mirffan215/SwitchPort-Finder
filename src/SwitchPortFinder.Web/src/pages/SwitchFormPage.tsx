@@ -59,7 +59,7 @@ export default function SwitchFormPage() {
           <legend>Product type</legend>
           <div className="ptype-grid" role="radiogroup" aria-label="Product type">
             {PRODUCT_TYPES.map((p) => (
-              <label key={p.value} className={`ptype ${ptype === p.value ? 'on' : ''}`}>
+              <label key={p.value} className={`ptype ${ptype === p.value ? 'on' : ''}`} title={p.hint}>
                 <input type="radio" name="ptype" value={p.value} checked={ptype === p.value} onChange={() => setPtype(p.value)} />
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={p.icon} /></svg>
                 <span><b>{p.label}</b><small>{p.hint}</small></span>

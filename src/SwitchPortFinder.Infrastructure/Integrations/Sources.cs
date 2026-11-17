@@ -10,11 +10,16 @@ public sealed record DhcpLease(string Mac, string Ip, string? HostName, string? 
 public sealed record DirectoryComputer(string Name, string? DnsName, string? Os, string? Ou);
 public sealed record IntuneDevice(string? Name, string? User, string? Os, string? Compliance, string? WifiMac, string? EthMac, string? Serial);
 
-public interface IDhcpLeaseSource { Task<IReadOnlyList<DhcpLease>> ReadAsync(string server, CancellationToken ct); }
+public interface IDhcpLeaseSource { Task<IReadOnlyList<DhcpLease>> ReadAsync(string server, string? user, string? password, CancellationToken ct); }
 public interface IDirectorySource { Task<IReadOnlyList<DirectoryComputer>> ReadAsync(DirectoryConfig c, string password, CancellationToken ct); }
 public interface IIntuneSource { Task<IReadOnlyList<IntuneDevice>> ReadAsync(IntuneConfig c, string secret, CancellationToken ct); }
 
-public sealed class DhcpConfig { public string Server { get; set; } = ""; }
+public sealed class DhcpConfig
+{
+    public string Server { get; set; } = "";
+    /// <summary>Optional domain account (member of DHCP Users). Empty = the portal server's computer account.</summary>
+    public string Username { get; set; } = "";
+}
 public sealed class DirectoryConfig { public string Server { get; set; } = ""; public int Port { get; set; } = 636; public string BaseDn { get; set; } = ""; public string BindUser { get; set; } = ""; public bool TrustServerCertificate { get; set; } }
 public sealed class IntuneConfig { public string TenantId { get; set; } = ""; public string ClientId { get; set; } = ""; }
 
@@ -58,16 +63,26 @@ public static partial class Parse
 /// <summary>Windows Server DHCP, read-only: PowerShell Get-DhcpServerv4Lease run on the portal server (needs the DHCP RSAT module and a read permission for the service account).</summary>
 public sealed class PowerShellDhcpSource : IDhcpLeaseSource
 {
-    public async Task<IReadOnlyList<DhcpLease>> ReadAsync(string server, CancellationToken ct)
+    private static readonly System.Text.RegularExpressions.Regex AccountRx = new(@"^[A-Za-z0-9 _.@\\-]{1,128}$", System.Text.RegularExpressions.RegexOptions.Compiled);
+    public static bool IsAccountName(string? s) => s is not null && AccountRx.IsMatch(s);
+
+    public async Task<IReadOnlyList<DhcpLease>> ReadAsync(string server, string? user, string? password, CancellationToken ct)
     {
         if (!Parse.IsHost(server)) throw new InvalidOperationException("The DHCP server name is not valid.");
-        var script = $"$ErrorActionPreference='Stop'; $sv='{server}'; $sc=Get-DhcpServerv4Scope -ComputerName $sv; " +
-            "$l=@($sc | Get-DhcpServerv4Lease -ComputerName $sv | Select-Object @{n='Kind';e={'lease'}},IPAddress,ClientId,HostName,ScopeId,@{n='State';e={[string]$_.AddressState}},@{n='Expires';e={if($_.LeaseExpiryTime){$_.LeaseExpiryTime.ToString('s')}}},@{n='Description';e={''}}); " +
-            "$r=@(); try {{ $r=@($sc | Get-DhcpServerv4Reservation -ComputerName $sv | Select-Object @{n='Kind';e={'reservation'}},IPAddress,ClientId,@{n='HostName';e={$_.Name}},ScopeId,@{n='State';e={'Reserved'}},@{n='Expires';e={''}},Description) }} catch {{ }}; " +
+        var withAccount = !string.IsNullOrWhiteSpace(user);
+        if (withAccount && (!IsAccountName(user) || string.IsNullOrEmpty(password))) throw new InvalidOperationException("The DHCP account name or password is missing or not valid.");
+        // With an account the commands run through a CIM session opened with that account (the DHCP server then sees the account, not the portal server's computer account).
+        var script = $"$ErrorActionPreference='Stop'; $sv='{server}'; $cs=$null; " +
+            "if ($env:SPF_DHCP_USER) { $cred=New-Object System.Management.Automation.PSCredential($env:SPF_DHCP_USER,(ConvertTo-SecureString $env:SPF_DHCP_PW -AsPlainText -Force)); " +
+            "try { $cs=New-CimSession -ComputerName $sv -Credential $cred -ErrorAction Stop } catch { $cs=New-CimSession -ComputerName $sv -Credential $cred -SessionOption (New-CimSessionOption -Protocol Dcom) } } " +
+            "$t= if ($cs) { @{CimSession=$cs} } else { @{ComputerName=$sv} }; $sc=Get-DhcpServerv4Scope @t; " +
+            "$l=@($sc | Get-DhcpServerv4Lease @t | Select-Object @{n='Kind';e={'lease'}},IPAddress,ClientId,HostName,ScopeId,@{n='State';e={[string]$_.AddressState}},@{n='Expires';e={if($_.LeaseExpiryTime){$_.LeaseExpiryTime.ToString('s')}}},@{n='Description';e={''}}); " +
+            "$r=@(); try { $r=@($sc | Get-DhcpServerv4Reservation @t | Select-Object @{n='Kind';e={'reservation'}},IPAddress,ClientId,@{n='HostName';e={$_.Name}},ScopeId,@{n='State';e={'Reserved'}},@{n='Expires';e={''}},Description) } catch { }; " +
             "[Console]::Error.WriteLine('SPF-DIAG scopes=' + @($sc).Count + ' leases=' + $l.Count + ' reservations=' + $r.Count); " +
-            "($l + $r) | ConvertTo-Csv -NoTypeInformation";
+            "if ($cs) { Remove-CimSession $cs }; ($l + $r) | ConvertTo-Csv -NoTypeInformation";
         var psi = new ProcessStartInfo("powershell.exe") { RedirectStandardOutput = true, RedirectStandardError = true, UseShellExecute = false, CreateNoWindow = true };
         foreach (var a in new[] { "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", script }) psi.ArgumentList.Add(a);
+        if (withAccount) { psi.Environment["SPF_DHCP_USER"] = user!.Trim(); psi.Environment["SPF_DHCP_PW"] = password!; }   // never on the command line, where other processes could read it
         Process p;
         try { p = Process.Start(psi)!; } catch (Exception) { throw new InvalidOperationException("PowerShell could not be started. Reading Windows DHCP needs Windows PowerShell and the DHCP management tools (RSAT) on the portal server."); }
         using (p)

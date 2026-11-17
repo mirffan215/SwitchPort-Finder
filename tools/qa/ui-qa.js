@@ -68,13 +68,13 @@ const sfx = Math.random().toString(36).slice(2, 7);
   // ---- navigation: Back button and clickable dashboard cards
   await goto('/switches'); await page.getByRole('button', { name: 'Go back' }).click(); await page.waitForLoadState('networkidle');
   ok(new URL(page.url()).pathname === '/', 'Back button returns to the previous page');
-  await goto('/'); await page.getByText('Connected Ports').first().click(); await page.waitForLoadState('networkidle');
-  ok(page.url().includes('/ports') && page.url().includes('status=up'), 'dashboard "Connected Ports" card opens the filtered Ports page');
-  await goto('/'); await page.getByText('Switch Uplinks').first().click(); await page.waitForLoadState('networkidle');
-  ok(page.url().includes('type=SwitchUplink'), 'dashboard "Switch Uplinks" card opens the filtered Ports page');
+  await goto('/'); await page.locator('a.dkpi', { hasText: 'Ports in use' }).click(); await page.waitForLoadState('networkidle');
+  ok(page.url().includes('/ports') && page.url().includes('status=up'), 'dashboard "Ports in use" card opens the filtered Ports page');
+  await goto('/'); await page.locator('a.dkpi', { hasText: 'Devices online' }).click(); await page.waitForLoadState('networkidle');
+  ok(new URL(page.url()).pathname === '/devices', 'dashboard "Devices online" card opens the Devices page');
 
   // ---- reports: presets render, exports download
-  await goto('/reports');
+  await goto('/reports'); await page.getByRole('button', { name: 'Report builder' }).click();
   for (const name of ['Switch health overview', 'CPU and memory trend', 'Devices by manufacturer', 'Availability (last 30 days)']) {
     await page.getByRole('button', { name, exact: true }).click(); await page.waitForTimeout(900);
     ok(await page.locator('.alert.error').count() === 0 && problems.filter(p => p.startsWith('pageerror')).length === 0, `report preset "${name}" renders without errors`);
